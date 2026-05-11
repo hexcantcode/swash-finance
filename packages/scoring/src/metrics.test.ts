@@ -3,6 +3,7 @@ import {
   annualizedSharpe,
   annualizedSortino,
   calmar,
+  dailySharpe,
   excessKurtosis,
   expectancy,
   maxDrawdownPct,
@@ -148,5 +149,18 @@ describe('skewness / excessKurtosis', () => {
     // Symmetric uniform in [-1, 1]: theoretical excess kurtosis = -1.2
     const uniform = [-0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9];
     expect(excessKurtosis(uniform)).toBeLessThan(0);
+  });
+});
+
+describe('dailySharpe', () => {
+  it('is annualizedSharpe / sqrt(365)', () => {
+    const r = [0.01, -0.005, 0.02, 0.0, 0.008, -0.012, 0.015];
+    const daily = dailySharpe(r)!;
+    const ann = annualizedSharpe(r)!;
+    expect(daily).toBeCloseTo(ann / Math.sqrt(365), 10);
+  });
+  it('returns null for <2 returns or zero variance', () => {
+    expect(dailySharpe([0.01])).toBeNull();
+    expect(dailySharpe([0.01, 0.01, 0.01])).toBeNull();
   });
 });

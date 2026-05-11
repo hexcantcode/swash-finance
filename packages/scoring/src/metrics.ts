@@ -21,6 +21,15 @@ export function annualizedSharpe(returns: number[], periodsPerYear = TRADING_DAY
   return (mean(returns) / sd) * Math.sqrt(periodsPerYear);
 }
 
+/** Per-period (daily) Sharpe — mean/stdev of daily returns, NOT annualized.
+ *  PSR/DSR consume this; annualization is purely a display transform. */
+export function dailySharpe(returns: number[]): number | null {
+  if (returns.length < 2) return null;
+  const sd = sampleStandardDeviation(returns);
+  if (sd === 0 || !Number.isFinite(sd)) return null;
+  return mean(returns) / sd;
+}
+
 /** Annualized Sortino: mean / stddev(downside-only) * sqrt(periods). */
 export function annualizedSortino(
   returns: number[],
