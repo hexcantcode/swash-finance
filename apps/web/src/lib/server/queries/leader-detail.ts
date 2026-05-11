@@ -1,14 +1,24 @@
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
-import {
-  fills,
-  leaderCache,
-  ledgerUpdates,
-  scores,
-  walletTags,
-  wallets,
-} from '@copytrade/db';
+import { fills, leaderCache, scores, walletTags, wallets } from '@copytrade/db';
 import { db } from '../db.js';
 
+/**
+ * Detail payload for the trader profile page.
+ *
+ * Two-tier model — one canonical source per concept:
+ *  - Live tier (from `leader_cache`, WS subscriber or on-demand REST pull):
+ *    `account_value`, `leverage`, `margin_used`, `open_positions`,
+ *    `live_source` (`'ws'|'rest'|null`), `live_refreshed_at`. `last_trade_at`
+ *    is the *freshest* last-trade timestamp available — the max of the most
+ *    recent ingested fill (`fills.blockTimeMs`) and the WS-written
+ *    `leader_cache.lastTradeMs`.
+ *  - Analyzed tier (from `scores`, as of the last scoring run): everything
+ *    under `scoring`, the top-level `total_volume_usd` (= `scoring.total_volume_usd`),
+ *    `equity_curve`, `primary_asset_breakdown`, `tags`, and `analyzed_as_of`
+ *    (= `scores.computedAt`).
+ *  - `last_seen_at` is an internal discovery signal only — do NOT display it;
+ *    use `last_trade_at`.
+ */
 export interface LeaderDetail {
   address: string;
   composite_score: number | null;
@@ -18,15 +28,33 @@ export interface LeaderDetail {
   recent_fills: RecentFill[];
   equity_curve: { ts: number; value: number }[];
   primary_asset_breakdown: { coin: string; volume_usd: number; share: number }[];
+  /** @deprecated internal discovery signal — do not display; use last_trade_at */
   last_seen_at: string | null;
+  /**
+   * Freshest known last-trade time (ISO). Max of the latest ingested fill and
+   * the WS-written `leader_cache.lastTradeMs`. Null only if neither exists.
+   */
+  last_trade_at: string | null;
+  /** Analyzed-tier total volume — same source as `scoring.total_volume_usd`. */
   total_volume_usd: number | null;
   master_address: string | null;
   agent_count: number;
-  /** Account equity at last cache refresh. Null when refresh has never run. */
+  /** Live tier — account equity at last cache refresh. Null if never refreshed. */
   account_value: number | null;
-  /** Open positions snapshot from last cache refresh. */
+  /** Live tier — account-level leverage at last cache refresh. */
+  leverage: number | null;
+  /** Live tier — margin used at last cache refresh. */
+  margin_used: number | null;
+  /** Live tier — open positions snapshot from last cache refresh. */
   open_positions: OpenPosition[];
+  /** @deprecated alias of `live_refreshed_at` (kept for the existing consumer). */
   positions_refreshed_at: string | null;
+  /** Live tier — when the cache row was last refreshed (ISO). */
+  live_refreshed_at: string | null;
+  /** Live tier — origin of the cache row: `'ws'` (subscriber) or `'rest'` (pull). */
+  live_source: 'ws' | 'rest' | null;
+  /** Analyzed tier — when the scoring run that produced `scoring` ran (ISO). */
+  analyzed_as_of: string | null;
 }
 
 export interface OpenPosition {
@@ -56,9 +84,7 @@ export interface ScoringDetail {
   total_volume_usd: number | null;
   sharpe: number | null;
   sortino: number | null;
-  calmar: number | null;
   psr: number | null;
-  dsr: number | null;
   profit_factor: number | null;
   win_rate: number | null;
   expectancy: number | null;
@@ -112,10 +138,14 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
     where: eq(leaderCache.address, masterAddress),
   });
   const account_value = numOrNull(cacheRow?.accountValue ?? null);
+  const leverage = numOrNull(cacheRow?.leverage ?? null);
+  const margin_used = numOrNull(cacheRow?.marginUsed ?? null);
   const open_positions = parseOpenPositions(cacheRow?.positionsJson);
-  const positions_refreshed_at = cacheRow?.lastRefreshedAt
+  const live_refreshed_at = cacheRow?.lastRefreshedAt
     ? cacheRow.lastRefreshedAt.toISOString()
     : null;
+  const live_source =
+    cacheRow?.source === 'ws' || cacheRow?.source === 'rest' ? cacheRow.source : null;
 
   const tagRows = await db()
     .select({ tagType: walletTags.tagType, tagValue: walletTags.tagValue })
@@ -145,6 +175,16 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
       crossed: f.crossed,
     };
   });
+
+  // Canonical "last traded": freshest of the last ingested fill and the
+  // WS-written live value. Both are epoch-ms; either or both may be missing.
+  const lastFillMs = recentFillRows[0]?.blockTimeMs ?? null;
+  const lastCacheMs = cacheRow?.lastTradeMs ?? null;
+  const lastTradeMs =
+    lastFillMs != null && lastCacheMs != null
+      ? Math.max(lastFillMs, lastCacheMs)
+      : (lastFillMs ?? lastCacheMs);
+  const last_trade_at = lastTradeMs != null ? new Date(lastTradeMs).toISOString() : null;
 
   // Equity curve: cumulative (closedPnl - fee) per day for the last 90 days.
   const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -210,9 +250,7 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
           total_volume_usd: numOrNull(score.totalVolumeUsd),
           sharpe: numOrNull(score.sharpe),
           sortino: numOrNull(score.sortino),
-          calmar: numOrNull(score.calmar),
           psr: numOrNull(score.psr),
-          dsr: numOrNull(score.dsr),
           profit_factor: numOrNull(score.profitFactor),
           win_rate: numOrNull(score.winRate),
           expectancy: numOrNull(score.expectancy),
@@ -232,12 +270,18 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
     equity_curve,
     primary_asset_breakdown,
     last_seen_at: walletRow.lastSeenAt.toISOString(),
-    total_volume_usd: numOrNull(walletRow.totalVolumeUsd),
+    last_trade_at,
+    total_volume_usd: numOrNull(score?.totalVolumeUsd ?? null),
     master_address: walletRow.masterAddress,
     agent_count: agentCount,
     account_value,
+    leverage,
+    margin_used,
     open_positions,
-    positions_refreshed_at,
+    positions_refreshed_at: live_refreshed_at,
+    live_refreshed_at,
+    live_source,
+    analyzed_as_of: score?.computedAt?.toISOString() ?? null,
   };
 }
 
@@ -307,5 +351,3 @@ function toNum(v: unknown): number | null {
   }
   return null;
 }
-
-void ledgerUpdates;
