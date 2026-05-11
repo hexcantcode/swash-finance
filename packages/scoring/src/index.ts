@@ -5,3 +5,4 @@ export * from './dsr.js';
 export * from './behavioral.js';
 export * from './classifier.js';
 export * from './composite.js';
+export * from './consistency.js';
