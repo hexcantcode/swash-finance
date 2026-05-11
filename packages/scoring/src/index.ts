@@ -7,3 +7,4 @@ export * from './composite.js';
 export * from './consistency.js';
 export * from './track-record.js';
 export * from './curves.js';
+export * from './eligibility.js';
