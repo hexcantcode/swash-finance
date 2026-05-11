@@ -5,6 +5,18 @@ import {
   medianComposite,
   type CompositeInputs,
 } from './composite.js';
+import { buildDailySeries, toDailyReturns } from './returns.js';
+import {
+  annualizedSortino,
+  calmar,
+  dailySharpe,
+  expectancy,
+  maxDrawdownPct,
+  profitFactor,
+  recoveryTimeDays,
+} from './metrics.js';
+import { monthlyConsistency } from './consistency.js';
+import { trackRecordMultiplier } from './track-record.js';
 
 const baseInputs: CompositeInputs = {
   psr: null,
@@ -155,5 +167,55 @@ describe('medianComposite', () => {
       .sort((a, b) => a - b);
     expect(present).toHaveLength(3);
     expect(r.rawScore).toBe(present[1]);
+  });
+});
+
+describe('end-to-end: returns -> metrics -> medianComposite', () => {
+  it('a tidy, long, mildly-choppy winning series scores well and is not provisional', () => {
+    const start = Date.UTC(2024, 0, 1);
+    // ~200 trading days: a winning day most of the time, a real losing day every
+    // 9th day (so months stay positive but the equity curve isn't a straight
+    // line — drawdowns recover, recoveryTimeDays/calmar are real, not null).
+    const fills = Array.from({ length: 200 }, (_, i) => ({
+      blockTimeMs: start + i * 86_400_000,
+      closedPnl: (i % 9 === 0 ? -20 : 12).toString(),
+      fee: '0.5',
+      sz: '1',
+      px: '100',
+    }));
+    const series = buildDailySeries({ fills, fundings: [], ledger: [] });
+    const returns = toDailyReturns(series, 10_000);
+    const days = series.activeDays;
+    const mult = trackRecordMultiplier(days);
+    const perTradePnl = fills.map((f) => Number.parseFloat(f.closedPnl) - Number.parseFloat(f.fee));
+    const sortinoAnn = annualizedSortino(returns);
+    const r = medianComposite({
+      metrics: {
+        sharpe: (dailySharpe(returns) ?? 0) * mult,
+        sortino: ((sortinoAnn ?? 0) / Math.sqrt(365)) * mult,
+        calmar: calmar(returns),
+        psr: null, // computed in the worker with the trial population — not here
+        dsr: null,
+        profitFactor: profitFactor(returns),
+        expectancy: expectancy(perTradePnl),
+        maxDrawdownPct: maxDrawdownPct(returns),
+        recoveryTimeDays: recoveryTimeDays(returns),
+        monthlyConsistency: monthlyConsistency(
+          series.daily.map((dd) => ({ dayKey: dd.dayKey, pnl: dd.pnl })),
+        ),
+      },
+      activeDays: days,
+    });
+
+    // 200 daily fills => 200 active days, well past the 90-day confidence cap.
+    expect(days).toBe(200);
+    expect(r.provisional).toBe(false);
+    expect(r.confidence).toBe(1);
+    expect(r.breakdown).toHaveLength(10);
+    // psr/dsr are null here; the other 8 metrics must all resolve.
+    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(8);
+    // A consistently profitable, low-drawdown trader with 8 months of history
+    // should land comfortably in the top band — not just clear a token bar.
+    expect(r.score).toBeGreaterThan(80);
   });
 });
