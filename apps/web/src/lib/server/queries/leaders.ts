@@ -19,6 +19,11 @@ export interface LeaderCard {
     avg_hold_seconds: number | null;
   };
   primary_asset: string | null;
+  /**
+   * Last-traded time as of the last scoring run (`scores.lastTradeAt`) — the
+   * same tier as every other column in this card. The trader profile page
+   * shows the fresher *live* value (`leader_cache.lastTradeMs` / latest fill).
+   */
   last_active_at: string | null;
   score_computed_at: string | null;
 }
@@ -83,7 +88,7 @@ export async function listLeaders(args: {
     sort === 'roi'
       ? scores.netPnlPct
       : sort === 'last_active'
-        ? wallets.lastSeenAt
+        ? scores.lastTradeAt
         : wallets.compositeScore;
 
   const rows = await db()
@@ -101,7 +106,7 @@ export async function listLeaders(args: {
       total_trades: scores.totalTrades,
       avg_hold_seconds: scores.avgHoldSeconds,
       primary_asset: scores.primaryAsset,
-      last_active_at: wallets.lastSeenAt,
+      last_active_at: scores.lastTradeAt,
       score_computed_at: scores.computedAt,
     })
     .from(wallets)
