@@ -19,6 +19,13 @@ const EULER_MASCHERONI = 0.5772156649015329;
  *
  * Then DSR = PSR(SR*).
  *
+ * UNITS — IMPORTANT: `srObserved` (and `srVariance`) MUST be expressed in
+ * **per-period (daily) Sharpe** units — use `dailySharpe(returns)` from
+ * ./metrics, and compute `srVariance` as the variance of those daily Sharpes
+ * across the trial population. Because DSR is just PSR with a shifted
+ * benchmark, passing annualized Sharpes here has the same pathology described
+ * in psr.ts: PSR saturates at ~1 and DSR collapses to 0 for every wallet.
+ *
  * For practical use we accept `srVariance` as a parameter; the worker computes
  * it across the population of scored wallets in J-1.
  */

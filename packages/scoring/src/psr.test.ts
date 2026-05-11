@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dailySharpe } from './metrics.js';
 import { probabilisticSharpe, standardNormalCdf, standardNormalInverseCdf } from './psr.js';
 
 describe('standardNormalCdf', () => {
@@ -72,5 +73,14 @@ describe('probabilisticSharpe', () => {
       expect(psr).toBeGreaterThanOrEqual(0);
       expect(psr).toBeLessThanOrEqual(1);
     }
+  });
+
+  it('with daily Sharpe gives a discriminating PSR (not pinned at 1)', () => {
+    const strong = Array.from({ length: 300 }, (_, i) => 0.002 + 0.02 * Math.sin(i));
+    const weak = Array.from({ length: 300 }, (_, i) => 0.0002 + 0.02 * Math.sin(i));
+    const psrStrong = probabilisticSharpe(strong, dailySharpe(strong)!, 0)!;
+    const psrWeak = probabilisticSharpe(weak, dailySharpe(weak)!, 0)!;
+    expect(psrStrong).toBeGreaterThan(psrWeak);
+    expect(psrWeak).toBeLessThan(0.99);
   });
 });

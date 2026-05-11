@@ -12,6 +12,14 @@ import { excessKurtosis, skewness } from './metrics.js';
  *
  * where Φ is the standard-normal CDF.
  *
+ * UNITS — IMPORTANT: `srObserved` (and `benchmarkSr`) MUST be the **per-period
+ * (daily) Sharpe** — i.e. `dailySharpe(returns)` from ./metrics, NOT the
+ * annualized one. Bailey & López de Prado derive this formula for the
+ * non-annualized SR. Feeding it the annualized Sharpe (≈ daily·√365, so ~3–10)
+ * blows up the `−γ3·SR̂ + (γ4/4)·SR̂²` term in the denominator and pins Φ(z)
+ * at ~1.0 for essentially every wallet — which then makes DSR collapse to 0.
+ * Annualization is purely a display transform; keep it out of PSR/DSR.
+ *
  * Notes:
  * - The denominator uses excess kurtosis γ4 (subtract 3 from raw kurtosis).
  * - When the denominator inside the sqrt is non-positive (rare with extreme
