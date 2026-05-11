@@ -22,6 +22,7 @@ import {
   computeBehavioral,
   computeDecayFlag,
   dailySharpe,
+  evaluateEligibility,
   expectancy,
   maxDrawdownPct,
   medianComposite,
@@ -76,7 +77,12 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   // 2. Candidates.
   const cutoff = new Date(Date.now() - RECENT_WINDOW_180D_MS);
   const candidates = await db()
-    .select({ address: wallets.address })
+    .select({
+      address: wallets.address,
+      curated: wallets.curated,
+      accountValue: wallets.accountValue,
+      firstSeenAt: wallets.firstSeenAt,
+    })
     .from(wallets)
     .where(
       and(
@@ -97,11 +103,19 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   // so no population statistics are needed.
   let scored = 0;
   let tagged = 0;
+  let curatedCount = 0;
   for (const c of candidates) {
     try {
-      const result = await scoreSingleWallet({ address: c.address, hip3Dexes });
+      const result = await scoreSingleWallet({
+        address: c.address,
+        hip3Dexes,
+        curated: c.curated,
+        accountValue: c.accountValue,
+        firstSeenAt: c.firstSeenAt,
+      });
       scored += 1;
       tagged += result.tagsApplied;
+      if (result.curated) curatedCount += 1;
     } catch (err: unknown) {
       log.error(
         { address: c.address, err: err instanceof Error ? err.message : String(err) },
@@ -110,20 +124,23 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
     }
   }
 
-  log.info({ scored, tagged, ms: Date.now() - start }, 'score.done');
+  log.info({ scored, tagged, curatedCount, ms: Date.now() - start }, 'score.done');
 }
 
 async function scoreSingleWallet(args: {
   address: string;
   hip3Dexes: Set<string>;
-}): Promise<{ tagsApplied: number }> {
+  curated: boolean;
+  accountValue: string | null;
+  firstSeenAt: Date;
+}): Promise<{ tagsApplied: number; curated: boolean }> {
   const addresses = await collectMasterAndAgents(args.address);
 
   const fillsRows = await db()
     .select()
     .from(fills)
     .where(inArray(fills.userAddress, addresses));
-  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0 };
+  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0, curated: false };
 
   const fundingsRows = await db()
     .select()
@@ -250,6 +267,32 @@ async function scoreSingleWallet(args: {
     daysOfData,
   });
 
+  // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
+  const accountValueUsd =
+    args.accountValue !== null && Number.isFinite(Number.parseFloat(args.accountValue))
+      ? Number.parseFloat(args.accountValue)
+      : null;
+  const firstSeenMs = Math.min(
+    args.firstSeenAt.getTime(),
+    series.firstEventMs ?? Number.POSITIVE_INFINITY,
+  );
+  const eligibility = evaluateEligibility({
+    accountValueUsd,
+    totalVolumeUsd: behavioral.totalNotional.toNumber(),
+    firstSeenMs,
+    activeDays: series.activeDays,
+    roundTripTrades: null, // interim — round-trips not computed yet; gate skips this on null
+    capitalBaseKnown: ledgerRows.some((r) => r.type === 'deposit' && r.usdc != null),
+    makerShare: behavioral.makerTakerRatio,
+    avgHoldSeconds: behavioral.avgHoldSeconds,
+    longShortRatio: behavioral.longShortRatio,
+    totalFills: fillsRows.length,
+  });
+  const wasCurated = args.curated;
+  const nowCurated =
+    eligibility.eligible &&
+    (composite.score >= 70 || (wasCurated && composite.score >= 65));
+
   const now = new Date();
   const scoreRow: NewScore = {
     address: args.address,
@@ -317,11 +360,25 @@ async function scoreSingleWallet(args: {
       compositeScore: composite.score,
       primaryTag: mainTag,
       ingestState: 'scored',
+      curated: nowCurated,
+      ...(nowCurated && !wasCurated ? { curatedSince: now } : {}),
+      ...(!nowCurated ? { curatedSince: null } : {}),
       updatedAt: now,
     })
     .where(eq(wallets.address, args.address));
 
-  return { tagsApplied: tagRows.length };
+  log.info(
+    {
+      address: args.address,
+      score: composite.score,
+      eligible: eligibility.eligible,
+      curated: nowCurated,
+      ...(eligibility.failures.length > 0 ? { failures: eligibility.failures } : {}),
+    },
+    'score.wallet',
+  );
+
+  return { tagsApplied: tagRows.length, curated: nowCurated };
 }
 
 async function collectMasterAndAgents(masterAddress: string): Promise<string[]> {
