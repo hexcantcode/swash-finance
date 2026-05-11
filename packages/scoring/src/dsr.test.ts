@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dailySharpe } from './metrics.js';
 import { adjustedBenchmarkSharpe, deflatedSharpe } from './dsr.js';
 
 describe('adjustedBenchmarkSharpe', () => {
@@ -45,5 +46,18 @@ describe('deflatedSharpe', () => {
     expect(dsr).not.toBeNull();
     expect(dsr!).toBeGreaterThanOrEqual(0);
     expect(dsr!).toBeLessThanOrEqual(1);
+  });
+
+  it('DSR spreads when benchmark is built from the variance of DAILY Sharpes', () => {
+    const series = (m: number) => Array.from({ length: 250 }, (_, i) => m + 0.018 * Math.sin(i / 3));
+    const pop = [series(0.0005), series(0.001), series(0.0015), series(0.002), series(0.003)];
+    const dailySRs = pop.map((s) => dailySharpe(s)!);
+    const mu = dailySRs.reduce((s, y) => s + y, 0) / dailySRs.length;
+    const variance = dailySRs.reduce((a, x) => a + (x - mu) ** 2, 0) / (dailySRs.length - 1);
+    const best = pop[4]!, worst = pop[0]!;
+    const dsrBest = deflatedSharpe(best, dailySharpe(best)!, { trialCount: 5, srVariance: variance })!;
+    const dsrWorst = deflatedSharpe(worst, dailySharpe(worst)!, { trialCount: 5, srVariance: variance })!;
+    expect(dsrBest).toBeGreaterThan(dsrWorst);
+    expect(dsrBest).toBeGreaterThan(0);
   });
 });
