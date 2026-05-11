@@ -30,8 +30,10 @@ export const wallets = pgTable(
     agentValidUntil: bigint('agent_valid_until', { mode: 'number' }),
 
     firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull(),
+    // Internal discovery signal (last seen on a watched market). NOT a display field — UI shows max(fills.blockTimeMs) / leaderCache.lastTradeMs instead.
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
 
+    // TODO(later phase): retire as display fields; UI shows scores.* instead.
     totalFills: bigint('total_fills', { mode: 'number' }).notNull().default(0),
     totalVolumeUsd: numeric('total_volume_usd', { precision: 30, scale: 8 }).notNull().default('0'),
     accountValue: numeric('account_value', { precision: 30, scale: 8 }),
@@ -160,9 +162,7 @@ export const scores = pgTable('scores', {
 
   sharpe: numeric('sharpe', { precision: 10, scale: 4 }),
   sortino: numeric('sortino', { precision: 10, scale: 4 }),
-  calmar: numeric('calmar', { precision: 10, scale: 4 }),
   psr: numeric('psr', { precision: 10, scale: 4 }),
-  dsr: numeric('dsr', { precision: 10, scale: 4 }),
   profitFactor: numeric('profit_factor', { precision: 10, scale: 4 }),
   winRate: numeric('win_rate', { precision: 10, scale: 4 }),
   expectancy: numeric('expectancy', { precision: 20, scale: 8 }),
@@ -203,16 +203,23 @@ export const walletTags = pgTable(
   ],
 );
 
+// Live-tier snapshot per wallet: WS subscriber for curated wallets, on-demand REST pull for the long tail.
 export const leaderCache = pgTable('leader_cache', {
   address: text('address').primaryKey(),
   lastRefreshedAt: timestamp('last_refreshed_at', { withTimezone: true }),
   nextRefreshAfter: timestamp('next_refresh_after', { withTimezone: true }),
 
   accountValue: numeric('account_value', { precision: 30, scale: 8 }),
+  leverage: numeric('leverage', { precision: 20, scale: 4 }),
+  marginUsed: numeric('margin_used', { precision: 30, scale: 8 }),
   positionsJson: jsonb('positions_json'),
   recentFillsJson: jsonb('recent_fills_json'),
   funding30dJson: jsonb('funding_30d_json'),
   ledger30dJson: jsonb('ledger_30d_json'),
+
+  lastTradeMs: bigint('last_trade_ms', { mode: 'number' }),
+  // Convention values: 'ws' | 'rest' — no DB enum, just text.
+  source: text('source'),
 
   refreshCount: integer('refresh_count').notNull().default(0),
   lastRefreshSource: text('last_refresh_source'),

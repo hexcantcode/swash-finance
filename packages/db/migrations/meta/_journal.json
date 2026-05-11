@@ -22,6 +22,13 @@
       "when": 1778454184365,
       "tag": "0002_magenta_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778533464197,
+      "tag": "0003_abandoned_tempest",
+      "breakpoints": true
     }
   ]
 }
