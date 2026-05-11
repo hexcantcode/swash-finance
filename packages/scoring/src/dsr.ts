@@ -15,7 +15,7 @@ const EULER_MASCHERONI = 0.5772156649015329;
  * where:
  *   N = number of independent trials
  *   γ = Euler-Mascheroni constant
- *   V[SR_estimates] = variance of SR across trials (annualized)
+ *   V[SR_estimates] = variance of SR across trials (per-period / daily — see UNITS below)
  *
  * Then DSR = PSR(SR*).
  *
