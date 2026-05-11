@@ -233,15 +233,16 @@ async function scoreSingleWallet(args: {
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
 
-  // Composite — 8-metric median basket. Sharpe/Sortino are the daily-unit
-  // values scaled by the track-record multiplier.
+  // Composite — 7-metric median basket. Sharpe/Sortino are the daily-unit
+  // values scaled by the track-record multiplier. (`expectancy` is intentionally
+  // NOT in the basket — raw-USD, scale-dependent, undiscriminating near zero;
+  // still computed for the `scores.expectancy` display column below.)
   const composite = medianComposite({
     metrics: {
       sharpe: dSharpe !== null ? dSharpe * mult : null,
       sortino: sortinoDaily !== null ? sortinoDaily * mult : null,
       psr,
       profitFactor: pf,
-      expectancy: exp,
       maxDrawdownPct: maxDd,
       recoveryTimeDays: recovery,
       monthlyConsistency: monthlyConsistencyVal,

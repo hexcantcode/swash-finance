@@ -102,7 +102,6 @@ const BASKET: readonly MetricKey[] = [
   'sortino',
   'psr',
   'profitFactor',
-  'expectancy',
   'maxDrawdownPct',
   'recoveryTimeDays',
   'monthlyConsistency',

@@ -3,7 +3,10 @@
  *
  * Replays the J-1 scoring data path (master+agents → daily series → daily
  * returns) over a sample of Hyperliquid wallets and dumps the distribution of
- * the 8 raw basket metrics (plus the two track-record-scaled Sharpe/Sortino).
+ * the 7 raw basket metrics (plus the two track-record-scaled Sharpe/Sortino).
+ * (`expectancy` was dropped from the basket in the 2026-05-11 calibration —
+ * raw-USD, scale-dependent, undiscriminating near zero — so it is no longer
+ * summarised here.)
  * The point: replace the PROVISIONAL eyeballed knots in
  * packages/scoring/src/curves.ts with values grounded in the real
  * distribution — pick curve knots near the p10/p25/p50/p75/p90 of each metric.
@@ -26,7 +29,6 @@ import {
   annualizedSortino,
   buildDailySeries,
   dailySharpe,
-  expectancy,
   maxDrawdownPct,
   medianComposite,
   monthlyConsistency,
@@ -102,13 +104,12 @@ async function loadCandidateAddresses(flags: CliFlags): Promise<string[]> {
   return rows.map((r) => r.address);
 }
 
-/** The 10 quantities we summarise, in display order. */
+/** The 9 quantities we summarise, in display order. */
 const QUANTITY_KEYS = [
   'sharpe',
   'sortino',
   'psr',
   'profitFactor',
-  'expectancy',
   'maxDrawdownPct',
   'recoveryTimeDays',
   'monthlyConsistency',
@@ -256,7 +257,6 @@ async function main(): Promise<void> {
         psr,
         // Same input as score.ts: per-trade pnl net of fees.
         profitFactor: profitFactor(perTradePnl),
-        expectancy: expectancy(perTradePnl),
         maxDrawdownPct: maxDrawdownPct(returns),
         recoveryTimeDays: recoveryTimeDays(returns),
         monthlyConsistency: monthlyConsistency(
@@ -271,7 +271,6 @@ async function main(): Promise<void> {
           sortino: sortinoScaled,
           psr,
           profitFactor: metrics.profitFactor,
-          expectancy: metrics.expectancy,
           maxDrawdownPct: metrics.maxDrawdownPct,
           recoveryTimeDays: metrics.recoveryTimeDays,
           monthlyConsistency: metrics.monthlyConsistency,
@@ -331,7 +330,6 @@ async function main(): Promise<void> {
       'sortino',
       'psr',
       'profitFactor',
-      'expectancy',
       'maxDrawdownPct',
       'recoveryTimeDays',
       'monthlyConsistency',
@@ -351,7 +349,6 @@ async function main(): Promise<void> {
           csvNum(r.metrics.sortino),
           csvNum(r.metrics.psr),
           csvNum(r.metrics.profitFactor),
-          csvNum(r.metrics.expectancy),
           csvNum(r.metrics.maxDrawdownPct),
           csvNum(r.metrics.recoveryTimeDays),
           csvNum(r.metrics.monthlyConsistency),

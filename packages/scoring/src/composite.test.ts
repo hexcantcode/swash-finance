@@ -9,7 +9,6 @@ import { buildDailySeries, toDailyReturns } from './returns.js';
 import {
   annualizedSortino,
   dailySharpe,
-  expectancy,
   maxDrawdownPct,
   profitFactor,
   recoveryTimeDays,
@@ -106,19 +105,22 @@ const fullBasket = {
   sortino: 0.28,
   psr: 0.97,
   profitFactor: 2,
-  expectancy: 50,
   maxDrawdownPct: 0.1,
   recoveryTimeDays: 7,
   monthlyConsistency: 0.9,
 } as const;
 
 describe('medianComposite', () => {
-  it('strong basket with long history => high score, not provisional, 8-entry breakdown', () => {
+  it('strong basket with long history => high score, not provisional, 7-entry breakdown', () => {
     const r = medianComposite({ metrics: { ...fullBasket }, daysOfData: 400 });
-    expect(r.score).toBeGreaterThan(75);
+    // CALIBRATED 2026-05-11: against real HL distributions this fixture's metric
+    // values land roughly p55–p85 per metric, so the median sub-score is ~69 —
+    // a solid top-third wallet, not a 90+ outlier. (Was `> 75` under the old
+    // provisional curves.)
+    expect(r.score).toBeGreaterThan(65);
     expect(r.provisional).toBe(false);
     expect(r.confidence).toBe(1);
-    expect(r.breakdown).toHaveLength(8);
+    expect(r.breakdown).toHaveLength(7);
     expect(r.breakdown.every((b) => b.score !== null)).toBe(true);
   });
 
@@ -141,11 +143,11 @@ describe('medianComposite', () => {
     expect(Math.abs(withGarbage - clean)).toBeLessThan(8);
   });
 
-  it('nulls are dropped from the basket (median over the rest => 7 present)', () => {
+  it('nulls are dropped from the basket (median over the rest => 6 present)', () => {
     const r = medianComposite({ metrics: { ...fullBasket, psr: null }, daysOfData: 400 });
-    expect(r.breakdown).toHaveLength(8);
+    expect(r.breakdown).toHaveLength(7);
     expect(r.breakdown.find((b) => b.key === 'psr')!.score).toBeNull();
-    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(7);
+    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(6);
   });
 
   it('empty / all-null basket => score 0', () => {
@@ -190,7 +192,6 @@ describe('end-to-end: returns -> metrics -> medianComposite', () => {
         ? (series.lastEventMs - series.firstEventMs) / 86_400_000
         : 0;
     const mult = trackRecordMultiplier(days);
-    const perTradePnl = fills.map((f) => Number.parseFloat(f.closedPnl) - Number.parseFloat(f.fee));
     const sortinoAnn = annualizedSortino(returns);
     const r = medianComposite({
       metrics: {
@@ -198,7 +199,6 @@ describe('end-to-end: returns -> metrics -> medianComposite', () => {
         sortino: ((sortinoAnn ?? 0) / Math.sqrt(365)) * mult,
         psr: null, // computed in the worker with the trial population — not here
         profitFactor: profitFactor(returns),
-        expectancy: expectancy(perTradePnl),
         maxDrawdownPct: maxDrawdownPct(returns),
         recoveryTimeDays: recoveryTimeDays(returns),
         monthlyConsistency: monthlyConsistency(
@@ -213,11 +213,11 @@ describe('end-to-end: returns -> metrics -> medianComposite', () => {
     expect(daysOfData).toBe(199);
     expect(r.provisional).toBe(false);
     expect(r.confidence).toBe(1);
-    expect(r.breakdown).toHaveLength(8);
-    // psr is null here; the other 7 metrics must all resolve.
-    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(7);
+    expect(r.breakdown).toHaveLength(7);
+    // psr is null here; the other 6 metrics must all resolve.
+    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(6);
     // A consistently profitable, low-drawdown trader with 8 months of history
     // should land comfortably in the top band — not just clear a token bar.
-    expect(r.score).toBeGreaterThan(80);
+    expect(r.score).toBeGreaterThan(70);
   });
 });
