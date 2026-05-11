@@ -1,0 +1,29 @@
+{
+  "name": "@copytrade/scoring",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./metrics": "./src/metrics.ts",
+    "./psr": "./src/psr.ts",
+    "./dsr": "./src/dsr.ts",
+    "./returns": "./src/returns.ts",
+    "./behavioral": "./src/behavioral.ts",
+    "./classifier": "./src/classifier.ts",
+    "./composite": "./src/composite.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@copytrade/shared": "workspace:*",
+    "simple-statistics": "^7.8.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

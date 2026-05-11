@@ -1,0 +1,25 @@
+{
+  "name": "@copytrade/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./address": "./src/address.ts",
+    "./decimal": "./src/decimal.ts",
+    "./hl-format": "./src/hl-format.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "decimal.js": "^10.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@copytrade/hl-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./info": "./src/info.ts",
+    "./subscription": "./src/subscription.ts",
+    "./cache": "./src/cache.ts",
+    "./asset": "./src/asset.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@copytrade/shared": "workspace:*",
+    "@nktkas/hyperliquid": "^0.32.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

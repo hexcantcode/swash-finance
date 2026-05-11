@@ -1,0 +1,38 @@
+{
+  "name": "@copytrade/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "run": "tsx src/cli.ts",
+    "bootstrap": "tsx src/cli.ts bootstrap",
+    "leaderboard": "tsx src/cli.ts leaderboard",
+    "score": "tsx src/cli.ts score",
+    "refresh-queue": "tsx src/cli.ts refresh-queue",
+    "refresh-leader": "tsx src/cli.ts refresh-leader"
+  },
+  "dependencies": {
+    "@copytrade/db": "workspace:*",
+    "@copytrade/hl-client": "workspace:*",
+    "@copytrade/scoring": "workspace:*",
+    "@copytrade/shared": "workspace:*",
+    "croner": "^9.0.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.39.1",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "simple-statistics": "^7.8.9",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

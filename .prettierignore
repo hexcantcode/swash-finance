@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.svelte-kit
+.turbo
+.cache
+coverage
+pnpm-lock.yaml
+docs/BUILD_SPEC.md
+**/migrations/*.sql
