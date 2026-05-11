@@ -70,9 +70,16 @@ composite ×= min(active_days / 90, 1)
 
 Anything under ~90 active days is also labelled **"provisional"** in the UI. Belt-and-suspenders with §1.3: thin history shrinks Sharpe/Sortino *and* caps the composite. Curated-list eligibility (§2.1) requires ≥90 days anyway, so provisional scores only ever appear on on-demand wallets.
 
-### 1.5 DSR fix
+### 1.5 DSR fix — resolved: it was a units bug
 
-DSR is currently `0.0000` for every scored wallet — the adjusted benchmark Sharpe (via `adjustedBenchmarkSharpe(trialCount, srVariance)`) is being driven so high that nobody clears it, so PSR(SR*) ≈ 0 everywhere. Before DSR can stay in the basket: investigate the `trialCount` / `srVariance` inputs from the worker's two-pass population stats, confirm the variance is annualized consistently with the observed Sharpe, and sanity-check against a known example. If we can't make it produce a sensible spread, **drop it** — a degenerate metric in the basket is worse than nine good ones.
+**Finding:** the always-zero DSR (and the pinned-at-`1.0` PSR) was *purely a units mismatch*, not a flaw in the math. The code was feeding PSR/DSR the **annualized** Sharpe (≈ daily Sharpe × √365) while `adjustedBenchmarkSharpe(trialCount, srVariance)` was being handed `srVariance` computed from the *annualized* trial Sharpes too — but the two annualizations didn't compose the way the closed form expects, so the benchmark blew past every observed ratio and PSR(SR\*) collapsed to ~0 for everyone (and plain PSR(0) saturated at ~1.0).
+
+PSR/DSR are scale-free *as long as the Sharpe and its sampling-variance inputs are in the same per-period units.* Feeding them the **per-period (daily) Sharpe** (`dailySharpe`), with `srVariance` = the variance of the *daily* Sharpes across the trial population, makes DSR produce a real spread again. Annualization stays a display-only transform (§1.6).
+
+Consequences:
+- **No change to `adjustedBenchmarkSharpe`** was needed — the formula is fine; it was being fed the wrong-unit numbers.
+- **DSR stays in the basket** — it's a 10-metric basket, not nine.
+- The remaining work is in the worker's J-1 two-pass code: the population pass must accumulate Sharpe stats from **`dailySharpe`**, not `annualizedSharpe`, and pass that variance into `adjustedBenchmarkSharpe` / `deflatedSharpeRatio`. (`dsr.ts` / `psr.ts` now carry units docs spelling this out.)
 
 ### 1.6 Display
 
