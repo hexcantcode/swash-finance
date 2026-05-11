@@ -42,7 +42,7 @@ export async function fetchLeaderboard(
   const res = await fetch(url, {
     method: 'GET',
     headers: {
-      'User-Agent': options.userAgent ?? 'swish-worker/0.1',
+      'User-Agent': options.userAgent ?? 'swash-worker/0.1',
       accept: 'application/json',
     },
     ...(options.signal !== undefined ? { signal: options.signal } : {}),

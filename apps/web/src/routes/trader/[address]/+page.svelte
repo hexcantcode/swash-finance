@@ -45,10 +45,9 @@
   function formatRoiInline(value: number | null | undefined): string {
     if (value === null || value === undefined || !Number.isFinite(value)) return '—';
     const pct = value * 100;
-    const sign = pct > 0 ? '+' : '';
-    if (Math.abs(pct) >= 1000) return `${sign}${(pct / 100).toFixed(1)}x`;
-    if (Math.abs(pct) >= 100) return `${sign}${pct.toFixed(0)}%`;
-    return `${sign}${pct.toFixed(1)}%`;
+    if (Math.abs(pct) >= 1000) return `${(pct / 100).toFixed(1)}x`;
+    if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
+    return `${pct.toFixed(1)}%`;
   }
 
   function hideBrokenAvatar(e: Event) {
@@ -104,17 +103,17 @@
     return n.toFixed(2);
   }
   function signedUsd(n: number): string {
-    const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+    const sign = n < 0 ? '-' : '';
     return `${sign}${formatUsd(Math.abs(n), { precise: false })}`;
   }
 </script>
 
 <svelte:head>
-  <title>{shortAddress(data.leader.address)} — Swish</title>
+  <title>{shortAddress(data.leader.address)} — Swash</title>
 </svelte:head>
 
 <main id="main-content" class="stripe-content">
-  <a href="/browse" class="k-trader-back">← back to leaderboard</a>
+  <a href="/" class="k-trader-back">← back to leaderboard</a>
 
   <header class="k-trader-header">
     <div class="k-trader-top">
@@ -140,7 +139,7 @@
           <span class="k-trader-address-text">{shortAddress(data.leader.address, 10, 8)}</span>
           <button class="k-trader-copy" onclick={copyAddress} aria-label="Copy address" title="Copy address">
             {#if copied}
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9DD9DA" stroke-width="2"><path d="M3 8 L7 12 L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#59A0AC" stroke-width="2"><path d="M3 8 L7 12 L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             {:else}
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11 V3 a1.5 1.5 0 0 1 1.5 -1.5 H10" stroke-linecap="round"/></svg>
             {/if}
@@ -303,7 +302,7 @@
                     <div class="stripe-text-tertiary">
                       {p.roe == null
                         ? '—'
-                        : `${p.roe >= 0 ? '+' : ''}${(p.roe * 100).toFixed(2)}%`}
+                        : `${(p.roe * 100).toFixed(2)}%`}
                     </div>
                   </td>
                   <td class="right {pnlSignClass(p.funding == null ? 0 : -p.funding)}">

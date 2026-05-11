@@ -93,10 +93,9 @@
   function formatRoi(value: number | null): string {
     if (value === null || value === undefined || !Number.isFinite(value)) return '—';
     const pct = value * 100;
-    const sign = pct > 0 ? '+' : '';
-    if (Math.abs(pct) >= 1000) return `${sign}${(pct / 100).toFixed(1)}x`;
-    if (Math.abs(pct) >= 100) return `${sign}${pct.toFixed(0)}%`;
-    return `${sign}${pct.toFixed(1)}%`;
+    if (Math.abs(pct) >= 1000) return `${(pct / 100).toFixed(1)}x`;
+    if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
+    return `${pct.toFixed(1)}%`;
   }
 </script>
 

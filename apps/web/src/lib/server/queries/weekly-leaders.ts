@@ -1,11 +1,13 @@
-import { and, desc, gte, isNotNull, sql } from 'drizzle-orm';
-import { wallets } from '@copytrade/db';
+import { and, desc, eq, gte, isNotNull, sql } from 'drizzle-orm';
+import { scores, wallets } from '@copytrade/db';
 import { db } from '../db.js';
 
 export interface WeeklyLeaderRow {
   address: string;
   primary_tag: string | null;
   composite_score: number | null;
+  win_rate: number | null;
+  sharpe: number | null;
   roi_7d: number | null;
   pnl_7d_usd: number | null;
   volume_7d_usd: number | null;
@@ -22,7 +24,8 @@ const MIN_WEEKLY_VOLUME_USD = 5_000;
  * pnl/account_value calculation (already in decimal: 0.05 = 5%).
  *
  * Skips wallets without an hl_metrics_at (means we haven't ingested their
- * leaderboard row yet) and wallets with tiny 7d volume.
+ * leaderboard row yet) and wallets with tiny 7d volume. Left-joins the scores
+ * table so the cards can show win rate / Sharpe alongside the 7d numbers.
  */
 export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]> {
   const rows = await db()
@@ -30,6 +33,8 @@ export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]>
       address: wallets.address,
       primary_tag: wallets.primaryTag,
       composite_score: wallets.compositeScore,
+      win_rate: scores.winRate,
+      sharpe: scores.sharpe,
       roi_7d: wallets.hlRoi7d,
       pnl_7d_usd: wallets.hlPnl7dUsd,
       volume_7d_usd: wallets.hlVolume7dUsd,
@@ -37,6 +42,7 @@ export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]>
       last_active_at: wallets.lastSeenAt,
     })
     .from(wallets)
+    .leftJoin(scores, eq(scores.address, wallets.address))
     .where(
       and(
         isNotNull(wallets.hlRoi7d),
@@ -50,6 +56,8 @@ export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]>
     address: r.address,
     primary_tag: r.primary_tag,
     composite_score: r.composite_score,
+    win_rate: numOrNull(r.win_rate),
+    sharpe: numOrNull(r.sharpe),
     roi_7d: numOrNull(r.roi_7d),
     pnl_7d_usd: numOrNull(r.pnl_7d_usd),
     volume_7d_usd: numOrNull(r.volume_7d_usd),

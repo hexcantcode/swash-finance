@@ -1,5 +1,5 @@
 <svelte:head>
-  <title>about — Swish</title>
+  <title>about — Swash</title>
 </svelte:head>
 
 <main id="main-content" class="stripe-content" style="max-width: 760px;">
@@ -7,7 +7,7 @@
   <h1 class="stripe-heading-xl" style="margin-top: 8px;">a trader list, not a feed.</h1>
   <p class="stripe-text-secondary stripe-body" style="margin-top: 16px; line-height: 1.7;">
     Most "copytrade" interfaces show you names. The interesting question is which trader to follow
-    in the first place. swish makes that the first-class problem.
+    in the first place. swash makes that the first-class problem.
   </p>
 
   <h2 class="stripe-heading-md" style="margin-top: 48px;">what we do</h2>
@@ -39,7 +39,7 @@
   </p>
 
   <footer class="k-footer">
-    <span>swish · v0.5 discovery preview</span>
+    <span>swash · v0.5 discovery preview</span>
     <a href="/methodology">methodology →</a>
   </footer>
 </main>

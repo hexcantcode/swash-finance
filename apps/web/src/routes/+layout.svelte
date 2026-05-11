@@ -1,26 +1,25 @@
 <script lang="ts">
   import '../app.css';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
 
   let { children } = $props();
 
-  const links = [
-    {
-      href: '/',
-      label: 'traders',
-      match: (p: string) => p === '/' || p.startsWith('/browse') || p.startsWith('/trader'),
-    },
-    {
-      href: '/methodology',
-      label: 'methodology',
-      match: (p: string) => p.startsWith('/methodology'),
-    },
-    { href: '/about', label: 'about', match: (p: string) => p.startsWith('/about') },
-  ];
+  let searchInput = $state($page.url.searchParams.get('search') ?? '');
+  // Keep the box in sync with the URL after navigation.
+  $effect(() => {
+    searchInput = $page.url.searchParams.get('search') ?? '';
+  });
+
+  function submitSearch(e: Event) {
+    e.preventDefault();
+    const q = searchInput.trim();
+    goto(q ? `/?search=${encodeURIComponent(q)}` : '/');
+  }
 </script>
 
 <svelte:head>
-  <title>Swish — hyperliquid trader leaderboard</title>
+  <title>Swash — hyperliquid trader leaderboard</title>
   <meta
     name="description"
     content="Curated, behaviorally classified, statistically corrected leaderboard of the most credible traders on Hyperliquid."
@@ -34,23 +33,18 @@
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="k-topnav" aria-label="Primary">
-    <a href="/" class="k-topnav-brand">
-      <img src="/swish.svg" alt="" class="k-topnav-logo" aria-hidden="true" />
-      <span>Swish</span>
+    <a href="/" class="k-topnav-brand" aria-label="Swash — home">
+      <img src="/logoicon.png" alt="" class="k-topnav-logo" aria-hidden="true" />
     </a>
-    <nav class="k-topnav-links">
-      {#each links as link (link.href)}
-        {@const active = link.match($page.url.pathname)}
-        <a
-          href={link.href}
-          class="k-topnav-link"
-          class:is-active={active}
-          aria-current={active ? 'page' : undefined}
-        >
-          {link.label}
-        </a>
-      {/each}
-    </nav>
+    <form class="k-topnav-search-form" role="search" onsubmit={submitSearch}>
+      <input
+        type="search"
+        bind:value={searchInput}
+        placeholder="search address 0x…"
+        aria-label="Search trader address"
+        class="k-filter-search"
+      />
+    </form>
   </header>
 
   {@render children?.()}

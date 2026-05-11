@@ -18,7 +18,7 @@ export function formatPnl(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return '—';
   const n = typeof value === 'string' ? Number.parseFloat(value) : value;
   if (!Number.isFinite(n)) return '—';
-  const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+  const sign = n < 0 ? '-' : '';
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
   if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
