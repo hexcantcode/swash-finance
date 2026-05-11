@@ -13,7 +13,8 @@
     "leaderboard": "tsx src/cli.ts leaderboard",
     "score": "tsx src/cli.ts score",
     "refresh-queue": "tsx src/cli.ts refresh-queue",
-    "refresh-leader": "tsx src/cli.ts refresh-leader"
+    "refresh-leader": "tsx src/cli.ts refresh-leader",
+    "calibrate": "tsx src/scripts/calibrate-curves.ts"
   },
   "dependencies": {
     "@copytrade/db": "workspace:*",
