@@ -19,6 +19,7 @@ export const load: PageServerLoad = async () => {
       .select({
         wallets_total: sql<number>`(select count(*) from ${wallets})::int`,
         leaders_scored: sql<number>`(select count(*) from ${scores})::int`,
+        // note: wallets.lastSeenAt is an internal discovery signal — fine for a rough "active recently" headline count, not for per-wallet display
         active_recent: sql<number>`(select count(*) from ${wallets} where ${wallets.lastSeenAt} > now() - interval '30 days')::int`,
         avg_score: sql<number>`(select round(avg(${wallets.compositeScore}))::int from ${wallets} where ${wallets.compositeScore} is not null)`,
       })
