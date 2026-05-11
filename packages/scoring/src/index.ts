@@ -7,3 +7,4 @@ export * from './classifier.js';
 export * from './composite.js';
 export * from './consistency.js';
 export * from './track-record.js';
+export * from './curves.js';
