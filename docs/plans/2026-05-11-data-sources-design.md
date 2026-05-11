@@ -28,7 +28,7 @@ Equity, open positions, leverage/margin, **last-traded timestamp**, HL's windowe
 - **Non-curated wallets** (the long tail — thousands; can't WS-subscribe to all): live tier is filled **on demand** — when someone views the wallet (or requests a score), a REST pull (`clearinghouseState` + a `userFills` head) refreshes the live columns, cached ~15 min. No persistent subscription.
 
 ### Analyzed tier — "what the history says"
-Composite score + the 8-metric breakdown, Sharpe/Sortino/PSR/profit-factor/expectancy/max-drawdown/recovery-time/monthly-consistency, total volume, total trades, win rate, equity curve, tags, decay flag.
+Composite score + the 7-metric breakdown (Sharpe / Sortino / PSR / profit-factor / max-drawdown / recovery-time / monthly-consistency), total volume, total trades, win rate, equity curve, tags, decay flag.
 
 - Computed from the **locally stored history** (`fills` / `fundings` / `ledger` + `scores`). For curated wallets that history is kept live by the WS stream; recompute on the score cadence (daily) or incrementally. For non-curated wallets the history comes from an on-demand REST backfill (`userFillsByTime` over 90d + `userFunding` + `userNonFundingLedgerUpdates`), then a score, cached 24 h.
 - Carries an explicit **"as of \<timestamp\>"** — the time the history backing it was last synced.
@@ -74,9 +74,9 @@ Composite score + the 8-metric breakdown, Sharpe/Sortino/PSR/profit-factor/expec
 
 - **Drop DSR entirely** — calibration over 235 real wallets: with 214 trials the deflated benchmark (~2.4 in daily-Sharpe units) sits above every wallet's daily Sharpe (max 1.28), so DSR ≈ 0 for the whole population and can't discriminate. Remove `dsr.ts`, `dsr` from `MetricKey` / `METRIC_CURVES` / `BASKET` / `index.ts` exports / `scores` table / `leader-detail.ts` / the calibration script / the methodology copy. (`adjustedBenchmarkSharpe` / `standardNormalInverseCdf` in `psr.ts` become unused — remove or leave dormant; `psr.ts`'s own `probabilisticSharpe` stays.)
 - **Drop Calmar entirely** — calibration: p99 ≈ 1e140, max ≈ 1e179 (the `(1+r)^(365/n)` annualization explodes on short hot histories). Remove `calmar` from `metrics.ts` + its tests, from `MetricKey` / `METRIC_CURVES` / `BASKET`, from `scores` table / `leader-detail.ts` / the calibration script / the methodology copy.
-- Basket is now **8 metrics**: Sharpe, Sortino, PSR, profit factor, expectancy, max drawdown, recovery time, monthly consistency. Even count → median of the two middle values (already handled).
+- Basket is now **7 metrics**: Sharpe, Sortino, PSR, profit factor, max drawdown, recovery time, monthly consistency. Odd count → true median (the middle value).
 - **Confidence cap is on the wrong field** — `medianComposite` multiplies by `min(activeDays/90, 1)`, but `activeDays` (days with ≥1 fill, real-data p50 ≈ 57/90) penalizes intermittent-but-long-tenured traders. Switch the cap input to **calendar span `daysOfData`** (first→last event in days; real-data p50 ≈ 86/90) — passed in from the worker — so it penalizes *short total history*, which is what it's for.
-- **Open: expectancy is raw USD** (real-data range −1719…+1418, median ≈ 0) — meaningless without normalizing by trade/account size. Proposal: replace with a per-trade *return* expectancy (or expectancy ÷ median trade notional). Decide during implementation; if no clean fix, it's a candidate to drop too (basket → 7).
+- **Expectancy dropped from the basket** (decided 2026-05-11 during calibration) — raw USD/trade, real-data mass split ~50/50 around zero, scale-dependent, undiscriminating even when clamped. The `expectancy` function stays (still feeds the `scores.expectancy` display column). Follow-up candidate: re-introduce as a per-trade *return* expectancy (a metric-formula change, not done).
 - The provisional curves in `curves.ts` get re-fit from the calibration CSV (`/tmp/curves-calib.csv`, 235 wallets) over the *remaining* metrics, with heavy-tailed ones (Sortino daily — p99 ≈ 753; profit factor — p99 ≈ 1678) clamped at ~p90.
 
 ## 6. Out of scope / deferred
