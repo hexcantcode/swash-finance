@@ -8,7 +8,6 @@
     pnlSignClass,
     truncateAddress,
   } from '$lib/utils/format';
-  import { mainTagClass, mainTagLabel } from '$lib/utils/tags';
 
   interface Props {
     rows: WeeklyLeaderRow[];
@@ -40,10 +39,7 @@
           onerror={hideBrokenAvatar}
           class="stripe-avatar stripe-avatar-ring k-roi-card-avatar"
         />
-        <div class="k-roi-card-id">
-          <span class="k-roi-card-addr">{truncateAddress(row.address)}</span>
-          <span class="tag-chip {mainTagClass(row.primary_tag)}">{mainTagLabel(row.primary_tag)}</span>
-        </div>
+        <span class="k-roi-card-addr">{truncateAddress(row.address)}</span>
       </div>
 
       <div class="k-roi-card-stats">

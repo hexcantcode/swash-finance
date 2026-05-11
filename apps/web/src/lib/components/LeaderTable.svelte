@@ -15,6 +15,9 @@
     sort?: SortKey;
     onSortChange?: (key: SortKey) => void;
     rankOffset?: number;
+    tagOptions?: Array<{ value: string; label: string }>;
+    activeTag?: string | undefined;
+    onTagChange?: (value: string | undefined) => void;
   }
 
   export type SortKey = 'composite_score' | 'roi' | 'last_active';
@@ -25,6 +28,9 @@
     sort = 'composite_score',
     onSortChange,
     rankOffset = 0,
+    tagOptions = [],
+    activeTag = undefined,
+    onTagChange,
   }: Props = $props();
 
   let localSort = $state<SortKey>(sort);
@@ -97,6 +103,35 @@
     if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
     return `${pct.toFixed(1)}%`;
   }
+
+  // Keep the table a constant height — pad short result sets with empty rows.
+  const MIN_ROWS = 10;
+  const ghostCount = $derived(Math.max(0, MIN_ROWS - displayed.length));
+
+  // Tag column-header dropdown
+  let tagMenuOpen = $state(false);
+
+  function pickTag(value: string | undefined) {
+    onTagChange?.(value);
+    tagMenuOpen = false;
+  }
+
+  function tagMenu(node: HTMLElement) {
+    function onPointerDown(e: Event) {
+      if (tagMenuOpen && !node.contains(e.target as Node)) tagMenuOpen = false;
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') tagMenuOpen = false;
+    }
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    return {
+      destroy() {
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('keydown', onKeyDown);
+      },
+    };
+  }
 </script>
 
 <div class="k-table-wrap">
@@ -105,7 +140,50 @@
       <tr>
         <th class="stripe-table-numeric"><span class="sr-only">Rank</span>#</th>
         <th class="stripe-table-trader">Trader</th>
-        <th class="stripe-table-numeric">Tag</th>
+        <th class="stripe-table-numeric">
+          {#if onTagChange}
+            <div class="k-th-tag" use:tagMenu>
+              <button
+                type="button"
+                class="k-th-sort-button"
+                class:is-active={!!activeTag}
+                aria-haspopup="menu"
+                aria-expanded={tagMenuOpen}
+                onclick={() => (tagMenuOpen = !tagMenuOpen)}
+              >
+                {activeTag ? mainTagLabel(activeTag) : 'Tag'}<span class="stripe-th-sort-indicator"
+                  >▾</span
+                >
+              </button>
+              {#if tagMenuOpen}
+                <div class="k-th-tag-pop" role="menu">
+                  <button
+                    type="button"
+                    class="k-th-tag-opt"
+                    class:is-active={!activeTag}
+                    role="menuitem"
+                    onclick={() => pickTag(undefined)}
+                  >
+                    All
+                  </button>
+                  {#each tagOptions as opt (opt.value)}
+                    <button
+                      type="button"
+                      class="k-th-tag-opt"
+                      class:is-active={activeTag === opt.value}
+                      role="menuitem"
+                      onclick={() => pickTag(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {:else}
+            Tag
+          {/if}
+        </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('composite_score')}>
           <button
             type="button"
@@ -164,6 +242,21 @@
             {formatRoi(row.metrics.roi)}
           </td>
           <td class="stripe-table-numeric">{formatRelativeTime(row.last_active_at)}</td>
+        </tr>
+      {/each}
+      {#each Array(ghostCount) as _, i (`ghost-${i}`)}
+        <tr class="k-row-ghost" aria-hidden="true">
+          <td class="stripe-table-numeric k-rank">{rankOffset + displayed.length + i + 1}</td>
+          <td class="stripe-table-trader">
+            <span class="k-trader-link">
+              <span class="stripe-avatar stripe-avatar-sm k-avatar-ghost"></span>
+              <span>—</span>
+            </span>
+          </td>
+          <td class="stripe-table-numeric">—</td>
+          <td class="stripe-table-numeric">—</td>
+          <td class="stripe-table-numeric">—</td>
+          <td class="stripe-table-numeric">—</td>
         </tr>
       {/each}
     </tbody>

@@ -706,6 +706,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Empty/placeholder rows that pad a short result set to a fixed height */
+.k-row-ghost td {
+  color: var(--stripe-text-muted);
+}
+.k-row-ghost:hover td {
+  background: transparent;
+}
+.k-avatar-ghost {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--stripe-bg-elevated);
+}
+
 .k-pnl-positive {
   color: var(--stripe-success);
 }
@@ -754,215 +767,90 @@ body {
   border: 1px solid var(--stripe-border);
 }
 
-/* ── Filter popover (table page) ─────────────────────────── */
-.k-section-head--end {
-  justify-content: flex-end;
-}
-
-.k-filter-control {
-  position: relative;
-  margin-left: auto;
-}
-
-.k-filter-trigger.is-active {
-  background: var(--stripe-accent-subtle);
-  color: var(--stripe-accent);
-  border-color: rgba(89, 160, 172, 0.25);
-}
-
-.k-filter-pop {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 40;
-  width: 440px;
-  max-width: calc(100vw - 32px);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-5);
-  background: var(--stripe-bg-primary);
-  border: 0.5px solid var(--stripe-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-}
-
-.k-filter-pop-head {
+/* ── Risk filter (leaderboard section head) ──────────────── */
+.k-section-risk {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
+  flex: 0 0 auto;
 }
 
-.k-filter-pop-title {
+.k-section-risk-label {
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--stripe-text-tertiary);
+  flex: 0 0 auto;
 }
 
-.k-filter-pop-clear {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--stripe-accent);
-}
-.k-filter-pop-clear:hover {
-  text-decoration: underline;
-}
-
-.k-filter-row {
+.k-section-risk-btns {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
-.k-filter-row-pills {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: var(--space-2);
+.k-risk-btn {
+  padding: 5px 11px;
+  font-size: 11px;
 }
 
-.k-filter-pop .btn-poly {
-  width: 100%;
-}
-
-.k-filter-pop .btn-poly.is-active {
+.k-risk-btn.is-active {
   background: var(--stripe-accent);
   border-color: var(--stripe-accent);
   color: #000;
   font-weight: 600;
 }
-.k-filter-pop .btn-poly.is-active:hover {
-  box-shadow: 0 0 20px rgba(89, 160, 172, 0.35);
+.k-risk-btn.is-active:hover {
+  box-shadow: 0 0 16px rgba(89, 160, 172, 0.3);
 }
 
-/* Risk profile slider (left = conservative, right = aggressive) */
-.k-risk {
+/* ── Tag column-header dropdown ───────────────────────────── */
+.k-th-tag {
+  position: relative;
+  display: inline-block;
+}
+
+.k-th-tag-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 140px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-1) 0;
+  gap: 1px;
+  padding: var(--space-1);
+  background: var(--stripe-bg-primary);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 
-.k-risk-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--stripe-bg-elevated);
-  cursor: pointer;
-  outline: none;
-}
-.k-risk-range:focus-visible {
-  box-shadow: var(--shadow-focus);
-}
-.k-risk-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--stripe-text-tertiary);
-  border: 3px solid var(--stripe-bg-primary);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-  cursor: grab;
-}
-.k-risk-range::-webkit-slider-thumb:active {
-  cursor: grabbing;
-}
-.k-risk-range::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--stripe-text-tertiary);
-  border: 3px solid var(--stripe-bg-primary);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-  cursor: grab;
-}
-.k-risk-range::-moz-range-track {
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--stripe-bg-elevated);
-}
-.k-risk.is-set .k-risk-range::-webkit-slider-thumb {
-  background: var(--stripe-accent);
-}
-.k-risk.is-set .k-risk-range::-moz-range-thumb {
-  background: var(--stripe-accent);
-}
-
-.k-risk-ticks {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.k-risk-tick {
+.k-th-tag-opt {
   background: none;
   border: none;
-  padding: 0;
   cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--stripe-text-tertiary);
-  transition: color var(--transition-fast);
-}
-.k-risk-tick:hover {
-  color: var(--stripe-text-secondary);
-}
-.k-risk-tick.is-active {
-  color: var(--stripe-accent);
-}
-.k-risk-tick:first-child {
-  text-align: left;
-}
-.k-risk-tick:last-child {
-  text-align: right;
-}
-
-.k-filter-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--stripe-text-tertiary);
-  white-space: nowrap;
-}
-
-.k-filter-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: var(--stripe-bg-elevated);
-  color: var(--stripe-text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
   font-family: var(--font-sans);
-}
-
-.k-filter-pill:hover {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--stripe-text-secondary);
-  background: var(--stripe-bg-hover);
+  text-align: left;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.k-filter-pill.is-active {
-  background: var(--stripe-accent-subtle);
+.k-th-tag-opt:hover {
+  background: var(--stripe-bg-hover);
+  color: var(--stripe-text-primary);
+}
+
+.k-th-tag-opt.is-active {
   color: var(--stripe-accent);
-  border-color: rgba(89, 160, 172, 0.2);
 }
 
 .k-filter-search {
@@ -1634,12 +1522,12 @@ body {
 
 .k-roi-card {
   flex: 0 0 auto;
-  width: 248px;
+  width: 252px;
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
   background: var(--stripe-bg-primary);
   border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
@@ -1658,55 +1546,49 @@ body {
 .k-roi-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .k-roi-card-avatar {
-  width: 40px;
-  height: 40px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
-}
-
-.k-roi-card-id {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  min-width: 0;
 }
 
 .k-roi-card-addr {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--stripe-text-secondary);
+  white-space: nowrap;
 }
 
 .k-roi-card-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3) var(--space-4);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
 }
 
 .k-roi-card-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .k-roi-card-stat-val {
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .k-roi-card-stat-label {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--stripe-text-tertiary);
+  white-space: nowrap;
 }
 
 /* ── Skip link / a11y ────────────────────────────────────── */
