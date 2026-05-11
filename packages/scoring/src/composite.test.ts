@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeComposite, computeDecayFlag, type CompositeInputs } from './composite.js';
+import {
+  computeComposite,
+  computeDecayFlag,
+  medianComposite,
+  type CompositeInputs,
+} from './composite.js';
 
 const baseInputs: CompositeInputs = {
   psr: null,
@@ -82,5 +87,73 @@ describe('computeDecayFlag', () => {
 
   it('red when recent < 50% of peak', () => {
     expect(computeDecayFlag(0.3, 1.0)).toBe('red');
+  });
+});
+
+const fullBasket = {
+  sharpe: 0.2,
+  sortino: 0.28,
+  calmar: 6,
+  psr: 0.97,
+  dsr: 0.8,
+  profitFactor: 2,
+  expectancy: 50,
+  maxDrawdownPct: 0.1,
+  recoveryTimeDays: 7,
+  monthlyConsistency: 0.9,
+} as const;
+
+describe('medianComposite', () => {
+  it('strong basket with long history => high score, not provisional, 10-entry breakdown', () => {
+    const r = medianComposite({ metrics: { ...fullBasket }, activeDays: 400 });
+    expect(r.score).toBeGreaterThan(75);
+    expect(r.provisional).toBe(false);
+    expect(r.confidence).toBe(1);
+    expect(r.breakdown).toHaveLength(10);
+    expect(r.breakdown.every((b) => b.score !== null)).toBe(true);
+  });
+
+  it('confidence cap shrinks the score for thin history & flags provisional', () => {
+    const long = medianComposite({ metrics: { ...fullBasket }, activeDays: 400 });
+    const short = medianComposite({ metrics: { ...fullBasket }, activeDays: 30 });
+    expect(short.provisional).toBe(true);
+    expect(short.confidence).toBeCloseTo(30 / 90, 10);
+    expect(short.score).toBe(Math.round(long.rawScore * (30 / 90)));
+  });
+
+  it('an outlier metric does not blow up the median', () => {
+    const clean = medianComposite({ metrics: { ...fullBasket }, activeDays: 400 }).score;
+    const withGarbage = medianComposite({
+      metrics: { ...fullBasket, sharpe: -1 },
+      activeDays: 400,
+    }).score;
+    expect(Math.abs(withGarbage - clean)).toBeLessThan(8);
+  });
+
+  it('nulls are dropped from the basket (median over the rest)', () => {
+    const r = medianComposite({ metrics: { ...fullBasket, dsr: null }, activeDays: 400 });
+    expect(r.breakdown).toHaveLength(10);
+    expect(r.breakdown.find((b) => b.key === 'dsr')!.score).toBeNull();
+    expect(r.breakdown.filter((b) => b.score !== null)).toHaveLength(9);
+  });
+
+  it('empty / all-null basket => score 0', () => {
+    expect(medianComposite({ metrics: {}, activeDays: 400 }).score).toBe(0);
+    expect(medianComposite({ metrics: { sharpe: null, dsr: null }, activeDays: 400 }).score).toBe(
+      0,
+    );
+  });
+
+  it('odd number of present metrics => true median (middle value)', () => {
+    const r = medianComposite({
+      metrics: { sharpe: 0.1, calmar: 6, profitFactor: 2 },
+      activeDays: 400,
+    });
+    const present = r.breakdown
+      .map((b) => b.score)
+      .filter((s): s is number => s !== null)
+      .sort((a, b) => a - b);
+    expect(present).toHaveLength(3);
+    expect(r.rawScore).toBe(present[1]);
   });
 });

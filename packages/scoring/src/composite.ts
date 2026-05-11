@@ -1,3 +1,5 @@
+import { type MetricKey, scoreMetric } from './curves.js';
+
 /**
  * Composite scorer (rubric v1.0, derived from spec section 10).
  *
@@ -72,4 +74,67 @@ export function computeDecayFlag(
   if (ratio >= 0.8) return 'green';
   if (ratio >= 0.5) return 'yellow';
   return 'red';
+}
+
+export interface MedianCompositeInput {
+  metrics: Partial<Record<MetricKey, number | null>>;
+  activeDays: number;
+}
+
+export interface MedianCompositeResult {
+  /** 0..100, rounded, after the confidence cap. */
+  score: number;
+  /** median of the present sub-scores, before the confidence cap (unrounded). */
+  rawScore: number;
+  /** min(activeDays / 90, 1). */
+  confidence: number;
+  /** activeDays < 90. */
+  provisional: boolean;
+  /** one entry per basket metric, in basket order. */
+  breakdown: Array<{ key: MetricKey; raw: number | null; score: number | null }>;
+}
+
+const CONFIDENCE_FULL_DAYS = 90;
+
+const BASKET: readonly MetricKey[] = [
+  'sharpe',
+  'sortino',
+  'calmar',
+  'psr',
+  'dsr',
+  'profitFactor',
+  'expectancy',
+  'maxDrawdownPct',
+  'recoveryTimeDays',
+  'monthlyConsistency',
+];
+
+function median(xs: number[]): number {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 === 1 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
+}
+
+/**
+ * Composite score = median of the normalized metric basket, capped by data
+ * sufficiency. Median (not mean) so a single garbage metric can't swing the
+ * score; null metrics drop out (e.g. DSR not yet computed). Scores 0 when no
+ * metric is present.
+ */
+export function medianComposite(input: MedianCompositeInput): MedianCompositeResult {
+  const breakdown = BASKET.map((key) => {
+    const raw = input.metrics[key] ?? null;
+    return { key, raw, score: scoreMetric(key, raw) };
+  });
+  const present = breakdown.map((b) => b.score).filter((s): s is number => s !== null);
+  const rawScore = median(present);
+  const confidence = Math.min(Math.max(input.activeDays, 0) / CONFIDENCE_FULL_DAYS, 1);
+  return {
+    score: Math.round(rawScore * confidence),
+    rawScore,
+    confidence,
+    provisional: input.activeDays < CONFIDENCE_FULL_DAYS,
+    breakdown,
+  };
 }
