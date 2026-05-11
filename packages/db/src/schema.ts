@@ -59,6 +59,10 @@ export const wallets = pgTable(
     // Monotonic upgrade only — workers shouldn't downgrade state.
     ingestState: text('ingest_state').notNull().default('observed'),
 
+    // Curated = passes the eligibility gate AND composite >= 70 (with ~65 hysteresis). Drives which wallets the live-tier WS subscriber holds subscriptions for.
+    curated: boolean('curated').notNull().default(false),
+    curatedSince: timestamp('curated_since', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -70,6 +74,7 @@ export const wallets = pgTable(
     index('idx_wallets_primary_tag').on(t.primaryTag).where(sql`${t.primaryTag} is not null`),
     index('idx_wallets_hl_roi_7d').on(t.hlRoi7d.desc()).where(sql`${t.hlRoi7d} is not null`),
     index('idx_wallets_ingest_state').on(t.ingestState),
+    index('idx_wallets_curated').on(t.curated).where(sql`${t.curated}`),
   ],
 );
 
