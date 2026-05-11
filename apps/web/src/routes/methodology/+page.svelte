@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>methodology — Swish</title>
+  <title>methodology — Swash</title>
 </svelte:head>
 
 <main id="main-content" class="stripe-content" style="max-width: 760px;">
@@ -11,95 +11,111 @@
   <h1 class="stripe-heading-xl" style="margin-top: 8px;">how leaders are scored</h1>
   <p class="stripe-text-secondary stripe-body" style="margin-top: 16px; line-height: 1.7;">
     Every wallet on Hyperliquid is observable. Reading PnL is easy. Telling whether a high PnL is
-    skill versus luck is the hard part. We try to do that, transparently.
+    skill versus luck is the hard part — that's what this score does, transparently.
   </p>
 
-  <h2 class="stripe-heading-md" style="margin-top: 48px;">1. discovery</h2>
+  <h2 class="stripe-heading-md" style="margin-top: 48px;">1. discovery &amp; curation</h2>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    A worker subscribes to Hyperliquid's WebSocket trades feed for the top 20 perp markets and
-    captures every wallet that fills a trade. New addresses join a queue.
-  </p>
-
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">2. ingest with agent attribution</h2>
-  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    For each queued wallet we fetch 90 days of fills, funding payments, and ledger updates.
-    Critically, we also call <code style="font-family: var(--font-mono); color: var(--stripe-accent);">extraAgents</code>
-    to find every approved agent wallet, fetch their fills too, and roll them up to the master.
-    This prevents two failure modes:
+    The "best traders" list is seeded from Hyperliquid's own leaderboard, then filtered. A wallet
+    only makes the list if it clears a real bar:
   </p>
   <ul style="margin-top: 12px; padding-left: 24px; line-height: 1.8; color: var(--stripe-text-secondary);">
-    <li>a trader using agents looks like they did nothing.</li>
-    <li>an agent wallet looks like a high-frequency standalone trader.</li>
+    <li>≥ $10K account value and ≥ $100K traded volume.</li>
+    <li>a genuine track record — first seen ≥ 90 days ago, ≥ 30 active trading days, enough round-trip trades that the numbers aren't noise.</li>
+    <li>a reconstructable capital base (we can tell what they put in); if not, the wallet shows "insufficient data" rather than a fabricated return.</li>
+    <li>not a market-maker or grid bot — those get a <code style="font-family: var(--font-mono); color: var(--stripe-accent);">market maker</code> tag and stay scoreable, but never appear in the curated list.</li>
+  </ul>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    Any wallet that earns it — found by us or scored on demand — gets added. One that decays below
+    the bar drops off.
+  </p>
+
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">2. on-demand scoring</h2>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    Any wallet can be scored on request, not just the curated set. The score is computed fresh (or
+    served from a recent cache). Wallets are findable and shareable whether or not they're "the
+    best" — score your own wallet, or someone else's.
+  </p>
+
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">3. agent attribution</h2>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    Many leaders trade through approved agent wallets to avoid signing every order. For each wallet
+    we also call <code style="font-family: var(--font-mono); color: var(--stripe-accent);">extraAgents</code>,
+    pull every agent's fills, and roll them up to the master. This prevents two failure modes:
+  </p>
+  <ul style="margin-top: 12px; padding-left: 24px; line-height: 1.8; color: var(--stripe-text-secondary);">
+    <li>a trader who routes through agents looks like they did nothing.</li>
+    <li>an agent wallet looks like a standalone high-frequency trader.</li>
   </ul>
 
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">3. net pnl (deposits matter)</h2>
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">4. risk-adjusted returns</h2>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    On-chain "PnL" includes deposits — that's wrong. A trader who deposits $10K starts at +$10K of
-    "profit." We subtract net deposits explicitly:
-  </p>
-  <pre style="margin-top: 12px; padding: 16px 20px; border: 0.5px solid var(--stripe-border); border-radius: var(--radius-md); background: var(--stripe-bg-primary); font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: var(--stripe-text-secondary); overflow-x: auto;">gross_pnl   = Σ(fills.closedPnl) + Σ(fundings.usdc) − Σ(fills.fee)
-net_deposit = Σ(deposit.usdc) − Σ(withdraw.usdc)
-net_pnl     = gross_pnl − net_deposit</pre>
-
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">4. probabilistic + deflated sharpe</h2>
-  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    The PSR (Bailey & López de Prado, 2012) takes an observed Sharpe ratio and produces the
-    probability that the true Sharpe exceeds a benchmark, given the sample's skewness and
-    kurtosis. Heavy-tailed strategies need more observations to clear the same bar.
+    From a daily return series — built against an estimated capital base, with deposits and
+    withdrawals removed — we compute the usual battery: Sharpe, Sortino, profit factor, win-rate-adjusted
+    expectancy, max drawdown, recovery time, and monthly consistency (copy-traders care more about
+    "doesn't blow up" than "spiky 10×").
   </p>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    Deflated Sharpe (López de Prado, 2018) shifts the benchmark up to account for selection bias.
-    When you screen thousands of wallets and pick the best, the highest observed Sharpe overstates
-    the true Sharpe. We compute the variance of Sharpes across the entire scored population and
-    feed it into DSR.
+    On top of that, the <strong>Probabilistic Sharpe Ratio</strong> (Bailey &amp; López de Prado,
+    2012): the probability the true Sharpe beats a benchmark, given the sample's size, skewness, and
+    kurtosis. A heavy-tailed strategy or a short history has to clear a higher bar — a great-looking
+    Sharpe from twenty days barely registers.
+  </p>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    Sharpe and Sortino are weighted by track record: a one-month hot streak doesn't get
+    extrapolated into a full year.
   </p>
 
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">5. composite (0–100)</h2>
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">5. the composite (0–100)</h2>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    Eight weighted criteria produce the composite score. Each contributes a fixed number of points.
+    Each metric below is mapped onto a 0–100 scale by a curve calibrated against real Hyperliquid
+    wallet histories. The composite is the <strong>median</strong> of the eight — median, not a sum
+    or an average, so one freak metric can't inflate or tank the score.
   </p>
   <div class="k-table-wrap" style="margin-top: 16px;">
     <table class="stripe-table" style="min-width: 0;">
       <thead>
         <tr>
-          <th style="text-align: left; padding-left: 20px;">Criterion</th>
-          <th>Points</th>
+          <th style="text-align: left; padding-left: 20px;">Metric</th>
+          <th style="text-align: left;">What it measures</th>
         </tr>
       </thead>
       <tbody>
         {#each [
-          ['PSR > 0.95 AND ≥ 100 trades', 25],
-          ['DSR > 0', 15],
-          ['Max drawdown < 30%', 10],
-          ['Profit factor > 1.5', 10],
-          ['Maker share between 20–70%', 10],
-          ['Avg hold > 5 minutes', 10],
-          ['Diversified across ≥ 3 assets', 10],
-          ['Recent Sharpe ≥ 70% of peak', 10],
-        ] as [label, points] (label)}
+          ['Sharpe', 'return per unit of total volatility (track-record weighted)'],
+          ['Sortino', 'return per unit of downside volatility (track-record weighted)'],
+          ['Probabilistic Sharpe', 'confidence the Sharpe is real, given sample size & tails'],
+          ['Profit factor', 'gross winning vs. gross losing'],
+          ['Expectancy', 'average outcome per trade'],
+          ['Max drawdown', 'worst peak-to-trough decline (smaller is better)'],
+          ['Recovery time', 'how fast they climb back from a drawdown (faster is better)'],
+          ['Monthly consistency', 'share of months net-positive, penalising blow-up months'],
+        ] as [label, what] (label)}
           <tr>
-            <td style="text-align: left; padding-left: 20px; color: var(--stripe-text-secondary);">{label}</td>
-            <td>{points}</td>
+            <td style="text-align: left; padding-left: 20px;">{label}</td>
+            <td style="text-align: left; color: var(--stripe-text-secondary);">{what}</td>
           </tr>
         {/each}
       </tbody>
     </table>
   </div>
-
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">6. behavioral tags</h2>
-  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    The score tells you "how good" — the tag tells you "what kind of trader." A high-PSR
-    daily-position trader and a high-PSR scalper need different copy strategies; we don't merge
-    them.
+  <p class="stripe-text-secondary" style="margin-top: 16px; line-height: 1.7;">
+    A wallet with under ~90 days of history is capped and flagged <em>provisional</em>. It's the
+    same number everywhere — the group tags below are filters over it, not separate scores.
   </p>
 
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">6. group tags</h2>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    The score tells you "how good" — the tag tells you "what kind." A scalper and a swing trader
+    with the same composite need different copy strategies; we don't merge them.
+  </p>
   <div style="margin-top: 16px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
     {#each [
-      { tag: 'alpha_hunter', desc: 'Proven directional skill at significant sample. PSR > 0.95, ≥100 trades, ≥90 active days, max DD < 30%.' },
-      { tag: 'veteran', desc: 'High sample, long history, sustained performance. ≥500 trades, ≥365 active days, PSR ≥ 0.8.' },
-      { tag: 'insider', desc: 'Fresh wallet (<60 days) with concentrated, event-driven activity.' },
-      { tag: 'specialist', desc: 'Dominant in one asset or category. Asset concentration > 60% with ≥50 trades.' },
-      { tag: 'dark_horse', desc: 'Small sample (<50 trades) with strong signal (PSR > 0.9) and recent activity.' },
+      { tag: 'alpha_hunter', desc: 'Proven directional skill at meaningful sample — high PSR, plenty of trades, controlled drawdown.' },
+      { tag: 'veteran', desc: 'Long history, large sample, performance that has held up over time.' },
+      { tag: 'insider', desc: 'Fresh wallet with concentrated, event-driven activity.' },
+      { tag: 'specialist', desc: 'Dominant in one asset or category — most of their volume in a single market.' },
+      { tag: 'dark_horse', desc: 'Small sample but a strong, recent signal — one to watch, not yet proven.' },
     ] as item (item.tag)}
       <div class="k-card">
         <Tag tag={item.tag} />
@@ -109,17 +125,30 @@ net_pnl     = gross_pnl − net_deposit</pre>
       </div>
     {/each}
   </div>
+  <p class="stripe-text-secondary" style="margin-top: 16px; line-height: 1.7;">
+    Alongside the archetype, every trader carries lighter tags for cadence (scalp / intraday / swing
+    / position), risk (conservative / balanced / aggressive), size (whale → micro by volume), and
+    asset class (bluechip / altcoin / meme / stocks).
+  </p>
+
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">7. staying current</h2>
+  <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
+    The curated set is re-scored daily; drift shows up as a <code style="font-family: var(--font-mono); color: var(--stripe-accent);">decay</code>
+    flag — recent rolling Sharpe versus peak. Equity, open positions, and last-trade time stream
+    live for curated wallets; on-demand scores refresh on a short TTL. Each number on a trader's
+    page carries an "as of" stamp so you know how fresh it is.
+  </p>
 
   <h2 class="stripe-heading-md" style="margin-top: 40px;">limitations</h2>
   <ul style="margin-top: 12px; padding-left: 24px; line-height: 1.8; color: var(--stripe-text-secondary);">
-    <li>capital base is approximated as initial deposit + cumulative net deposits. sub-account transfers and vault flows we don't see can distort daily-return calculations.</li>
-    <li><code style="font-family: var(--font-mono); color: var(--stripe-accent);">extraAgents</code> returns currently-approved agents only. a leader who revoked an agent loses that agent's pre-revoke history.</li>
-    <li>score recompute is daily. recent activity drives the rolling-Sharpe / decay flag, but the composite itself updates once per UTC day.</li>
-    <li>none of this is financial advice. past performance — even bias-corrected — does not guarantee future results.</li>
+    <li>Hyperliquid's fill history returns at most ~2,000 recent fills per wallet — for very active traders we score a recent window, not their entire lifetime.</li>
+    <li>capital base is approximated as initial deposit + cumulative net deposits; sub-account transfers and vault flows we don't see can distort the daily-return series.</li>
+    <li><code style="font-family: var(--font-mono); color: var(--stripe-accent);">extraAgents</code> returns currently-approved agents only — a leader who revoked an agent loses that agent's pre-revoke history.</li>
+    <li>past performance, even bias-corrected, does not guarantee future results. none of this is financial advice.</li>
   </ul>
 
   <footer class="k-footer">
-    <span>questions? read the <a href="https://github.com/anthropics/claude-code">source</a></span>
+    <span>questions? read the <a href="https://github.com/hexcantcode/swash.finance">source</a></span>
     <a href="/about">about →</a>
   </footer>
 </main>
