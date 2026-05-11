@@ -1,5 +1,6 @@
 import { runBootstrap } from './jobs/bootstrap.js';
 import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
+import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
 import { runTradesSubscriber } from './jobs/trades-subscriber.js';
@@ -11,6 +12,8 @@ const COMMANDS = {
   bootstrap: 'Run a one-shot WS discovery sweep and queue every observed wallet.',
   leaderboard:
     'Fetch HL official leaderboard, persist tier-1 wallets, queue top-N for deep ingest.',
+  'leaderboard-poll':
+    'Poll HL leaderboard for top-7d-ROI + top trader-rankers, queue them as curation candidates.',
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
   'refresh-queue': 'Process the next batch of wallets in discovery_queue.',
   score: 'Recompute scores for every active master wallet (or one with --address).',
@@ -59,6 +62,17 @@ async function main(): Promise<void> {
         ...(minVol !== undefined ? { minMonthlyVolumeUsd: minVol } : {}),
         ...(minAcct !== undefined ? { minAccountValueUsd: minAcct } : {}),
         ...(win !== undefined ? { window: win } : {}),
+      });
+      break;
+    }
+    case 'leaderboard-poll': {
+      const topRoi = flags['top-roi'] ? Number.parseInt(flags['top-roi'], 10) : undefined;
+      const topRankers = flags['top-rankers']
+        ? Number.parseInt(flags['top-rankers'], 10)
+        : undefined;
+      await runLeaderboardPoll({
+        ...(topRoi !== undefined ? { topRoi } : {}),
+        ...(topRankers !== undefined ? { topRankers } : {}),
       });
       break;
     }

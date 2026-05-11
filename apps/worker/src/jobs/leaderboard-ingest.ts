@@ -1,6 +1,11 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { discoveryQueue, wallets } from '@copytrade/db';
-import { fetchLeaderboard, isEligible, topByWindowPnl } from '@copytrade/hl-client';
+import {
+  fetchLeaderboard,
+  isEligible,
+  topByWindowPnl,
+  type LeaderboardRow,
+} from '@copytrade/hl-client';
 import { db } from '../db.js';
 import { log } from '../log.js';
 
@@ -79,17 +84,51 @@ export async function runLeaderboardIngest(
     return;
   }
 
+  const { walletsUpserted, queuedNew } = await persistAndQueueLeaderboardRows({
+    toPersist,
+    toQueue,
+    source: 'hl_leaderboard',
+  });
+
+  log.info(
+    {
+      walletsUpserted,
+      queuedNew,
+      ms: Date.now() - startedAt,
+    },
+    'leaderboard.done',
+  );
+}
+
+/**
+ * Shared tier-1 persist + tier-2 queue mechanics for leaderboard-derived rows.
+ *
+ * - Upserts every `toPersist` row into `wallets` with the HL metric snapshot.
+ *   On conflict we never downgrade `ingest_state`, and `total_volume_usd` only
+ *   moves forward (greatest).
+ * - Pushes `toQueue` addresses into `discovery_queue`; for any newly-queued
+ *   address still at `ingest_state='observed'`, flip to 'queued'.
+ *
+ * Used by both `runLeaderboardIngest` (single-window) and `runLeaderboardPoll`
+ * (dual-window union: top-7d-ROI ∪ top-rankers).
+ */
+export async function persistAndQueueLeaderboardRows(args: {
+  toPersist: LeaderboardRow[];
+  toQueue: LeaderboardRow[];
+  source: string;
+}): Promise<{ walletsUpserted: number; queuedNew: number }> {
   const now = new Date();
   const CHUNK = 500;
   let walletsUpserted = 0;
   let queuedNew = 0;
 
-  for (let i = 0; i < toPersist.length; i += CHUNK) {
-    const chunk = toPersist.slice(i, i + CHUNK);
+  for (let i = 0; i < args.toPersist.length; i += CHUNK) {
+    const chunk = args.toPersist.slice(i, i + CHUNK);
 
     // Tier-1 persist — every eligible wallet gets a row with HL metrics.
     // `ingest_state` defaults to 'observed' on insert; on conflict we leave it
     // alone so we never downgrade scored/ingested wallets back to observed.
+    // first_seen_at/last_seen_at: don't regress on conflict (least/greatest).
     await db()
       .insert(wallets)
       .values(
@@ -110,7 +149,8 @@ export async function runLeaderboardIngest(
       .onConflictDoUpdate({
         target: wallets.address,
         set: {
-          lastSeenAt: now,
+          firstSeenAt: sql`least(${wallets.firstSeenAt}, excluded.first_seen_at)`,
+          lastSeenAt: sql`greatest(${wallets.lastSeenAt}, excluded.last_seen_at)`,
           accountValue: sql`excluded.account_value`,
           totalVolumeUsd: sql`greatest(${wallets.totalVolumeUsd}, excluded.total_volume_usd)`,
           hlPnl7dUsd: sql`excluded.hl_pnl_7d_usd`,
@@ -127,11 +167,11 @@ export async function runLeaderboardIngest(
 
   // Tier-2 queue — only the top N go to discovery_queue, only flip
   // ingest_state to 'queued' for wallets still at 'observed' (never downgrade).
-  for (let i = 0; i < toQueue.length; i += CHUNK) {
-    const chunk = toQueue.slice(i, i + CHUNK);
+  for (let i = 0; i < args.toQueue.length; i += CHUNK) {
+    const chunk = args.toQueue.slice(i, i + CHUNK);
     const queueResult = await db()
       .insert(discoveryQueue)
-      .values(chunk.map((r) => ({ address: r.address, source: 'hl_leaderboard' })))
+      .values(chunk.map((r) => ({ address: r.address, source: args.source })))
       .onConflictDoNothing({ target: discoveryQueue.address })
       .returning({ address: discoveryQueue.address });
     queuedNew += queueResult.length;
@@ -145,12 +185,5 @@ export async function runLeaderboardIngest(
     }
   }
 
-  log.info(
-    {
-      walletsUpserted,
-      queuedNew,
-      ms: Date.now() - startedAt,
-    },
-    'leaderboard.done',
-  );
+  return { walletsUpserted, queuedNew };
 }
