@@ -1,5 +1,5 @@
 export type MetricKey =
-  | 'sharpe' | 'sortino' | 'calmar' | 'psr' | 'dsr'
+  | 'sharpe' | 'sortino' | 'psr'
   | 'profitFactor' | 'expectancy' | 'maxDrawdownPct'
   | 'recoveryTimeDays' | 'monthlyConsistency';
 
@@ -26,9 +26,7 @@ export function applyCurve(knots: Knot[], x: number): number {
 export const METRIC_CURVES: Record<MetricKey, Knot[]> = {
   sharpe:             [[-0.05, 0], [0, 20], [0.05, 45], [0.10, 65], [0.20, 85], [0.35, 95], [0.6, 100]],
   sortino:            [[-0.05, 0], [0, 20], [0.07, 45], [0.14, 65], [0.28, 85], [0.5, 95], [0.9, 100]],
-  calmar:             [[0, 0], [1, 40], [3, 65], [6, 82], [12, 93], [25, 100]],
   psr:                [[0, 0], [0.5, 30], [0.75, 55], [0.9, 75], [0.97, 90], [0.99, 100]],
-  dsr:                [[0, 0], [0.3, 35], [0.6, 60], [0.8, 80], [0.95, 100]],
   profitFactor:       [[0.8, 0], [1, 25], [1.25, 50], [1.5, 70], [2, 85], [3, 95], [5, 100]],
   expectancy:         [[0, 30], [1, 55], [10, 75], [100, 90], [1000, 100]], // USD/trade; recalibrate per size cohort
   maxDrawdownPct:     [[0, 100], [0.1, 88], [0.2, 70], [0.3, 50], [0.5, 25], [0.8, 5], [1, 0]],

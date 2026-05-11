@@ -5,7 +5,6 @@ const TRADING_DAYS_PER_YEAR = 365;
 export interface RatioMetrics {
   sharpe: number | null;
   sortino: number | null;
-  calmar: number | null;
   maxDrawdownPct: number | null;
   recoveryTimeDays: number | null;
   profitFactor: number | null;
@@ -22,7 +21,7 @@ export function annualizedSharpe(returns: number[], periodsPerYear = TRADING_DAY
 }
 
 /** Per-period (daily) Sharpe — mean/stdev of daily returns, NOT annualized.
- *  PSR/DSR consume this; annualization is purely a display transform. */
+ *  PSR consumes this; annualization is purely a display transform. */
 export function dailySharpe(returns: number[]): number | null {
   if (returns.length < 2) return null;
   const sd = sampleStandardDeviation(returns);
@@ -62,19 +61,6 @@ export function maxDrawdownPct(returns: number[]): number | null {
     if (dd > maxDd) maxDd = dd;
   }
   return Math.min(maxDd, 1);
-}
-
-/** Calmar = annualized return / max drawdown. */
-export function calmar(
-  returns: number[],
-  periodsPerYear = TRADING_DAYS_PER_YEAR,
-): number | null {
-  if (returns.length === 0) return null;
-  const dd = maxDrawdownPct(returns);
-  if (dd === null || dd === 0) return null;
-  const annualizedReturn =
-    Math.pow(returns.reduce((acc, r) => acc * (1 + r), 1), periodsPerYear / returns.length) - 1;
-  return annualizedReturn / dd;
 }
 
 /**

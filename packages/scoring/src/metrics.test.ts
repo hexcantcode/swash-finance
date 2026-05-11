@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   annualizedSharpe,
   annualizedSortino,
-  calmar,
   dailySharpe,
   excessKurtosis,
   expectancy,
@@ -71,18 +70,6 @@ describe('maxDrawdownPct', () => {
     const dd = maxDrawdownPct([0.1, -0.1, 0.05, -0.5]);
     expect(dd).toBeGreaterThan(0.4);
     expect(dd).toBeLessThan(0.55);
-  });
-});
-
-describe('calmar', () => {
-  it('is null when there is no drawdown', () => {
-    expect(calmar([0.01, 0.01, 0.01])).toBeNull();
-  });
-
-  it('is positive for profitable strategies with a small drawdown', () => {
-    const c = calmar([0.05, -0.02, 0.06, -0.01, 0.04]);
-    expect(c).not.toBeNull();
-    expect(c!).toBeGreaterThan(0);
   });
 });
 
