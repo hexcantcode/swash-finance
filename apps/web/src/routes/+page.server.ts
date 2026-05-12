@@ -4,7 +4,7 @@ import { listRecentTrades } from '$lib/server/queries/recent-trades';
 import { listTopByWeeklyRoi } from '$lib/server/queries/weekly-leaders';
 import type { PageServerLoad } from './$types';
 
-const ALLOWED_SORTS = ['composite_score', 'roi', 'frequency'] as const;
+const ALLOWED_SORTS = ['composite_score', 'pnl', 'equity', 'frequency'] as const;
 type Sort = (typeof ALLOWED_SORTS)[number];
 
 const QuerySchema = z.object({

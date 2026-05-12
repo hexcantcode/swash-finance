@@ -34,7 +34,6 @@
   }
 
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.limit)));
-  const rankOffset = $derived((data.page - 1) * data.limit);
 </script>
 
 <svelte:head>
@@ -78,7 +77,6 @@
       tagOptions={PROFILE_OPTIONS}
       activeTag={data.appliedFilters.profileTag}
       onTagChange={(v) => setParam('tag', v)}
-      {rankOffset}
     />
 
     <footer class="k-footer">

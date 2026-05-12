@@ -6,6 +6,8 @@ import { db } from '../db.js';
 export interface LeaderCard {
   address: string;
   composite_score: number | null;
+  /** Current account equity (USD) — `wallets.accountValue`. */
+  account_value: number | null;
   /** The "Profile" archetype (`wallets.primary_tag`) — alpha / veteran /
    *  rising_star / specialist / allrounder. */
   primary_tag: string | null;
@@ -70,7 +72,7 @@ export interface BrowseResult {
 
 export async function listLeaders(args: {
   filters: BrowseFilters;
-  sort: 'composite_score' | 'roi' | 'frequency';
+  sort: 'composite_score' | 'pnl' | 'equity' | 'frequency';
   page: number;
   limit: number;
 }): Promise<BrowseResult> {
@@ -116,14 +118,17 @@ export async function listLeaders(args: {
 
   const whereClause = and(...baseFilters, ...tagFilters);
 
-  // Frequency sorts by the trader's typical trades-per-day (the weekly average
-  // is just ×7 — same ordering); ROI by net-PnL %; default by composite.
+  // `frequency` sorts by typical trades-per-day (weekly avg is ×7 — same
+  // ordering); `pnl` by net PnL; `equity` by current account value; default by
+  // composite.
   const orderColumn =
-    sort === 'roi'
-      ? scores.netPnlPct
-      : sort === 'frequency'
-        ? scores.tradesPerDayAvg
-        : wallets.compositeScore;
+    sort === 'pnl'
+      ? scores.netPnlUsd
+      : sort === 'equity'
+        ? wallets.accountValue
+        : sort === 'frequency'
+          ? scores.tradesPerDayAvg
+          : wallets.compositeScore;
 
   const rows = await db()
     .select({
@@ -184,6 +189,7 @@ export async function listLeaders(args: {
   const leaders: LeaderCard[] = rows.map((r) => ({
     address: r.address,
     composite_score: r.composite_score,
+    account_value: numOrNull(r.account_value),
     primary_tag: r.primary_tag,
     secondary_tags: secondaryByAddress.get(r.address) ?? [],
     metrics: {

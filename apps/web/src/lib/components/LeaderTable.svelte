@@ -1,9 +1,12 @@
 <script lang="ts">
   import type { LeaderCard } from '$lib/server/queries/leaders';
+  import ScoreBars from './ScoreBars.svelte';
   import {
     compositeScoreClass,
     effigyUrl,
+    formatPnl,
     formatTradesPerWeek,
+    formatUsd,
     pnlSignClass,
     truncateAddress,
   } from '$lib/utils/format';
@@ -14,20 +17,18 @@
     serverSorted?: boolean;
     sort?: SortKey;
     onSortChange?: (key: SortKey) => void;
-    rankOffset?: number;
     tagOptions?: Array<{ value: string; label: string }>;
     activeTag?: string | undefined;
     onTagChange?: (value: string | undefined) => void;
   }
 
-  export type SortKey = 'composite_score' | 'roi' | 'frequency';
+  export type SortKey = 'composite_score' | 'pnl' | 'equity' | 'frequency';
 
   let {
     rows = [],
     serverSorted = false,
     sort = 'composite_score',
     onSortChange,
-    rankOffset = 0,
     tagOptions = [],
     activeTag = undefined,
     onTagChange,
@@ -62,8 +63,10 @@
     switch (key) {
       case 'composite_score':
         return row.composite_score;
-      case 'roi':
-        return row.metrics.roi;
+      case 'pnl':
+        return row.metrics.total_pnl_usd;
+      case 'equity':
+        return row.account_value;
       case 'frequency':
         return row.metrics.trades_per_week;
     }
@@ -96,19 +99,11 @@
     img.style.visibility = 'hidden';
   }
 
-  function formatRoi(value: number | null): string {
-    if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-    const pct = value * 100;
-    if (Math.abs(pct) >= 1000) return `${(pct / 100).toFixed(1)}x`;
-    if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
-    return `${pct.toFixed(1)}%`;
-  }
-
   // Keep the table a constant height — pad short result sets with empty rows.
   const MIN_ROWS = 10;
   const ghostCount = $derived(Math.max(0, MIN_ROWS - displayed.length));
 
-  // Tag column-header dropdown
+  // Profile column-header dropdown (filter).
   let tagMenuOpen = $state(false);
 
   function pickTag(value: string | undefined) {
@@ -138,7 +133,6 @@
   <table class="stripe-table" aria-label="Hyperliquid traders ranked by composite score">
     <thead>
       <tr>
-        <th class="stripe-table-numeric"><span class="sr-only">Rank</span>#</th>
         <th class="stripe-table-trader">Trader</th>
         <th class="stripe-table-numeric">
           {#if onTagChange}
@@ -194,14 +188,24 @@
             Score<span class="stripe-th-sort-indicator">{indicator('composite_score')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('roi')}>
+        <th class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
           <button
             type="button"
             class="k-th-sort-button"
-            class:is-active={activeSort === 'roi'}
-            onclick={() => setSort('roi')}
+            class:is-active={activeSort === 'pnl'}
+            onclick={() => setSort('pnl')}
           >
-            ROI<span class="stripe-th-sort-indicator">{indicator('roi')}</span>
+            PnL<span class="stripe-th-sort-indicator">{indicator('pnl')}</span>
+          </button>
+        </th>
+        <th class="stripe-table-numeric" aria-sort={ariaSort('equity')}>
+          <button
+            type="button"
+            class="k-th-sort-button"
+            class:is-active={activeSort === 'equity'}
+            onclick={() => setSort('equity')}
+          >
+            Equity<span class="stripe-th-sort-indicator">{indicator('equity')}</span>
           </button>
         </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
@@ -218,9 +222,8 @@
       </tr>
     </thead>
     <tbody>
-      {#each displayed as row, i (row.address)}
+      {#each displayed as row (row.address)}
         <tr>
-          <td class="stripe-table-numeric k-rank">{rankOffset + i + 1}</td>
           <td class="stripe-table-trader">
             <a class="k-trader-link" href="/trader/{row.address}">
               <img
@@ -236,24 +239,28 @@
           <td class="stripe-table-numeric">
             <span class="tag-chip {profileTagClass(row.primary_tag)}">{profileTagLabel(row.primary_tag)}</span>
           </td>
-          <td class="stripe-table-numeric {compositeScoreClass(row.composite_score)}">
-            {row.composite_score ?? '—'}
+          <td class="stripe-table-numeric">
+            <span class="k-score-cell">
+              <span class={compositeScoreClass(row.composite_score)}>{row.composite_score ?? '—'}</span>
+              <ScoreBars score={row.composite_score} />
+            </span>
           </td>
-          <td class="stripe-table-numeric {pnlSignClass(row.metrics.roi)}">
-            {formatRoi(row.metrics.roi)}
+          <td class="stripe-table-numeric {pnlSignClass(row.metrics.total_pnl_usd)}">
+            {formatPnl(row.metrics.total_pnl_usd)}
           </td>
+          <td class="stripe-table-numeric">{formatUsd(row.account_value)}</td>
           <td class="stripe-table-numeric">{formatTradesPerWeek(row.metrics.trades_per_week)}</td>
         </tr>
       {/each}
       {#each Array(ghostCount) as _, i (`ghost-${i}`)}
         <tr class="k-row-ghost" aria-hidden="true">
-          <td class="stripe-table-numeric k-rank">{rankOffset + displayed.length + i + 1}</td>
           <td class="stripe-table-trader">
             <span class="k-trader-link">
               <span class="stripe-avatar stripe-avatar-sm k-avatar-ghost"></span>
               <span>—</span>
             </span>
           </td>
+          <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>

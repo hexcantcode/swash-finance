@@ -8,7 +8,7 @@ const QuerySchema = z.object({
   heat: z.string().optional(),
   search: z.string().optional(),
   min: z.coerce.number().optional(),
-  sort: z.enum(['composite_score', 'roi', 'frequency']).optional(),
+  sort: z.enum(['composite_score', 'pnl', 'equity', 'frequency']).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

@@ -5,6 +5,7 @@
     effigyUrl,
     formatPct,
     formatPnl,
+    formatUsd,
     pnlSignClass,
     truncateAddress,
   } from '$lib/utils/format';
@@ -26,11 +27,6 @@
     if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
     return `${pct.toFixed(1)}%`;
   }
-
-  function formatRatio(value: number | null): string {
-    if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-    return value.toFixed(2);
-  }
 </script>
 
 <div class="k-card-scroll" aria-label="Winners — HL 7d-ROI top traders, ranked by score">
@@ -47,7 +43,6 @@
         <span class="k-roi-card-addr">{truncateAddress(row.address)}</span>
         <span
           class="k-roi-card-head-score {compositeScoreClass(row.composite_score)}"
-          style="margin-left: auto;"
           title="Composite score"
         >
           {row.composite_score ?? '—'}
@@ -68,8 +63,8 @@
           <span class="k-roi-card-stat-label">Win rate</span>
         </div>
         <div class="k-roi-card-stat">
-          <span class="k-roi-card-stat-val">{formatRatio(row.sortino)}</span>
-          <span class="k-roi-card-stat-label">Sortino</span>
+          <span class="k-roi-card-stat-val">{formatUsd(row.account_value_usd)}</span>
+          <span class="k-roi-card-stat-label">Equity</span>
         </div>
       </div>
     </a>

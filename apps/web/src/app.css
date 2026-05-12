@@ -339,8 +339,8 @@ body {
 }
 
 .k-topnav-logo {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: block;
 }
 
@@ -601,6 +601,9 @@ body {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
   min-width: 640px;
+  /* default cell color — set here (not on td) so per-cell utility classes
+     (e.g. .k-pnl-positive / .k-pnl-negative) win via a direct match on the td. */
+  color: var(--stripe-text-secondary);
 }
 
 .stripe-table th {
@@ -619,7 +622,6 @@ body {
   padding: 14px var(--space-3);
   font-size: 13px;
   border-bottom: 1px solid var(--stripe-border);
-  color: var(--stripe-text-secondary);
   text-align: center;
 }
 
@@ -703,11 +705,16 @@ body {
   vertical-align: middle;
 }
 
-.k-rank {
-  color: var(--stripe-accent);
-  font-size: 12px;
-  width: 36px;
-  font-variant-numeric: tabular-nums;
+/* Score column / card cell: a tiny bonding-curve sparkline + the number. */
+/* Score cell: the number + a ten-bar meter (one lit bar per 10 points). */
+.k-score-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.k-score-bars {
+  display: block;
+  flex: 0 0 auto;
 }
 
 /* Empty/placeholder rows that pad a short result set to a fixed height */
@@ -771,91 +778,6 @@ body {
   border: 1px solid var(--stripe-border);
 }
 
-/* ── Risk filter (leaderboard section head) ──────────────── */
-.k-section-risk {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex: 0 0 auto;
-}
-
-.k-section-risk-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--stripe-text-tertiary);
-  flex: 0 0 auto;
-}
-
-.k-section-risk-btns {
-  display: flex;
-  gap: var(--space-1);
-}
-
-.k-risk-btn {
-  padding: 5px 11px;
-  font-size: 11px;
-}
-
-.k-risk-btn.is-active {
-  background: var(--stripe-accent);
-  border-color: var(--stripe-accent);
-  color: #000;
-  font-weight: 600;
-}
-.k-risk-btn.is-active:hover {
-  box-shadow: 0 0 16px rgba(106, 220, 197, 0.3);
-}
-
-/* ── Tag column-header dropdown ───────────────────────────── */
-.k-th-tag {
-  position: relative;
-  display: inline-block;
-}
-
-.k-th-tag-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 30;
-  min-width: 140px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: var(--space-1);
-  background: var(--stripe-bg-primary);
-  border: 0.5px solid var(--stripe-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-}
-
-.k-th-tag-opt {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: normal;
-  text-transform: none;
-  color: var(--stripe-text-secondary);
-  text-align: left;
-  transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.k-th-tag-opt:hover {
-  background: var(--stripe-bg-hover);
-  color: var(--stripe-text-primary);
-}
-
-.k-th-tag-opt.is-active {
-  color: var(--stripe-accent);
-}
 
 .k-filter-search {
   flex: 1;
@@ -1526,7 +1448,7 @@ body {
 
 .k-roi-card {
   flex: 0 0 auto;
-  width: 252px;
+  width: 224px;
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
@@ -1566,10 +1488,19 @@ body {
   white-space: nowrap;
 }
 
+.k-roi-card-head-score {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
 .k-roi-card-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3) var(--space-2);
 }
 
 .k-roi-card-stat {
