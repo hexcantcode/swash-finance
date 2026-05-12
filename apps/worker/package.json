@@ -13,6 +13,7 @@
     "leaderboard": "tsx src/cli.ts leaderboard",
     "score": "tsx src/cli.ts score",
     "refresh-queue": "tsx src/cli.ts refresh-queue",
+    "leaderboard-poll": "tsx src/cli.ts leaderboard-poll",
     "refresh-leader": "tsx src/cli.ts refresh-leader",
     "calibrate": "tsx src/scripts/calibrate-curves.ts"
   },
