@@ -21,7 +21,8 @@ export interface WeeklyLeaderRow {
 /**
  * The "Winners" cards: the canonical winner set — `wallets.winner` — which the
  * `leaderboard-poll` job computes as HL's top-10 by 7d ROI passing the noise
- * filter (account value ≥ $10K, 7d volume ≥ $100K, ROI sanity). One source of
+ * filter (account value ≥ MIN_ACCOUNT_VALUE_USD ($25K), 7d volume ≥ $100K, ROI
+ * sanity). One source of
  * truth: this is the same set the live-WS subscriber tracks; `wallets.winner` /
  * `wallets.winnerRank` are owned by `leaderboard-poll`, and the HL 7d numbers
  * (`hlRoi7d` / `hlPnl7dUsd` / `hlVolume7dUsd`) by that same job's upsert.

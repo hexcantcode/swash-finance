@@ -6,6 +6,7 @@ import {
   topByWindowPnl,
   type LeaderboardRow,
 } from '@copytrade/hl-client';
+import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { log } from '../log.js';
 import { persistAndQueueLeaderboardRows } from './leaderboard-ingest.js';
@@ -50,8 +51,9 @@ export interface LeaderboardPollOptions {
 
 // ── Winner-set noise filter ─────────────────────────────────────────────────
 // What a *raw* HL leaderboard row can support — no ingested fill history yet.
-/** Min current account value (USD) for a winner. */
-const WINNER_MIN_ACCOUNT_VALUE_USD = 10_000;
+// The account-value floor is the shared listing/curation floor (MIN_ACCOUNT_VALUE_USD,
+// owned by @copytrade/scoring) — the winner set, the leaderboard list, and the
+// curation gate all use the same number.
 /** Min 7d volume (USD) for a winner — rejects tiny-account churners. */
 const WINNER_MIN_7D_VOLUME_USD = 100_000;
 /** ROI sanity: a 7d ROI above this (5000%/wk) is the $0→profit→withdraw / 100×-tiny-account garbage. */
@@ -60,7 +62,7 @@ const MAX_SANE_7D_ROI = 50;
 const WINNER_LIMIT = 10;
 
 function passesWinnerFilter(r: LeaderboardRow): boolean {
-  if (!(r.accountValue >= WINNER_MIN_ACCOUNT_VALUE_USD)) return false;
+  if (!(r.accountValue >= MIN_ACCOUNT_VALUE_USD)) return false;
   if (!(r.week.vlm >= WINNER_MIN_7D_VOLUME_USD)) return false;
   const roi = r.week.roi;
   if (!Number.isFinite(roi)) return false;
