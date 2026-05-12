@@ -19,6 +19,10 @@ export interface LeaderCard {
     avg_hold_seconds: number | null;
   };
   primary_asset: string | null;
+  /** True iff this wallet is in the curated "best traders" set (passed the
+   * eligibility gate AND composite >= 70, with ~65 hysteresis). The main-page
+   * leaderboard should pass `curatedOnly: true`; `/browse` shows everything. */
+  curated: boolean;
   /**
    * Last-traded time as of the last scoring run (`scores.lastTradeAt`) — the
    * same tier as every other column in this card. The trader profile page
@@ -36,6 +40,8 @@ export interface BrowseFilters {
   cadenceTag?: string | undefined;
   minScore?: number | undefined;
   search?: string | undefined;
+  /** When true, restrict to the curated "best traders" set (`wallets.curated`). */
+  curatedOnly?: boolean | undefined;
 }
 
 export interface BrowseResult {
@@ -59,6 +65,10 @@ export async function listLeaders(args: {
 
   if (filters.minScore !== undefined) {
     baseFilters.push(gte(wallets.compositeScore, filters.minScore));
+  }
+
+  if (filters.curatedOnly) {
+    baseFilters.push(eq(wallets.curated, true));
   }
 
   if (filters.search) {
@@ -96,6 +106,7 @@ export async function listLeaders(args: {
       address: wallets.address,
       composite_score: wallets.compositeScore,
       primary_tag: wallets.primaryTag,
+      curated: wallets.curated,
       total_pnl_usd: scores.netPnlUsd,
       total_volume_usd: scores.totalVolumeUsd,
       roi: scores.netPnlPct,
@@ -157,6 +168,7 @@ export async function listLeaders(args: {
       avg_hold_seconds: r.avg_hold_seconds,
     },
     primary_asset: r.primary_asset,
+    curated: r.curated,
     last_active_at: r.last_active_at?.toISOString() ?? null,
     score_computed_at: r.score_computed_at?.toISOString() ?? null,
   }));
