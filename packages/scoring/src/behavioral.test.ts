@@ -9,6 +9,7 @@ describe('computeBehavioral', () => {
     expect(m.uniqueAssets).toBe(0);
     expect(m.makerTakerRatio).toBe(0);
     expect(m.assetConcentration).toBe(0);
+    expect(m.roundTrips).toBe(0);
     expect(m.primaryAsset).toBeNull();
     expect(m.longShortRatio).toBeNull();
   });
@@ -71,5 +72,27 @@ describe('computeBehavioral', () => {
       { activeDays: 2 },
     );
     expect(m.avgHoldSeconds).toBe(86400);
+  });
+
+  it('roundTrips counts only fills that take a position flat (partial reductions do not)', () => {
+    const m = computeBehavioral(
+      [
+        // open long 3
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: 0, crossed: true },
+        // reduce to 1 — not flat, no round trip
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '2', startPosition: '3', crossed: true },
+        // reduce to 0 — round trip #1
+        { blockTimeMs: day(3), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true },
+        // open short 1
+        { blockTimeMs: day(4), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: 0, crossed: true },
+        // buy 3 — flips through zero to +2 — round trip #2
+        { blockTimeMs: day(5), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: '-1', crossed: true },
+        // independent ETH round trip — #3
+        { blockTimeMs: day(6), coin: 'ETH', side: 'B', px: '1', sz: '1', startPosition: 0, crossed: true },
+        { blockTimeMs: day(7), coin: 'ETH', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true },
+      ],
+      { activeDays: 7 },
+    );
+    expect(m.roundTrips).toBe(3);
   });
 });

@@ -3,11 +3,11 @@
   import {
     compositeScoreClass,
     effigyUrl,
-    formatRelativeTime,
+    formatTradesPerWeek,
     pnlSignClass,
     truncateAddress,
   } from '$lib/utils/format';
-  import { mainTagClass, mainTagLabel } from '$lib/utils/tags';
+  import { profileTagClass, profileTagLabel } from '$lib/utils/tags';
 
   interface Props {
     rows: LeaderCard[];
@@ -20,7 +20,7 @@
     onTagChange?: (value: string | undefined) => void;
   }
 
-  export type SortKey = 'composite_score' | 'roi' | 'last_active';
+  export type SortKey = 'composite_score' | 'roi' | 'frequency';
 
   let {
     rows = [],
@@ -64,8 +64,8 @@
         return row.composite_score;
       case 'roi':
         return row.metrics.roi;
-      case 'last_active':
-        return row.last_active_at ? new Date(row.last_active_at).getTime() : null;
+      case 'frequency':
+        return row.metrics.trades_per_week;
     }
   }
 
@@ -151,8 +151,8 @@
                 aria-expanded={tagMenuOpen}
                 onclick={() => (tagMenuOpen = !tagMenuOpen)}
               >
-                {activeTag ? mainTagLabel(activeTag) : 'Tag'}<span class="stripe-th-sort-indicator"
-                  >▾</span
+                {activeTag ? profileTagLabel(activeTag) : 'Profile'}<span
+                  class="stripe-th-sort-indicator">▾</span
                 >
               </button>
               {#if tagMenuOpen}
@@ -181,7 +181,7 @@
               {/if}
             </div>
           {:else}
-            Tag
+            Profile
           {/if}
         </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('composite_score')}>
@@ -204,14 +204,15 @@
             ROI<span class="stripe-th-sort-indicator">{indicator('roi')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('last_active')}>
+        <th class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
           <button
             type="button"
             class="k-th-sort-button"
-            class:is-active={activeSort === 'last_active'}
-            onclick={() => setSort('last_active')}
+            class:is-active={activeSort === 'frequency'}
+            onclick={() => setSort('frequency')}
+            title="Weekly trade average"
           >
-            Last active<span class="stripe-th-sort-indicator">{indicator('last_active')}</span>
+            Frequency<span class="stripe-th-sort-indicator">{indicator('frequency')}</span>
           </button>
         </th>
       </tr>
@@ -233,7 +234,7 @@
             </a>
           </td>
           <td class="stripe-table-numeric">
-            <span class="tag-chip {mainTagClass(row.primary_tag)}">{mainTagLabel(row.primary_tag)}</span>
+            <span class="tag-chip {profileTagClass(row.primary_tag)}">{profileTagLabel(row.primary_tag)}</span>
           </td>
           <td class="stripe-table-numeric {compositeScoreClass(row.composite_score)}">
             {row.composite_score ?? '—'}
@@ -241,7 +242,7 @@
           <td class="stripe-table-numeric {pnlSignClass(row.metrics.roi)}">
             {formatRoi(row.metrics.roi)}
           </td>
-          <td class="stripe-table-numeric">{formatRelativeTime(row.last_active_at)}</td>
+          <td class="stripe-table-numeric">{formatTradesPerWeek(row.metrics.trades_per_week)}</td>
         </tr>
       {/each}
       {#each Array(ghostCount) as _, i (`ghost-${i}`)}

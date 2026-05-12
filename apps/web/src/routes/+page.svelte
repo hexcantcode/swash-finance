@@ -11,18 +11,13 @@
   }
   let { data }: Props = $props();
 
-  const TAG_OPTIONS: Array<{ value: string; label: string }> = [
-    { value: 'alpha_hunter', label: 'Alpha' },
+  // Profile archetype filter options (the "Profile" column dropdown).
+  const PROFILE_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'alpha', label: 'Alpha' },
     { value: 'veteran', label: 'Veteran' },
-    { value: 'insider', label: 'Insider' },
+    { value: 'rising_star', label: 'Rising Star' },
     { value: 'specialist', label: 'Specialist' },
-    { value: 'dark_horse', label: 'Dark horse' },
-  ];
-
-  const RISK_OPTIONS: Array<{ value: string; label: string }> = [
-    { value: 'conservative', label: 'Conservative' },
-    { value: 'balanced', label: 'Balanced' },
-    { value: 'aggressive', label: 'Aggressive' },
+    { value: 'allrounder', label: 'All-Rounder' },
   ];
 
   function setParam(key: string, value: string | undefined): void {
@@ -72,22 +67,7 @@
   <section class="k-trader-section">
     <div class="k-section-head">
       <h2 class="k-section-title">Leaderboard</h2>
-      <div class="k-section-risk">
-        <span class="k-section-risk-label">Risk</span>
-        <div class="k-section-risk-btns">
-          {#each RISK_OPTIONS as opt (opt.value)}
-            {@const active = data.appliedFilters.riskTag === opt.value}
-            <button
-              type="button"
-              class="btn-poly k-risk-btn"
-              class:is-active={active}
-              onclick={() => setParam('risk', active ? undefined : opt.value)}
-            >
-              {opt.label}
-            </button>
-          {/each}
-        </div>
-      </div>
+      <span class="stripe-text-tertiary stripe-body-sm">ranked by composite score</span>
     </div>
 
     <LeaderTable
@@ -95,8 +75,8 @@
       serverSorted
       sort={data.sort as SortKey}
       onSortChange={setSort}
-      tagOptions={TAG_OPTIONS}
-      activeTag={data.appliedFilters.mainTag}
+      tagOptions={PROFILE_OPTIONS}
+      activeTag={data.appliedFilters.profileTag}
       onTagChange={(v) => setParam('tag', v)}
       {rankOffset}
     />

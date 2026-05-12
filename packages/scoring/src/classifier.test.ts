@@ -1,129 +1,158 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyAssetClass,
-  classifyCadence,
   classifyHeat,
-  classifyMainTag,
-  classifyRisk,
+  classifyProfile,
   classifySize,
-  type ClassifierInputs,
+  type ProfileInputs,
 } from './classifier.js';
 
-const baseInputs: ClassifierInputs = {
-  totalTrades: 0,
-  activeDays: 0,
-  firstSeenDaysAgo: 100,
-  lastTradeDaysAgo: 0,
-  psr: 0,
+// A wallet that matches no archetype: tiny sample, no PSR, diversified.
+const base: ProfileInputs = {
+  roundTrips: 20,
+  daysOfData: 40,
+  lastTradeDaysAgo: 1,
+  psr: null,
   maxDrawdownPct: 0.2,
-  assetConcentration: 0,
-  tradesPerDayAvg: 0,
-  primaryAsset: null,
-  primaryAssetClass: null,
-  avgHoldSeconds: null,
-  totalVolumeUsd: 0,
-  recentRollingSharpe: null,
+  assetConcentration: 0.2,
+  tradesPerDayAvg: 1,
+  primaryAssetClass: 'altcoin',
+  monthlyConsistency: 0.3,
+  rolling30dSharpe: null,
   peakRollingSharpe: null,
-  longShortRatio: null,
-  fundingPnlPct: null,
+  accountValueUsd: 1_000_000,
 };
 
-describe('classifyMainTag', () => {
-  it('falls through to generalist for a wallet matching no specific archetype', () => {
-    expect(classifyMainTag(baseInputs)).toBe('generalist');
+describe('classifyProfile', () => {
+  it('falls through to allrounder when nothing matches', () => {
+    expect(classifyProfile(base)).toBe('allrounder');
   });
 
-  it('classifies fresh + concentrated + low-cadence as insider', () => {
+  it('alpha: concentrated, low-cadence, lethal PSR, controlled DD, non-bluechip', () => {
     expect(
-      classifyMainTag({
-        ...baseInputs,
-        firstSeenDaysAgo: 30,
+      classifyProfile({
+        ...base,
         assetConcentration: 0.8,
         tradesPerDayAvg: 2,
-        totalTrades: 10,
+        roundTrips: 30,
+        psr: 0.96,
+        maxDrawdownPct: 0.2,
+        primaryAssetClass: 'altcoin',
+        lastTradeDaysAgo: 3,
       }),
-    ).toBe('insider');
+    ).toBe('alpha');
   });
 
-  it('classifies dominant-asset 50+ trades as specialist (when not insider)', () => {
+  it('not alpha if the primary market is bluechip', () => {
     expect(
-      classifyMainTag({
-        ...baseInputs,
-        firstSeenDaysAgo: 200,
+      classifyProfile({
+        ...base,
         assetConcentration: 0.8,
-        totalTrades: 100,
+        tradesPerDayAvg: 2,
+        roundTrips: 30,
+        psr: 0.96,
+        maxDrawdownPct: 0.2,
+        primaryAssetClass: 'bluechip',
+      }),
+    ).not.toBe('alpha');
+  });
+
+  it('not alpha if drawdown is uncontrolled — falls to specialist', () => {
+    expect(
+      classifyProfile({
+        ...base,
+        assetConcentration: 0.8,
+        roundTrips: 60,
+        psr: 0.96,
+        maxDrawdownPct: 0.5,
+        primaryAssetClass: 'altcoin',
       }),
     ).toBe('specialist');
   });
 
-  it('classifies 500+ trades / 365+ days / PSR≥0.8 as veteran', () => {
+  it('veteran: long span, big sample, consistent, decent PSR', () => {
     expect(
-      classifyMainTag({
-        ...baseInputs,
-        firstSeenDaysAgo: 500,
-        totalTrades: 600,
-        activeDays: 400,
+      classifyProfile({
+        ...base,
+        daysOfData: 75,
+        roundTrips: 800,
+        monthlyConsistency: 0.7,
         psr: 0.85,
-        assetConcentration: 0.4,
+        assetConcentration: 0.3,
       }),
     ).toBe('veteran');
   });
 
-  it('classifies PSR>0.95 + ≥100 trades + ≥90 days + DD<30% as alpha_hunter', () => {
+  it('rising_star: small book near the floor, short record, recent Sharpe near peak', () => {
     expect(
-      classifyMainTag({
-        ...baseInputs,
-        firstSeenDaysAgo: 200,
-        totalTrades: 150,
-        activeDays: 120,
-        psr: 0.97,
-        maxDrawdownPct: 0.2,
-        assetConcentration: 0.4,
-      }),
-    ).toBe('alpha_hunter');
-  });
-
-  it('classifies <50 trades + PSR>0.9 + recent activity as dark_horse', () => {
-    expect(
-      classifyMainTag({
-        ...baseInputs,
-        firstSeenDaysAgo: 200,
-        totalTrades: 30,
-        psr: 0.93,
-        lastTradeDaysAgo: 3,
+      classifyProfile({
+        ...base,
+        accountValueUsd: 60_000,
+        daysOfData: 50,
+        roundTrips: 40,
+        psr: 0.9,
+        rolling30dSharpe: 1.8,
+        peakRollingSharpe: 2.0,
+        lastTradeDaysAgo: 5,
         assetConcentration: 0.3,
       }),
-    ).toBe('dark_horse');
+    ).toBe('rising_star');
   });
-});
 
-describe('classifyCadence', () => {
-  it('null when hold unknown', () => {
-    expect(classifyCadence(null)).toBeNull();
+  it('not rising_star once the book is large ($300k) — diversified ⇒ allrounder', () => {
+    expect(
+      classifyProfile({
+        ...base,
+        accountValueUsd: 300_000,
+        daysOfData: 50,
+        roundTrips: 40,
+        psr: 0.9,
+        rolling30dSharpe: 1.8,
+        peakRollingSharpe: 2.0,
+        assetConcentration: 0.3,
+      }),
+    ).toBe('allrounder');
   });
-  it('< 5 min ⇒ scalp', () => {
-    expect(classifyCadence(60)).toBe('scalp');
-  });
-  it('< 24h ⇒ intraday', () => {
-    expect(classifyCadence(3600)).toBe('intraday');
-  });
-  it('< 7d ⇒ swing', () => {
-    expect(classifyCadence(2 * 86400)).toBe('swing');
-  });
-  it('≥ 7d ⇒ position', () => {
-    expect(classifyCadence(10 * 86400)).toBe('position');
-  });
-});
 
-describe('classifyRisk', () => {
-  it('< 15% DD ⇒ conservative', () => {
-    expect(classifyRisk(0.1, null)).toBe('conservative');
+  it('rising_star needs a known account value', () => {
+    expect(
+      classifyProfile({
+        ...base,
+        accountValueUsd: null,
+        daysOfData: 50,
+        roundTrips: 40,
+        psr: 0.9,
+        rolling30dSharpe: 1.8,
+        peakRollingSharpe: 2.0,
+        assetConcentration: 0.3,
+      }),
+    ).toBe('allrounder');
   });
-  it('< 40% DD ⇒ balanced', () => {
-    expect(classifyRisk(0.3, null)).toBe('balanced');
+
+  it('specialist: concentrated, enough round-trips, no info edge', () => {
+    expect(
+      classifyProfile({
+        ...base,
+        assetConcentration: 0.75,
+        roundTrips: 120,
+        psr: 0.4,
+        primaryAssetClass: 'altcoin',
+      }),
+    ).toBe('specialist');
   });
-  it('≥ 40% DD ⇒ aggressive', () => {
-    expect(classifyRisk(0.6, null)).toBe('aggressive');
+
+  it('quality archetypes beat behavioral ones: a high-PSR concentrated wallet is alpha, not specialist', () => {
+    const inputs: ProfileInputs = {
+      ...base,
+      assetConcentration: 0.8,
+      roundTrips: 60,
+      tradesPerDayAvg: 2,
+      psr: 0.97,
+      maxDrawdownPct: 0.2,
+      primaryAssetClass: 'altcoin',
+      lastTradeDaysAgo: 2,
+    };
+    expect(classifyProfile(inputs)).toBe('alpha');
   });
 });
 

@@ -7,6 +7,7 @@
     formatPct,
     formatPnl,
     formatRelativeTime,
+    formatTradesPerWeek,
     formatUsd,
     pnlSignClass,
     shortAddress,
@@ -155,7 +156,7 @@
           </a>
         </div>
         <p class="stripe-text-tertiary stripe-body-sm">
-          last active {formatRelativeTime(data.leader.last_seen_at)}
+          last trade {formatRelativeTime(data.leader.last_trade_at)}
           {#if data.leader.scoring?.computed_at}
             · scored {formatRelativeTime(data.leader.scoring.computed_at)}
           {/if}
@@ -220,6 +221,16 @@
       <div class="k-trader-stat">
         <span class="k-trader-stat-label">Trades</span>
         <span class="k-trader-stat-value">{(data.leader.scoring?.total_trades ?? 0).toLocaleString()}</span>
+      </div>
+      <div class="k-trader-stat">
+        <span class="k-trader-stat-label">Frequency</span>
+        <span class="k-trader-stat-value" title="Weekly trade average">
+          {formatTradesPerWeek(
+            data.leader.scoring?.trades_per_day_avg != null
+              ? data.leader.scoring.trades_per_day_avg * 7
+              : null,
+          )}
+        </span>
       </div>
     </div>
   </header>

@@ -4,15 +4,12 @@ import { listRecentTrades } from '$lib/server/queries/recent-trades';
 import { listTopByWeeklyRoi } from '$lib/server/queries/weekly-leaders';
 import type { PageServerLoad } from './$types';
 
-const ALLOWED_SORTS = ['composite_score', 'roi', 'last_active'] as const;
+const ALLOWED_SORTS = ['composite_score', 'roi', 'frequency'] as const;
 type Sort = (typeof ALLOWED_SORTS)[number];
 
 const QuerySchema = z.object({
-  tag: z.string().optional(),
-  asset: z.string().optional(),
-  risk: z.string().optional(),
+  tag: z.string().optional(), // → profile archetype
   heat: z.string().optional(),
-  cadence: z.string().optional(),
   search: z.string().optional(),
   min: z.coerce.number().optional(),
   sort: z.enum(ALLOWED_SORTS).optional(),
@@ -25,11 +22,8 @@ export const load: PageServerLoad = async ({ url }) => {
   const params = parsed.success ? parsed.data : {};
 
   const filters: BrowseFilters = {
-    mainTag: params.tag,
-    assetTag: params.asset,
-    riskTag: params.risk,
+    profileTag: params.tag,
     heatTag: params.heat,
-    cadenceTag: params.cadence,
     minScore: params.min,
     search: params.search,
   };

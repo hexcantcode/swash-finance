@@ -20,8 +20,8 @@
     only makes the list if it clears a real bar:
   </p>
   <ul style="margin-top: 12px; padding-left: 24px; line-height: 1.8; color: var(--stripe-text-secondary);">
-    <li>≥ $10K account value and ≥ $100K traded volume.</li>
-    <li>a genuine track record — first seen ≥ 90 days ago, ≥ 30 active trading days, enough round-trip trades that the numbers aren't noise.</li>
+    <li>≥ $25K account value and ≥ $100K traded volume. The $25K floor also gates the leaderboard itself — below it a wallet isn't scored or shown at all.</li>
+    <li>a genuine track record — first seen ≥ 90 days ago, ≥ 30 active trading days, ≥ 30 completed round-trips so the numbers aren't noise.</li>
     <li>a reconstructable capital base (we can tell what they put in); if not, the wallet shows "insufficient data" rather than a fabricated return.</li>
     <li>not a market-maker or grid bot — those get a <code style="font-family: var(--font-mono); color: var(--stripe-accent);">market maker</code> tag and stay scoreable, but never appear in the curated list.</li>
   </ul>
@@ -69,8 +69,8 @@
   <h2 class="stripe-heading-md" style="margin-top: 40px;">5. the composite (0–100)</h2>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
     Each metric below is mapped onto a 0–100 scale by a curve calibrated against real Hyperliquid
-    wallet histories. The composite is the <strong>median</strong> of the eight — median, not a sum
-    or an average, so one freak metric can't inflate or tank the score.
+    wallet histories. A wallet's <strong>quality</strong> is the <strong>median</strong> of the
+    seven — median, not a sum or an average, so one freak metric can't inflate or tank it.
   </p>
   <div class="k-table-wrap" style="margin-top: 16px;">
     <table class="stripe-table" style="min-width: 0;">
@@ -86,7 +86,6 @@
           ['Sortino', 'return per unit of downside volatility (track-record weighted)'],
           ['Probabilistic Sharpe', 'confidence the Sharpe is real, given sample size & tails'],
           ['Profit factor', 'gross winning vs. gross losing'],
-          ['Expectancy', 'average outcome per trade'],
           ['Max drawdown', 'worst peak-to-trough decline (smaller is better)'],
           ['Recovery time', 'how fast they climb back from a drawdown (faster is better)'],
           ['Monthly consistency', 'share of months net-positive, penalising blow-up months'],
@@ -100,22 +99,26 @@
     </table>
   </div>
   <p class="stripe-text-secondary" style="margin-top: 16px; line-height: 1.7;">
-    A wallet with under ~90 days of history is capped and flagged <em>provisional</em>. It's the
-    same number everywhere — the group tags below are filters over it, not separate scores.
+    The composite is that quality scaled by a <strong>copyability</strong> factor (0–1): how much of
+    the strategy a follower could actually mirror — capital still in the account, sample size,
+    track-record length, leverage, single-asset concentration. A withdrawn-out account, a bot
+    pattern, or a wallet with no reconstructable capital base scores 0 no matter how good the raw
+    numbers look. A wallet with under ~90 days of history is flagged <em>provisional</em>. It's the
+    same number everywhere — the tags below describe a trader, they don't change the score.
   </p>
 
-  <h2 class="stripe-heading-md" style="margin-top: 40px;">6. group tags</h2>
+  <h2 class="stripe-heading-md" style="margin-top: 40px;">6. tags</h2>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
-    The score tells you "how good" — the tag tells you "what kind." A scalper and a swing trader
-    with the same composite need different copy strategies; we don't merge them.
+    The score says "how good" — the <strong>Profile</strong> says "what kind." Every scored wallet
+    gets exactly one, picked in priority order (the rarest, highest-signal label wins):
   </p>
   <div style="margin-top: 16px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
     {#each [
-      { tag: 'alpha_hunter', desc: 'Proven directional skill at meaningful sample — high PSR, plenty of trades, controlled drawdown.' },
-      { tag: 'veteran', desc: 'Long history, large sample, performance that has held up over time.' },
-      { tag: 'insider', desc: 'Fresh wallet with concentrated, event-driven activity.' },
-      { tag: 'specialist', desc: 'Dominant in one asset or category — most of their volume in a single market.' },
-      { tag: 'dark_horse', desc: 'Small sample but a strong, recent signal — one to watch, not yet proven.' },
+      { tag: 'alpha', desc: 'Moves with information — concentrated, event-driven entries with a lethal hit-rate. High PSR on a small, focused sample; controlled drawdown.' },
+      { tag: 'veteran', desc: 'Battle-tested — a long observable history and a large sample, with performance that has held up. Hundreds of round-trips, consistent month to month.' },
+      { tag: 'rising_star', desc: 'A small book near the listing floor with strong recent form — one to watch. $25K–$250K equity, short record or modest sample, recent Sharpe near its peak.' },
+      { tag: 'specialist', desc: 'A one-asset operator — most of their volume in a single market, without a proven information edge.' },
+      { tag: 'allrounder', desc: 'A solid, active, diversified trader without a sharper archetype — the catch-all.' },
     ] as item (item.tag)}
       <div class="k-card">
         <Tag tag={item.tag} />
@@ -126,9 +129,9 @@
     {/each}
   </div>
   <p class="stripe-text-secondary" style="margin-top: 16px; line-height: 1.7;">
-    Alongside the archetype, every trader carries lighter tags for cadence (scalp / intraday / swing
-    / position), risk (conservative / balanced / aggressive), size (whale → micro by volume), and
-    asset class (bluechip / altcoin / meme / stocks).
+    Two lighter tags ride along: <strong>heat</strong> (hot / steady / cooling — recent rolling
+    Sharpe vs. its peak) and <strong>size</strong> (whale → micro, by lifetime volume). Market-maker
+    / grid-bot wallets stay scoreable but get a <code style="font-family: var(--font-mono); color: var(--stripe-accent);">market maker</code> tag and never enter the curated list.
   </p>
 
   <h2 class="stripe-heading-md" style="margin-top: 40px;">7. staying current</h2>

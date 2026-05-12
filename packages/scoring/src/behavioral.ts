@@ -19,6 +19,9 @@ export interface BehavioralMetrics {
   longShortRatio: number | null; // sum(buy_sz) / sum(sell_sz)
   uniqueAssets: number;
   totalNotional: Decimal;
+  /** Real round-trip count: per-coin position open→flat (or flip-through-zero)
+   *  events. A far better sample-size proxy than raw fill count. */
+  roundTrips: number;
 }
 
 export function computeBehavioral(
@@ -35,6 +38,7 @@ export function computeBehavioral(
       longShortRatio: null,
       uniqueAssets: 0,
       totalNotional: d(0),
+      roundTrips: 0,
     };
   }
 
@@ -78,6 +82,7 @@ export function computeBehavioral(
   const tradesPerDayAvg = args.activeDays > 0 ? fills.length / args.activeDays : fills.length;
 
   const avgHoldSeconds = computeAvgHoldSeconds(sortedByTime);
+  const roundTrips = countRoundTrips(sortedByTime);
 
   return {
     avgHoldSeconds,
@@ -88,7 +93,30 @@ export function computeBehavioral(
     longShortRatio,
     uniqueAssets: perCoinNotional.size,
     totalNotional,
+    roundTrips,
   };
+}
+
+/**
+ * Count completed round trips: per coin, every fill that takes a non-zero
+ * position to flat — or flips it through zero to the other side — closes one
+ * round trip. Partial reductions don't count; only the fill that hits/crosses
+ * zero does. Uses HL's `startPosition` (position *before* the fill) so no
+ * running-position reconstruction is needed; null `startPosition` ⇒ treated as
+ * flat (the fill is an open, not a close).
+ */
+function countRoundTrips(sorted: BehavioralFill[]): number {
+  let count = 0;
+  for (const f of sorted) {
+    const start = f.startPosition !== null ? d(f.startPosition) : d(0);
+    if (start.isZero()) continue; // opening from flat — no round trip closed
+    const signed = f.side === 'B' ? d(f.sz) : d(f.sz).negated();
+    const result = start.plus(signed);
+    // Closed if it lands exactly flat, or crosses zero (sign flip).
+    const startedLong = start.gt(0);
+    if (result.isZero() || (startedLong ? result.lt(0) : result.gt(0))) count += 1;
+  }
+  return count;
 }
 
 /**

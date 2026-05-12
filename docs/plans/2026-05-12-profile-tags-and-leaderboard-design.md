@@ -1,7 +1,18 @@
 # Leaderboard cleanup + "Profile" tag redesign — design
 
 Date: 2026-05-12
-Status: approved (brainstorm)
+Status: implemented on branch `profile-tags-leaderboard` (worktree). `pnpm check` clean; `pnpm --filter @copytrade/scoring test` green (138).
+
+## Post-deploy step (not a migration — see CLAUDE.md on the migration drift)
+
+After deploying, run a full `runScoreRecompute()` so every candidate wallet's
+`wallet_tags` is rewritten to the `profile/heat/size` groups and `wallets.primary_tag`
+gets a new-taxonomy value. Stale rows for wallets that are no longer scoring
+candidates (e.g. now below the strict $25k floor) are harmless — they never reach
+`leaders.ts` — but you may also run `DELETE FROM wallet_tags WHERE tag_type IN
+('main','asset','cadence','risk');` to tidy up. Until the re-score runs, any
+still-listed wallet shows its old `primary_tag` rendered via the de-snake fallback
+(`alpha_hunter` → "alpha hunter", unstyled chip).
 
 ## Goal
 
@@ -18,6 +29,14 @@ Decisions (from brainstorm 2026-05-12):
   still computed and shown as plain numbers on the trader page; they just stop being
   filterable chips.
 - **No `directional` archetype.** Keep it simple.
+- **"Last active" → "Frequency".** The leaderboard's `last_active` column + sort
+  option are replaced by a **Frequency** column showing the trader's weekly trade
+  average. Canonical source: `scores.tradesPerDayAvg` (already computed —
+  `fills.length / activeDays`); the weekly figure is `tradesPerDayAvg × 7`, derived
+  once in `leaders.ts` (a pure display transform of the existing canonical value,
+  same pattern as `roi` there). Sort key `'frequency'` orders by
+  `scores.tradesPerDayAvg DESC`. `scores.lastTradeAt` stays in the DB and on the
+  trader page; it just stops being a leaderboard column/sort.
 - The current `MainTag` group (`alpha_hunter / veteran / insider / specialist /
   dark_horse / generalist`) is **reworked into the `profile` group** with five
   values.
@@ -120,12 +139,19 @@ Web:
   drops those types; `secondary_tags` array now only carries `heat:` / `size:`
   (`profile` surfaces via `primary_tag`/its own field).
 - `apps/web/src/routes/+page.server.ts`, `apps/web/src/routes/api/leaders/+server.ts`
-  — query schemas: drop `asset`/`risk`/`cadence`, rename `tag→profile`.
+  — query schemas: drop `asset`/`risk`/`cadence`, rename `tag→profile`; replace the
+  `last_active` sort enum value with `frequency`.
+- `apps/web/src/lib/server/queries/leaders.ts` — also: `sort` type
+  `'composite_score' | 'roi' | 'frequency'`; `orderColumn` maps `frequency →
+  scores.tradesPerDayAvg`; `LeaderCard.metrics` gains `trades_per_week`
+  (`tradesPerDayAvg × 7`, null when `tradesPerDayAvg` null).
 - `apps/web/src/routes/+page.svelte`, `LeaderTable.svelte`,
   `trader/[address]/+page.svelte` — remove the asset/risk/cadence filter chips +
   card badges; relabel the `main` chip to "Profile" with the new values; keep
-  heat/size badges. Show `avgHoldSeconds`, `maxDrawdownPct`, `longShortRatio`,
-  `primaryAsset` as plain stats on the trader page (no chip).
+  heat/size badges. Replace the "Last active" leaderboard column + sort toggle with
+  "Frequency" (`~N trades/wk`, formatted in `$lib/utils/format.ts`). Show
+  `avgHoldSeconds`, `maxDrawdownPct`, `longShortRatio`, `primaryAsset`, and
+  `lastTradeAt` as plain stats on the trader page (no chip).
 - `apps/web/src/routes/methodology/+page.svelte` — rewrite the tag section to the new
   `profile` taxonomy + the score-is-the-headline framing.
 - `leader-detail.ts`, `weekly-leaders.ts`, `recent-trades.ts` — adjust any

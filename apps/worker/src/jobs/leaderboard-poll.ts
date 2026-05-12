@@ -73,7 +73,9 @@ function passesWinnerFilter(r: LeaderboardRow): boolean {
 export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Promise<void> {
   const topRoi = opts.topRoi ?? 100;
   const topRankers = opts.topRankers ?? 100;
-  const minAccountValueUsd = opts.minAccountValueUsd ?? 1_000;
+  // Same floor as the leaderboard list / curation gate (one source of truth) —
+  // no point deep-ingesting wallets that can never be listed.
+  const minAccountValueUsd = opts.minAccountValueUsd ?? MIN_ACCOUNT_VALUE_USD;
   const minMonthlyVolumeUsd = opts.minMonthlyVolumeUsd ?? 10_000;
 
   const startedAt = Date.now();

@@ -14,10 +14,8 @@ import {
   annualizedSortino,
   buildDailySeries,
   classifyAssetClass,
-  classifyCadence,
   classifyHeat,
-  classifyMainTag,
-  classifyRisk,
+  classifyProfile,
   classifySize,
   computeBehavioral,
   computeCopyability,
@@ -89,9 +87,15 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
         eq(wallets.isAgent, false),
         gte(wallets.lastSeenAt, cutoff),
         gte(wallets.totalFills, MIN_FILLS_FOR_SCORING),
-        // Eligibility floors. Skip if either is set + below threshold.
-        // null account_value means we haven't fetched it yet; allow through.
-        sql`(${wallets.accountValue} is null or ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD})`,
+        // Account-value floor. The bulk run is strict — a null/below-floor
+        // equity can never reach the leaderboard (`leaders.ts` requires
+        // `account_value >= MIN_ACCOUNT_VALUE_USD`), so scoring it is wasted CPU.
+        // An explicit on-demand request (`onlyAddress`) is allowed through with a
+        // null equity (the refresh path may not have fetched it yet) — it just
+        // won't be listed/curated until it does.
+        opts.onlyAddress
+          ? sql`(${wallets.accountValue} is null or ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD})`
+          : sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
         sql`${wallets.totalVolumeUsd} >= ${MIN_VOLUME_USD}`,
       ),
     );
@@ -216,8 +220,6 @@ async function scoreSingleWallet(args: {
   );
 
   // Tag classification
-  const firstSeenDaysAgo =
-    series.firstEventMs !== null ? (Date.now() - series.firstEventMs) / MS_DAY : 0;
   const lastTradeDaysAgo =
     series.lastEventMs !== null ? (Date.now() - series.lastEventMs) / MS_DAY : Infinity;
 
@@ -225,26 +227,26 @@ async function scoreSingleWallet(args: {
     ? classifyAssetClass(behavioral.primaryAsset, args.hip3Dexes)
     : null;
 
-  const mainTag = classifyMainTag({
-    totalTrades: fillsRows.length,
-    activeDays: series.activeDays,
-    firstSeenDaysAgo,
+  const accountValueUsd =
+    args.accountValue !== null && Number.isFinite(Number.parseFloat(args.accountValue))
+      ? Number.parseFloat(args.accountValue)
+      : null;
+
+  // "Profile" — the one archetype tag shown next to the composite score.
+  const profileTag = classifyProfile({
+    roundTrips: behavioral.roundTrips,
+    daysOfData,
     lastTradeDaysAgo,
     psr,
     maxDrawdownPct: maxDd,
     assetConcentration: behavioral.assetConcentration,
     tradesPerDayAvg: behavioral.tradesPerDayAvg,
-    primaryAsset: behavioral.primaryAsset,
     primaryAssetClass,
-    avgHoldSeconds: behavioral.avgHoldSeconds,
-    totalVolumeUsd: behavioral.totalNotional.toNumber(),
-    recentRollingSharpe: rolling30dSharpe,
+    monthlyConsistency: monthlyConsistencyVal,
+    rolling30dSharpe,
     peakRollingSharpe: peakSharpe,
-    longShortRatio: behavioral.longShortRatio,
-    fundingPnlPct: null,
+    accountValueUsd,
   });
-  const cadenceTag = classifyCadence(behavioral.avgHoldSeconds);
-  const riskTag = classifyRisk(maxDd, behavioral.longShortRatio);
   const heatTag = classifyHeat(rolling30dSharpe, peakSharpe);
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
@@ -267,10 +269,6 @@ async function scoreSingleWallet(args: {
     daysOfData,
   }).rawScore;
 
-  const accountValueUsd =
-    args.accountValue !== null && Number.isFinite(Number.parseFloat(args.accountValue))
-      ? Number.parseFloat(args.accountValue)
-      : null;
   // Historical gross leverage profile, reconstructed from the fill stream
   // (typical = median across the moments a position was open).
   const leverageProfile = computeLeverageProfile(
@@ -294,7 +292,7 @@ async function scoreSingleWallet(args: {
     totalVolumeUsd: behavioral.totalNotional.toNumber(),
     firstSeenMs,
     activeDays: series.activeDays,
-    roundTripTrades: null, // interim — round-trips not computed yet; gate skips this on null
+    roundTripTrades: behavioral.roundTrips,
     capitalBaseKnown,
     makerShare: behavioral.makerTakerRatio,
     avgHoldSeconds: behavioral.avgHoldSeconds,
@@ -308,7 +306,7 @@ async function scoreSingleWallet(args: {
   // sub-$2k equity. composite = round(quality × copyability).
   const copyability = computeCopyability({
     accountValueUsd,
-    roundTrips: fillsRows.length, // interim: total fills as a round-trip proxy
+    roundTrips: behavioral.roundTrips,
     daysOfData,
     leverage: leverageProfile?.typicalGross ?? null,
     assetConcentration: behavioral.assetConcentration,
@@ -329,7 +327,7 @@ async function scoreSingleWallet(args: {
     address: args.address,
     computedAt: now,
     totalTrades: fillsRows.length,
-    totalRoundTrips: 0,
+    totalRoundTrips: behavioral.roundTrips,
     totalVolumeUsd: clampNetPnlUsd(behavioral.totalNotional.toNumber()),
     firstTradeAt:
       series.firstEventMs !== null ? new Date(series.firstEventMs) : null,
@@ -368,28 +366,24 @@ async function scoreSingleWallet(args: {
       set: { ...scoreRow, updatedAt: now },
     });
 
-  // Replace tags atomically: clear then re-insert.
+  // Replace tags atomically: clear then re-insert. Three groups only —
+  // `profile` (the archetype, also mirrored to `wallets.primary_tag`), `heat`,
+  // `size`. The old `main`/`asset`/`cadence`/`risk` groups were dropped.
   await db().delete(walletTags).where(eq(walletTags.address, args.address));
 
-  const tagRows: NewWalletTag[] = [];
-  if (mainTag) tagRows.push({ address: args.address, tagType: 'main', tagValue: mainTag });
-  if (primaryAssetClass)
-    tagRows.push({ address: args.address, tagType: 'asset', tagValue: primaryAssetClass });
-  if (cadenceTag)
-    tagRows.push({ address: args.address, tagType: 'cadence', tagValue: cadenceTag });
-  if (riskTag) tagRows.push({ address: args.address, tagType: 'risk', tagValue: riskTag });
+  const tagRows: NewWalletTag[] = [
+    { address: args.address, tagType: 'profile', tagValue: profileTag },
+    { address: args.address, tagType: 'size', tagValue: sizeTag },
+  ];
   if (heatTag) tagRows.push({ address: args.address, tagType: 'heat', tagValue: heatTag });
-  tagRows.push({ address: args.address, tagType: 'size', tagValue: sizeTag });
 
-  if (tagRows.length > 0) {
-    await db().insert(walletTags).values(tagRows);
-  }
+  await db().insert(walletTags).values(tagRows);
 
   await db()
     .update(wallets)
     .set({
       compositeScore,
-      primaryTag: mainTag,
+      primaryTag: profileTag,
       ingestState: 'scored',
       curated: nowCurated,
       ...(nowCurated && !wasCurated ? { curatedSince: now } : {}),
@@ -404,6 +398,8 @@ async function scoreSingleWallet(args: {
       score: compositeScore,
       quality: Math.round(quality),
       copyability: Number(copyability.value.toFixed(2)),
+      profile: profileTag,
+      roundTrips: behavioral.roundTrips,
       eligible: eligibility.eligible,
       curated: nowCurated,
       ...(copyability.breakdown.penalties.length > 0

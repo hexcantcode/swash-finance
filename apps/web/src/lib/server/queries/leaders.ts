@@ -6,7 +6,10 @@ import { db } from '../db.js';
 export interface LeaderCard {
   address: string;
   composite_score: number | null;
+  /** The "Profile" archetype (`wallets.primary_tag`) — alpha / veteran /
+   *  rising_star / specialist / allrounder. */
   primary_tag: string | null;
+  /** Non-profile tags as `"<type>:<value>"` (currently `heat:` / `size:`). */
   secondary_tags: string[];
   metrics: {
     total_pnl_usd: number | null;
@@ -19,6 +22,9 @@ export interface LeaderCard {
     win_rate: number | null;
     total_trades: number;
     avg_hold_seconds: number | null;
+    /** Weekly trade average = `scores.tradesPerDayAvg × 7` — the "Frequency"
+     *  column. Null when the wallet has no scoring row / no active days yet. */
+    trades_per_week: number | null;
   };
   primary_asset: string | null;
   /** True iff this wallet is in the curated "best traders" set (passed the
@@ -41,11 +47,10 @@ export interface LeaderCard {
 }
 
 export interface BrowseFilters {
-  mainTag?: string | undefined;
-  assetTag?: string | undefined;
-  riskTag?: string | undefined;
+  /** Filter by "Profile" archetype tag value (`wallet_tags.tag_type='profile'`). */
+  profileTag?: string | undefined;
+  /** Filter by heat tag value (`hot` / `steady` / `cooling`). */
   heatTag?: string | undefined;
-  cadenceTag?: string | undefined;
   minScore?: number | undefined;
   search?: string | undefined;
   /** When true, restrict to the curated "best traders" set (`wallets.curated`). */
@@ -65,7 +70,7 @@ export interface BrowseResult {
 
 export async function listLeaders(args: {
   filters: BrowseFilters;
-  sort: 'composite_score' | 'roi' | 'last_active';
+  sort: 'composite_score' | 'roi' | 'frequency';
   page: number;
   limit: number;
 }): Promise<BrowseResult> {
@@ -98,11 +103,8 @@ export async function listLeaders(args: {
   // Tag filters require an EXISTS subquery against wallet_tags.
   const tagFilters: ReturnType<typeof sql>[] = [];
   const tagPairs = [
-    { type: 'main', value: filters.mainTag },
-    { type: 'asset', value: filters.assetTag },
-    { type: 'risk', value: filters.riskTag },
+    { type: 'profile', value: filters.profileTag },
     { type: 'heat', value: filters.heatTag },
-    { type: 'cadence', value: filters.cadenceTag },
   ];
   for (const { type, value } of tagPairs) {
     if (value) {
@@ -114,11 +116,13 @@ export async function listLeaders(args: {
 
   const whereClause = and(...baseFilters, ...tagFilters);
 
+  // Frequency sorts by the trader's typical trades-per-day (the weekly average
+  // is just ×7 — same ordering); ROI by net-PnL %; default by composite.
   const orderColumn =
     sort === 'roi'
       ? scores.netPnlPct
-      : sort === 'last_active'
-        ? scores.lastTradeAt
+      : sort === 'frequency'
+        ? scores.tradesPerDayAvg
         : wallets.compositeScore;
 
   const rows = await db()
@@ -139,6 +143,7 @@ export async function listLeaders(args: {
       win_rate: scores.winRate,
       total_trades: scores.totalTrades,
       avg_hold_seconds: scores.avgHoldSeconds,
+      trades_per_day_avg: scores.tradesPerDayAvg,
       primary_asset: scores.primaryAsset,
       last_active_at: scores.lastTradeAt,
       score_computed_at: scores.computedAt,
@@ -169,7 +174,9 @@ export async function listLeaders(args: {
       .where(inArray(walletTags.address, addresses));
     for (const t of tagRows) {
       const arr = secondaryByAddress.get(t.address) ?? [];
-      if (t.tagType !== 'main') arr.push(`${t.tagType}:${t.tagValue}`);
+      // `profile` is surfaced via `primary_tag`; everything else (heat/size) is
+      // a "<type>:<value>" secondary tag.
+      if (t.tagType !== 'profile') arr.push(`${t.tagType}:${t.tagValue}`);
       secondaryByAddress.set(t.address, arr);
     }
   }
@@ -190,6 +197,7 @@ export async function listLeaders(args: {
       win_rate: numOrNull(r.win_rate),
       total_trades: r.total_trades ?? 0,
       avg_hold_seconds: r.avg_hold_seconds,
+      trades_per_week: tradesPerWeek(numOrNull(r.trades_per_day_avg)),
     },
     primary_asset: r.primary_asset,
     curated: r.curated,
@@ -208,6 +216,13 @@ export async function listLeaders(args: {
 function roiFromEquity(netPnlUsd: number | null, accountValueUsd: number | null): number | null {
   if (netPnlUsd === null || accountValueUsd === null || accountValueUsd <= 0) return null;
   return netPnlUsd / accountValueUsd;
+}
+
+/** Weekly trade average from the per-active-day rate. The canonical cadence
+ *  quantity is `scores.tradesPerDayAvg`; the weekly figure is a pure ×7. */
+function tradesPerWeek(tradesPerDayAvg: number | null): number | null {
+  if (tradesPerDayAvg === null) return null;
+  return tradesPerDayAvg * 7;
 }
 
 function numOrNull(value: string | null): number | null {

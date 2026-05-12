@@ -1,20 +1,15 @@
-import type { MainTag } from '@copytrade/shared';
+import { PROFILE_TAG_LABELS } from '@copytrade/shared';
 
-const LABEL: Record<MainTag, string> = {
-  alpha_hunter: 'Alpha',
-  veteran: 'Veteran',
-  insider: 'Insider',
-  specialist: 'Specialist',
-  dark_horse: 'Dark horse',
-  generalist: 'Generalist',
-};
-
-export function mainTagClass(tag: string | null | undefined): string {
+/** CSS class for a profile chip — `tag-<value>` (styles in app.css), or
+ *  `tag-neutral` when the wallet has no profile yet. */
+export function profileTagClass(tag: string | null | undefined): string {
   if (!tag) return 'tag-neutral';
   return `tag-${tag}`;
 }
 
-export function mainTagLabel(tag: string | null | undefined): string {
+/** Human label for a profile value. Falls back to a de-snaked version for any
+ *  legacy/unknown value, and "Unclassified" when missing. */
+export function profileTagLabel(tag: string | null | undefined): string {
   if (!tag) return 'Unclassified';
-  return (LABEL as Record<string, string>)[tag] ?? tag.replace(/_/g, ' ');
+  return (PROFILE_TAG_LABELS as Record<string, string>)[tag] ?? tag.replace(/_/g, ' ');
 }

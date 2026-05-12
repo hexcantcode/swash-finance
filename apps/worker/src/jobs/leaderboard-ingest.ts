@@ -6,6 +6,7 @@ import {
   topByWindowPnl,
   type LeaderboardRow,
 } from '@copytrade/hl-client';
+import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { log } from '../log.js';
 
@@ -45,7 +46,10 @@ export async function runLeaderboardIngest(
 ): Promise<void> {
   const topPersist = opts.topPersist ?? 5_000;
   const topQueue = opts.topQueue ?? 1_000;
-  const minAccountValueUsd = opts.minAccountValueUsd ?? 1_000;
+  // Single source of truth for the account-value floor: the listing/curation
+  // floor owned by @copytrade/scoring. Persisting/deep-ingesting wallets below
+  // it is wasted work — `leaders.ts` filters them out at display anyway.
+  const minAccountValueUsd = opts.minAccountValueUsd ?? MIN_ACCOUNT_VALUE_USD;
   const minMonthlyVolumeUsd = opts.minMonthlyVolumeUsd ?? 10_000;
   const window = opts.window ?? 'month';
 

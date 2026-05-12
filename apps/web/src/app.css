@@ -483,7 +483,7 @@ body {
   color: var(--stripe-danger);
 }
 
-/* Tag chips for our 5 main behavioral tags. Same shape as stripe-badge. */
+/* Profile chips — the 5 trader archetypes. Same shape as stripe-badge. */
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -495,7 +495,7 @@ body {
   border-radius: var(--radius-sm);
   white-space: nowrap;
 }
-.tag-alpha_hunter {
+.tag-alpha {
   background: rgba(106, 220, 197, 0.12);
   color: #59A0AC;
 }
@@ -503,7 +503,7 @@ body {
   background: rgba(76, 184, 255, 0.12);
   color: #4cb8ff;
 }
-.tag-insider {
+.tag-rising_star {
   background: rgba(245, 166, 35, 0.12);
   color: #f5a623;
 }
@@ -511,9 +511,9 @@ body {
   background: rgba(180, 130, 255, 0.12);
   color: #b482ff;
 }
-.tag-dark_horse {
-  background: rgba(255, 92, 92, 0.12);
-  color: #ff5c5c;
+.tag-allrounder {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-secondary);
 }
 .tag-neutral {
   background: var(--stripe-bg-elevated);

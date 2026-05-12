@@ -4,14 +4,11 @@ import { listLeaders, type BrowseFilters } from '$lib/server/queries/leaders';
 import type { RequestHandler } from './$types';
 
 const QuerySchema = z.object({
-  tag: z.string().optional(),
-  asset: z.string().optional(),
-  risk: z.string().optional(),
+  tag: z.string().optional(), // → profile archetype
   heat: z.string().optional(),
-  cadence: z.string().optional(),
   search: z.string().optional(),
   min: z.coerce.number().optional(),
-  sort: z.enum(['composite_score', 'roi', 'last_active']).optional(),
+  sort: z.enum(['composite_score', 'roi', 'frequency']).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -23,11 +20,8 @@ export const GET: RequestHandler = async ({ url }) => {
   }
   const q = parsed.data;
   const filters: BrowseFilters = {
-    mainTag: q.tag,
-    assetTag: q.asset,
-    riskTag: q.risk,
+    profileTag: q.tag,
     heatTag: q.heat,
-    cadenceTag: q.cadence,
     minScore: q.min,
     search: q.search,
   };
