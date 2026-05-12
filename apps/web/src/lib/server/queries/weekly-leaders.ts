@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNotNull, sql } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { scores, wallets } from '@copytrade/db';
 import { db } from '../db.js';
 
@@ -8,6 +8,9 @@ export interface WeeklyLeaderRow {
   composite_score: number | null;
   win_rate: number | null;
   sharpe: number | null;
+  sortino: number | null;
+  /** 1..N position by HL 7d ROI inside the winner set (cards are ordered by composite, not this). */
+  winner_rank: number | null;
   roi_7d: number | null;
   pnl_7d_usd: number | null;
   volume_7d_usd: number | null;
@@ -15,17 +18,18 @@ export interface WeeklyLeaderRow {
   last_active_at: string | null;
 }
 
-/** Eligibility floor for the 7d view: ignore wallets whose week-window
- *  volume is too small to give the ROI any signal. */
-const MIN_WEEKLY_VOLUME_USD = 5_000;
-
 /**
- * Top traders ranked by HL's official 7-day ROI. The ROI is HL's native
- * pnl/account_value calculation (already in decimal: 0.05 = 5%).
+ * The "Winners" cards: the canonical winner set — `wallets.winner` — which the
+ * `leaderboard-poll` job computes as HL's top-10 by 7d ROI passing the noise
+ * filter (account value ≥ $10K, 7d volume ≥ $100K, ROI sanity). One source of
+ * truth: this is the same set the live-WS subscriber tracks; `wallets.winner` /
+ * `wallets.winnerRank` are owned by `leaderboard-poll`, and the HL 7d numbers
+ * (`hlRoi7d` / `hlPnl7dUsd` / `hlVolume7dUsd`) by that same job's upsert.
  *
- * Skips wallets without an hl_metrics_at (means we haven't ingested their
- * leaderboard row yet) and wallets with tiny 7d volume. Left-joins the scores
- * table so the cards can show win rate / Sharpe alongside the 7d numbers.
+ * Cards are ordered by **composite score** (desc) — so the highest-quality of
+ * the hot-this-week traders leads — not by raw 7d ROI. Left-joins `scores` for
+ * win rate / Sharpe / Sortino; a winner that just entered the set and hasn't
+ * been ingested+scored yet shows `—` for those until the next score run.
  */
 export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]> {
   const rows = await db()
@@ -33,31 +37,30 @@ export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]>
       address: wallets.address,
       primary_tag: wallets.primaryTag,
       composite_score: wallets.compositeScore,
+      winner_rank: wallets.winnerRank,
       win_rate: scores.winRate,
       sharpe: scores.sharpe,
+      sortino: scores.sortino,
       roi_7d: wallets.hlRoi7d,
       pnl_7d_usd: wallets.hlPnl7dUsd,
       volume_7d_usd: wallets.hlVolume7dUsd,
       account_value_usd: wallets.accountValue,
-      last_active_at: wallets.lastSeenAt,
+      last_active_at: scores.lastTradeAt,
     })
     .from(wallets)
     .leftJoin(scores, eq(scores.address, wallets.address))
-    .where(
-      and(
-        isNotNull(wallets.hlRoi7d),
-        gte(wallets.hlVolume7dUsd, sql`${MIN_WEEKLY_VOLUME_USD}::numeric`),
-      ),
-    )
-    .orderBy(desc(wallets.hlRoi7d))
+    .where(eq(wallets.winner, true))
+    .orderBy(desc(wallets.compositeScore), asc(wallets.winnerRank))
     .limit(limit);
 
   return rows.map((r) => ({
     address: r.address,
     primary_tag: r.primary_tag,
     composite_score: r.composite_score,
+    winner_rank: r.winner_rank,
     win_rate: numOrNull(r.win_rate),
     sharpe: numOrNull(r.sharpe),
+    sortino: numOrNull(r.sortino),
     roi_7d: numOrNull(r.roi_7d),
     pnl_7d_usd: numOrNull(r.pnl_7d_usd),
     volume_7d_usd: numOrNull(r.volume_7d_usd),

@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
   const [leaders, weeklyRoi, recentTrades] = await Promise.all([
     listLeaders({ filters, sort, page, limit }),
-    listTopByWeeklyRoi(8),
+    listTopByWeeklyRoi(10),
     listRecentTrades(40),
   ]);
 

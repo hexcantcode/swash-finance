@@ -26,9 +26,14 @@
     if (Math.abs(pct) >= 100) return `${pct.toFixed(0)}%`;
     return `${pct.toFixed(1)}%`;
   }
+
+  function formatRatio(value: number | null): string {
+    if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+    return value.toFixed(2);
+  }
 </script>
 
-<div class="k-card-scroll" aria-label="Top traders by 7-day ROI">
+<div class="k-card-scroll" aria-label="Winners — HL 7d-ROI top traders, ranked by score">
   {#each rows as row (row.address)}
     <a class="k-roi-card" href="/trader/{row.address}">
       <div class="k-roi-card-head">
@@ -40,6 +45,12 @@
           class="stripe-avatar stripe-avatar-ring k-roi-card-avatar"
         />
         <span class="k-roi-card-addr">{truncateAddress(row.address)}</span>
+        <span class="k-roi-card-head-score {compositeScoreClass(row.composite_score)}">
+          {row.composite_score ?? '—'}
+        </span>
+        <span class="k-roi-card-head-sortino" title="Sortino ratio">
+          S {formatRatio(row.sortino)}
+        </span>
       </div>
 
       <div class="k-roi-card-stats">
@@ -54,12 +65,6 @@
         <div class="k-roi-card-stat">
           <span class="k-roi-card-stat-val">{formatPct(row.win_rate, 0)}</span>
           <span class="k-roi-card-stat-label">Win rate</span>
-        </div>
-        <div class="k-roi-card-stat">
-          <span class="k-roi-card-stat-val {compositeScoreClass(row.composite_score)}">
-            {row.composite_score ?? '—'}
-          </span>
-          <span class="k-roi-card-stat-label">Score</span>
         </div>
       </div>
     </a>
