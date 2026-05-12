@@ -1,9 +1,12 @@
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { discoveryQueue, wallets } from '@copytrade/db';
 import {
   fetchLeaderboard,
   isEligible,
   topByWindowPnl,
   type LeaderboardRow,
 } from '@copytrade/hl-client';
+import { db } from '../db.js';
 import { log } from '../log.js';
 import { persistAndQueueLeaderboardRows } from './leaderboard-ingest.js';
 
@@ -22,6 +25,14 @@ import { persistAndQueueLeaderboardRows } from './leaderboard-ingest.js';
  * `refresh-queue` can deep-ingest them; the next `score` run then evaluates
  * them against the curation gate (see jobs/score.ts).
  *
+ * It *also* reconciles the **winner set**: HL's top-10 wallets by 7d ROI that
+ * pass a lightweight noise filter (the only fields a raw leaderboard row can
+ * support — account value, 7d volume, ROI sanity). These ≤10 addresses get
+ * `wallets.winner = true` + `winner_rank` 1..N (by 7d ROI), and they're the
+ * only wallets the `ws-live-subscriber` holds a live WS subscription for. The
+ * display ordering of the winners section is by *our* composite, not by
+ * `winner_rank`, so new winners are also queued for deep-ingest + scoring.
+ *
  * This job never deep-ingests inline — that's `refresh-queue`'s job. Cron
  * cadence: every 15 minutes.
  */
@@ -35,6 +46,26 @@ export interface LeaderboardPollOptions {
   minAccountValueUsd?: number;
   /** Eligibility floor: minimum 30d volume (USD). */
   minMonthlyVolumeUsd?: number;
+}
+
+// ── Winner-set noise filter ─────────────────────────────────────────────────
+// What a *raw* HL leaderboard row can support — no ingested fill history yet.
+/** Min current account value (USD) for a winner. */
+const WINNER_MIN_ACCOUNT_VALUE_USD = 10_000;
+/** Min 7d volume (USD) for a winner — rejects tiny-account churners. */
+const WINNER_MIN_7D_VOLUME_USD = 100_000;
+/** ROI sanity: a 7d ROI above this (5000%/wk) is the $0→profit→withdraw / 100×-tiny-account garbage. */
+const MAX_SANE_7D_ROI = 50;
+/** How many winners the section holds. HL caps a WS connection at 10 unique users. */
+const WINNER_LIMIT = 10;
+
+function passesWinnerFilter(r: LeaderboardRow): boolean {
+  if (!(r.accountValue >= WINNER_MIN_ACCOUNT_VALUE_USD)) return false;
+  if (!(r.week.vlm >= WINNER_MIN_7D_VOLUME_USD)) return false;
+  const roi = r.week.roi;
+  if (!Number.isFinite(roi)) return false;
+  if (roi > MAX_SANE_7D_ROI) return false;
+  return true;
 }
 
 export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Promise<void> {
@@ -91,12 +122,108 @@ export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Pro
     source: 'hl_leaderboard_poll',
   });
 
+  // ── Winner set: HL top-10 by 7d ROI, noise-filtered ───────────────────────
+  // Walk *all* fetched rows sorted by 7d ROI desc (not just the eligible
+  // bucket — the winner filter is its own, stricter gate), apply the
+  // lightweight raw-row noise filter, take the first WINNER_LIMIT that pass.
+  const sortedByRoi7d = [...rawRows].sort((a, b) => b.week.roi - a.week.roi);
+  const winners: LeaderboardRow[] = [];
+  let evaluated = 0;
+  for (const r of sortedByRoi7d) {
+    evaluated += 1;
+    if (passesWinnerFilter(r)) {
+      winners.push(r);
+      if (winners.length >= WINNER_LIMIT) break;
+    }
+  }
+
+  const winnerStats = await reconcileWinners(winners);
+
   log.info(
     {
       walletsUpserted,
       queuedNew,
+      winners: {
+        evaluated,
+        passed: winners.length,
+        ranks: winners.map((r) => r.address),
+        queuedNew: winnerStats.queuedNew,
+      },
       ms: Date.now() - startedAt,
     },
     'leaderboard-poll.done',
   );
+}
+
+/**
+ * Make `wallets.winner` / `winner_rank` reflect exactly `winners` (in 7d-ROI
+ * order, rank 1..N). Clears the previous set first so it's never cumulative.
+ * Upserts each winner with fresh HL metrics, bumps `last_seen_at`, and queues
+ * any *new* winner address into `discovery_queue` (they need a composite for
+ * the section's display ordering).
+ */
+async function reconcileWinners(winners: LeaderboardRow[]): Promise<{ queuedNew: number }> {
+  const now = new Date();
+
+  // 1. Clear the previous winner set (so it's exactly the current top-N).
+  await db().execute(sql`update ${wallets} set winner = false, winner_rank = null where winner`);
+
+  if (winners.length === 0) return { queuedNew: 0 };
+
+  // 2. Upsert each winner with rank + fresh HL metrics.
+  for (let i = 0; i < winners.length; i++) {
+    const r = winners[i]!;
+    const rank = i + 1;
+    await db()
+      .insert(wallets)
+      .values({
+        address: r.address,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        accountValue: r.accountValue.toFixed(8),
+        hlPnl7dUsd: r.week.pnl.toFixed(8),
+        hlRoi7d: r.week.roi.toFixed(8),
+        hlVolume7dUsd: r.week.vlm.toFixed(8),
+        hlPnl30dUsd: r.month.pnl.toFixed(8),
+        hlRoi30d: r.month.roi.toFixed(8),
+        hlMetricsAt: now,
+        winner: true,
+        winnerRank: rank,
+      })
+      .onConflictDoUpdate({
+        target: wallets.address,
+        set: {
+          lastSeenAt: sql`greatest(${wallets.lastSeenAt}, excluded.last_seen_at)`,
+          accountValue: sql`excluded.account_value`,
+          hlPnl7dUsd: sql`excluded.hl_pnl_7d_usd`,
+          hlRoi7d: sql`excluded.hl_roi_7d`,
+          hlVolume7dUsd: sql`excluded.hl_volume_7d_usd`,
+          hlPnl30dUsd: sql`excluded.hl_pnl_30d_usd`,
+          hlRoi30d: sql`excluded.hl_roi_30d`,
+          hlMetricsAt: sql`excluded.hl_metrics_at`,
+          winner: sql`true`,
+          winnerRank: sql`excluded.winner_rank`,
+          updatedAt: now,
+        },
+      });
+  }
+
+  // 3. Queue any *new* winner address for deep-ingest + scoring (so it gets a
+  //    composite for the section ordering). `ingest_state` only ever moves
+  //    forward — flip 'observed' → 'queued' for the freshly-queued ones.
+  const winnerAddrs = winners.map((r) => r.address);
+  const queued = await db()
+    .insert(discoveryQueue)
+    .values(winnerAddrs.map((address) => ({ address, source: 'hl_leaderboard_winner' })))
+    .onConflictDoNothing({ target: discoveryQueue.address })
+    .returning({ address: discoveryQueue.address });
+  if (queued.length > 0) {
+    const addresses = queued.map((q) => q.address);
+    await db()
+      .update(wallets)
+      .set({ ingestState: 'queued' })
+      .where(and(inArray(wallets.address, addresses), eq(wallets.ingestState, 'observed')));
+  }
+
+  return { queuedNew: queued.length };
 }
