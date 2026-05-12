@@ -1,0 +1,1219 @@
+{
+  "id": "2f0270bb-cda1-412b-a3f2-c8f629d801e6",
+  "prevId": "b22bd67f-3230-47f4-b4ee-03339dd1ad26",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.audit_log": {
+      "name": "audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_audit_actor": {
+          "name": "idx_audit_actor",
+          "columns": [
+            {
+              "expression": "actor",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_audit_action": {
+          "name": "idx_audit_action",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.discovery_queue": {
+      "name": "discovery_queue",
+      "schema": "",
+      "columns": {
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "queued_at": {
+          "name": "queued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed": {
+          "name": "processed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_discovery_queue_pending": {
+          "name": "idx_discovery_queue_pending",
+          "columns": [
+            {
+              "expression": "queued_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "not \"discovery_queue\".\"processed\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.fills": {
+      "name": "fills",
+      "schema": "",
+      "columns": {
+        "tid": {
+          "name": "tid",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_address": {
+          "name": "user_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_time_ms": {
+          "name": "block_time_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coin": {
+          "name": "coin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "side": {
+          "name": "side",
+          "type": "char(1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "px": {
+          "name": "px",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sz": {
+          "name": "sz",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee": {
+          "name": "fee",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee_token": {
+          "name": "fee_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "builder_fee": {
+          "name": "builder_fee",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "oid": {
+          "name": "oid",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "crossed": {
+          "name": "crossed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "closed_pnl": {
+          "name": "closed_pnl",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "start_position": {
+          "name": "start_position",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liquidation_user": {
+          "name": "liquidation_user",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_fills_user_time": {
+          "name": "idx_fills_user_time",
+          "columns": [
+            {
+              "expression": "user_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_fills_coin_time": {
+          "name": "idx_fills_coin_time",
+          "columns": [
+            {
+              "expression": "coin",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_fills_block_time": {
+          "name": "idx_fills_block_time",
+          "columns": [
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "fills_tid_user_address_pk": {
+          "name": "fills_tid_user_address_pk",
+          "columns": [
+            "tid",
+            "user_address"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "fills_side_check": {
+          "name": "fills_side_check",
+          "value": "\"fills\".\"side\" in ('B', 'A')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.fundings": {
+      "name": "fundings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_address": {
+          "name": "user_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_time_ms": {
+          "name": "block_time_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coin": {
+          "name": "coin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usdc": {
+          "name": "usdc",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "szi": {
+          "name": "szi",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "funding_rate": {
+          "name": "funding_rate",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "uq_fundings_event": {
+          "name": "uq_fundings_event",
+          "columns": [
+            {
+              "expression": "user_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coin",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_fundings_user_time": {
+          "name": "idx_fundings_user_time",
+          "columns": [
+            {
+              "expression": "user_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.leader_cache": {
+      "name": "leader_cache",
+      "schema": "",
+      "columns": {
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "last_refreshed_at": {
+          "name": "last_refreshed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_refresh_after": {
+          "name": "next_refresh_after",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_value": {
+          "name": "account_value",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "leverage": {
+          "name": "leverage",
+          "type": "numeric(20, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "margin_used": {
+          "name": "margin_used",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "positions_json": {
+          "name": "positions_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recent_fills_json": {
+          "name": "recent_fills_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "funding_30d_json": {
+          "name": "funding_30d_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ledger_30d_json": {
+          "name": "ledger_30d_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_trade_ms": {
+          "name": "last_trade_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_count": {
+          "name": "refresh_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_refresh_source": {
+          "name": "last_refresh_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ledger_updates": {
+      "name": "ledger_updates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_address": {
+          "name": "user_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_time_ms": {
+          "name": "block_time_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usdc": {
+          "name": "usdc",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details_json": {
+          "name": "details_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "uq_ledger_event": {
+          "name": "uq_ledger_event",
+          "columns": [
+            {
+              "expression": "hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_ledger_user_time": {
+          "name": "idx_ledger_user_time",
+          "columns": [
+            {
+              "expression": "user_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_time_ms",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scores": {
+      "name": "scores",
+      "schema": "",
+      "columns": {
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_trades": {
+          "name": "total_trades",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_round_trips": {
+          "name": "total_round_trips",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_volume_usd": {
+          "name": "total_volume_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_trade_at": {
+          "name": "first_trade_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_trade_at": {
+          "name": "last_trade_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_days": {
+          "name": "active_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "net_pnl_usd": {
+          "name": "net_pnl_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "net_pnl_pct": {
+          "name": "net_pnl_pct",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sharpe": {
+          "name": "sharpe",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sortino": {
+          "name": "sortino",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "psr": {
+          "name": "psr",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "profit_factor": {
+          "name": "profit_factor",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "win_rate": {
+          "name": "win_rate",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expectancy": {
+          "name": "expectancy",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_drawdown_pct": {
+          "name": "max_drawdown_pct",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recovery_time_days": {
+          "name": "recovery_time_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avg_hold_seconds": {
+          "name": "avg_hold_seconds",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trades_per_day_avg": {
+          "name": "trades_per_day_avg",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "maker_taker_ratio": {
+          "name": "maker_taker_ratio",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_concentration": {
+          "name": "asset_concentration",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_asset": {
+          "name": "primary_asset",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_dex": {
+          "name": "primary_dex",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "long_short_ratio": {
+          "name": "long_short_ratio",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "funding_pnl_pct": {
+          "name": "funding_pnl_pct",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolling_30d_sharpe": {
+          "name": "rolling_30d_sharpe",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolling_7d_sharpe": {
+          "name": "rolling_7d_sharpe",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decay_flag": {
+          "name": "decay_flag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "composite_score": {
+          "name": "composite_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.wallet_tags": {
+      "name": "wallet_tags",
+      "schema": "",
+      "columns": {
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag_type": {
+          "name": "tag_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag_value": {
+          "name": "tag_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_by": {
+          "name": "set_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'auto'"
+        },
+        "set_at": {
+          "name": "set_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_wallet_tags_lookup": {
+          "name": "idx_wallet_tags_lookup",
+          "columns": [
+            {
+              "expression": "tag_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tag_value",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "wallet_tags_address_tag_type_tag_value_pk": {
+          "name": "wallet_tags_address_tag_type_tag_value_pk",
+          "columns": [
+            "address",
+            "tag_type",
+            "tag_value"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.wallets": {
+      "name": "wallets",
+      "schema": "",
+      "columns": {
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "master_address": {
+          "name": "master_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_agent": {
+          "name": "is_agent",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_vault": {
+          "name": "is_vault",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "agent_name": {
+          "name": "agent_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "agent_valid_until": {
+          "name": "agent_valid_until",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_fills": {
+          "name": "total_fills",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_volume_usd": {
+          "name": "total_volume_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "account_value": {
+          "name": "account_value",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "composite_score": {
+          "name": "composite_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_tag": {
+          "name": "primary_tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_pnl_7d_usd": {
+          "name": "hl_pnl_7d_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_roi_7d": {
+          "name": "hl_roi_7d",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_volume_7d_usd": {
+          "name": "hl_volume_7d_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_pnl_30d_usd": {
+          "name": "hl_pnl_30d_usd",
+          "type": "numeric(30, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_roi_30d": {
+          "name": "hl_roi_30d",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hl_metrics_at": {
+          "name": "hl_metrics_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ingest_state": {
+          "name": "ingest_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'observed'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_wallets_master": {
+          "name": "idx_wallets_master",
+          "columns": [
+            {
+              "expression": "master_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"wallets\".\"master_address\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_wallets_score": {
+          "name": "idx_wallets_score",
+          "columns": [
+            {
+              "expression": "composite_score",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"wallets\".\"composite_score\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_wallets_last_seen": {
+          "name": "idx_wallets_last_seen",
+          "columns": [
+            {
+              "expression": "last_seen_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_wallets_primary_tag": {
+          "name": "idx_wallets_primary_tag",
+          "columns": [
+            {
+              "expression": "primary_tag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"wallets\".\"primary_tag\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_wallets_hl_roi_7d": {
+          "name": "idx_wallets_hl_roi_7d",
+          "columns": [
+            {
+              "expression": "hl_roi_7d",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"wallets\".\"hl_roi_7d\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_wallets_ingest_state": {
+          "name": "idx_wallets_ingest_state",
+          "columns": [
+            {
+              "expression": "ingest_state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "wallets_address_format": {
+          "name": "wallets_address_format",
+          "value": "\"wallets\".\"address\" ~ '^0x[a-f0-9]{40}$'"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

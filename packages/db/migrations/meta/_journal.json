@@ -22,6 +22,27 @@
       "when": 1778454184365,
       "tag": "0002_magenta_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778533464197,
+      "tag": "0003_abandoned_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778535385092,
+      "tag": "0004_premium_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778590633122,
+      "tag": "0005_magical_nextwave",
+      "breakpoints": true
     }
   ]
 }

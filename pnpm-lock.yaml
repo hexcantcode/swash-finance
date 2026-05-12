@@ -108,6 +108,9 @@ importers:
       '@copytrade/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@nktkas/hyperliquid':
+        specifier: ^0.32.2
+        version: 0.32.2(typescript@5.9.3)
       croner:
         specifier: ^9.0.0
         version: 9.1.0

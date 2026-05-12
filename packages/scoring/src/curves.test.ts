@@ -27,7 +27,7 @@ describe('scoreMetric', () => {
     expect(scoreMetric('sharpe', Infinity)).toBeNull();
   });
   it('every basket metric has a curve and maps a mid value into (0,100)', () => {
-    const keys = ['sharpe','sortino','calmar','psr','dsr','profitFactor','expectancy','maxDrawdownPct','recoveryTimeDays','monthlyConsistency'] as const;
+    const keys = ['sharpe','sortino','psr','profitFactor','maxDrawdownPct','recoveryTimeDays','monthlyConsistency'] as const;
     for (const k of keys) {
       expect(METRIC_CURVES[k]).toBeDefined();
       expect(METRIC_CURVES[k].length).toBeGreaterThanOrEqual(2);

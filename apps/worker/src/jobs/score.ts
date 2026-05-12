@@ -10,11 +10,9 @@ import {
   type NewWalletTag,
 } from '@copytrade/db';
 import {
-  adjustedBenchmarkSharpe,
   annualizedSharpe,
   annualizedSortino,
   buildDailySeries,
-  calmar,
   classifyAssetClass,
   classifyCadence,
   classifyHeat,
@@ -22,18 +20,20 @@ import {
   classifyRisk,
   classifySize,
   computeBehavioral,
-  computeComposite,
   computeDecayFlag,
-  deflatedSharpe,
+  dailySharpe,
+  evaluateEligibility,
   expectancy,
   maxDrawdownPct,
+  medianComposite,
+  monthlyConsistency,
   probabilisticSharpe,
   profitFactor,
   recoveryTimeDays,
   toDailyReturns,
+  trackRecordMultiplier,
   winRate,
 } from '@copytrade/scoring';
-import { mean, sampleVariance } from 'simple-statistics';
 import { db } from '../db.js';
 import { hl } from '../hl.js';
 import { log } from '../log.js';
@@ -77,7 +77,12 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   // 2. Candidates.
   const cutoff = new Date(Date.now() - RECENT_WINDOW_180D_MS);
   const candidates = await db()
-    .select({ address: wallets.address })
+    .select({
+      address: wallets.address,
+      curated: wallets.curated,
+      accountValue: wallets.accountValue,
+      firstSeenAt: wallets.firstSeenAt,
+    })
     .from(wallets)
     .where(
       and(
@@ -94,49 +99,23 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
 
   log.info({ candidateCount: candidates.length, onlyAddress: opts.onlyAddress }, 'score.start');
 
-  // Two passes: pass 1 computes per-wallet Sharpe values; pass 2 uses the
-  // population variance of those Sharpes to compute DSR with proper
-  // selection-bias correction. Sample sizes are small enough to recompute
-  // in pass 2 rather than memoize.
-
-  const sharpes: number[] = [];
-  const sharpeByAddress = new Map<string, number | null>();
-  for (const c of candidates) {
-    const sharpe = await computeWalletSharpe(c.address);
-    sharpeByAddress.set(c.address, sharpe);
-    if (sharpe !== null && Number.isFinite(sharpe)) sharpes.push(sharpe);
-  }
-
-  const populationVariance = sharpes.length > 1 ? sampleVariance(sharpes) : 0;
-  const populationMean = sharpes.length > 0 ? mean(sharpes) : 0;
-  const adjustedBenchmark = adjustedBenchmarkSharpe(
-    Math.max(sharpes.length, 1),
-    populationVariance,
-  );
-
-  log.info(
-    {
-      candidates: candidates.length,
-      withSharpe: sharpes.length,
-      meanSharpe: populationMean,
-      varSharpe: populationVariance,
-      adjustedBenchmark,
-    },
-    'score.population_stats',
-  );
-
+  // Single pass: each wallet's PSR uses its own daily Sharpe vs a 0 benchmark,
+  // so no population statistics are needed.
   let scored = 0;
   let tagged = 0;
+  let curatedCount = 0;
   for (const c of candidates) {
     try {
       const result = await scoreSingleWallet({
         address: c.address,
         hip3Dexes,
-        trialCount: Math.max(sharpes.length, 1),
-        srVariance: populationVariance,
+        curated: c.curated,
+        accountValue: c.accountValue,
+        firstSeenAt: c.firstSeenAt,
       });
       scored += 1;
       tagged += result.tagsApplied;
+      if (result.curated) curatedCount += 1;
     } catch (err: unknown) {
       log.error(
         { address: c.address, err: err instanceof Error ? err.message : String(err) },
@@ -145,61 +124,23 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
     }
   }
 
-  log.info({ scored, tagged, ms: Date.now() - start }, 'score.done');
-}
-
-async function computeWalletSharpe(masterAddress: string): Promise<number | null> {
-  const addresses = await collectMasterAndAgents(masterAddress);
-
-  const fillsRows = await db()
-    .select()
-    .from(fills)
-    .where(inArray(fills.userAddress, addresses));
-  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return null;
-
-  const fundingsRows = await db()
-    .select()
-    .from(fundings)
-    .where(inArray(fundings.userAddress, addresses));
-  const ledgerRows = await db()
-    .select()
-    .from(ledgerUpdates)
-    .where(inArray(ledgerUpdates.userAddress, addresses));
-
-  const series = buildDailySeries({
-    fills: fillsRows.map((f) => ({
-      blockTimeMs: f.blockTimeMs,
-      closedPnl: f.closedPnl,
-      fee: f.fee,
-      sz: f.sz,
-      px: f.px,
-    })),
-    fundings: fundingsRows.map((f) => ({ blockTimeMs: f.blockTimeMs, usdc: f.usdc })),
-    ledger: ledgerRows.map((l) => ({
-      blockTimeMs: l.blockTimeMs,
-      type: l.type,
-      usdc: l.usdc,
-    })),
-  });
-
-  const initialDeposit = estimateInitialDeposit(ledgerRows);
-  const returns = toDailyReturns(series, initialDeposit);
-  return annualizedSharpe(returns);
+  log.info({ scored, tagged, curatedCount, ms: Date.now() - start }, 'score.done');
 }
 
 async function scoreSingleWallet(args: {
   address: string;
   hip3Dexes: Set<string>;
-  trialCount: number;
-  srVariance: number;
-}): Promise<{ tagsApplied: number }> {
+  curated: boolean;
+  accountValue: string | null;
+  firstSeenAt: Date;
+}): Promise<{ tagsApplied: number; curated: boolean }> {
   const addresses = await collectMasterAndAgents(args.address);
 
   const fillsRows = await db()
     .select()
     .from(fills)
     .where(inArray(fills.userAddress, addresses));
-  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0 };
+  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0, curated: false };
 
   const fundingsRows = await db()
     .select()
@@ -230,23 +171,29 @@ async function scoreSingleWallet(args: {
   const returns = toDailyReturns(series, initialDeposit);
   const perTradePnl = fillsRows.map((f) => Number.parseFloat(f.closedPnl) - Number.parseFloat(f.fee));
 
-  // Risk metrics
+  // Track-record span (calendar days between first and last event). Drives the
+  // track-record multiplier applied to Sharpe/Sortino in the composite basket.
+  const daysOfData =
+    series.firstEventMs !== null && series.lastEventMs !== null
+      ? (series.lastEventMs - series.firstEventMs) / MS_DAY
+      : 0;
+  const mult = trackRecordMultiplier(daysOfData);
+
+  // Risk metrics. PSR consumes the *daily* (un-annualized) Sharpe; the
+  // annualized Sharpe is kept only for the `scores.sharpe` display column.
   const sharpe = annualizedSharpe(returns);
+  const dSharpe = dailySharpe(returns);
   const sortino = annualizedSortino(returns);
-  const calmarRatio = calmar(returns);
+  const sortinoDaily = sortino !== null ? sortino / Math.sqrt(365) : null;
   const maxDd = maxDrawdownPct(returns);
   const recovery = recoveryTimeDays(returns);
   const pf = profitFactor(perTradePnl);
   const wr = winRate(perTradePnl);
   const exp = expectancy(perTradePnl);
-  const psr = sharpe !== null ? probabilisticSharpe(returns, sharpe, 0) : null;
-  const dsr =
-    sharpe !== null
-      ? deflatedSharpe(returns, sharpe, {
-          trialCount: args.trialCount,
-          srVariance: args.srVariance,
-        })
-      : null;
+  const psr = dSharpe !== null ? probabilisticSharpe(returns, dSharpe, 0) : null;
+  const monthlyConsistencyVal = monthlyConsistency(
+    series.daily.map((d) => ({ dayKey: d.dayKey, pnl: d.pnl })),
+  );
 
   // Rolling-window Sharpes for decay tracking
   const recent30 = lastNDays(returns, series, 30);
@@ -303,19 +250,48 @@ async function scoreSingleWallet(args: {
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
 
-  // Composite
-  const composite = computeComposite({
-    psr,
-    dsr,
-    totalTrades: fillsRows.length,
-    maxDrawdownPct: maxDd,
-    profitFactor: pf,
-    makerTakerRatio: behavioral.makerTakerRatio,
-    avgHoldSeconds: behavioral.avgHoldSeconds,
-    uniqueAssets: behavioral.uniqueAssets,
-    rolling30dSharpe,
-    peakRollingSharpe: peakSharpe,
+  // Composite — 7-metric median basket. Sharpe/Sortino are the daily-unit
+  // values scaled by the track-record multiplier. (`expectancy` is intentionally
+  // NOT in the basket — raw-USD, scale-dependent, undiscriminating near zero;
+  // still computed for the `scores.expectancy` display column below.)
+  const composite = medianComposite({
+    metrics: {
+      sharpe: dSharpe !== null ? dSharpe * mult : null,
+      sortino: sortinoDaily !== null ? sortinoDaily * mult : null,
+      psr,
+      profitFactor: pf,
+      maxDrawdownPct: maxDd,
+      recoveryTimeDays: recovery,
+      monthlyConsistency: monthlyConsistencyVal,
+    },
+    daysOfData,
   });
+
+  // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
+  const accountValueUsd =
+    args.accountValue !== null && Number.isFinite(Number.parseFloat(args.accountValue))
+      ? Number.parseFloat(args.accountValue)
+      : null;
+  const firstSeenMs = Math.min(
+    args.firstSeenAt.getTime(),
+    series.firstEventMs ?? Number.POSITIVE_INFINITY,
+  );
+  const eligibility = evaluateEligibility({
+    accountValueUsd,
+    totalVolumeUsd: behavioral.totalNotional.toNumber(),
+    firstSeenMs,
+    activeDays: series.activeDays,
+    roundTripTrades: null, // interim — round-trips not computed yet; gate skips this on null
+    capitalBaseKnown: ledgerRows.some((r) => r.type === 'deposit' && r.usdc != null),
+    makerShare: behavioral.makerTakerRatio,
+    avgHoldSeconds: behavioral.avgHoldSeconds,
+    longShortRatio: behavioral.longShortRatio,
+    totalFills: fillsRows.length,
+  });
+  const wasCurated = args.curated;
+  const nowCurated =
+    eligibility.eligible &&
+    (composite.score >= 70 || (wasCurated && composite.score >= 65));
 
   const now = new Date();
   const scoreRow: NewScore = {
@@ -332,9 +308,7 @@ async function scoreSingleWallet(args: {
     netPnlPct: computeRoi(series.netPnl.toNumber(), ledgerRows),
     sharpe: numToStr(sharpe),
     sortino: numToStr(sortino),
-    calmar: numToStr(calmarRatio),
     psr: numToStr(psr),
-    dsr: numToStr(dsr),
     profitFactor: numToStr(pf),
     winRate: numToStr(wr),
     expectancy: numToStr(exp),
@@ -386,11 +360,25 @@ async function scoreSingleWallet(args: {
       compositeScore: composite.score,
       primaryTag: mainTag,
       ingestState: 'scored',
+      curated: nowCurated,
+      ...(nowCurated && !wasCurated ? { curatedSince: now } : {}),
+      ...(!nowCurated ? { curatedSince: null } : {}),
       updatedAt: now,
     })
     .where(eq(wallets.address, args.address));
 
-  return { tagsApplied: tagRows.length };
+  log.info(
+    {
+      address: args.address,
+      score: composite.score,
+      eligible: eligibility.eligible,
+      curated: nowCurated,
+      ...(eligibility.failures.length > 0 ? { failures: eligibility.failures } : {}),
+    },
+    'score.wallet',
+  );
+
+  return { tagsApplied: tagRows.length, curated: nowCurated };
 }
 
 async function collectMasterAndAgents(masterAddress: string): Promise<string[]> {

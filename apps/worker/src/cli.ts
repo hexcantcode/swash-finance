@@ -1,8 +1,10 @@
 import { runBootstrap } from './jobs/bootstrap.js';
 import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
+import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
 import { runTradesSubscriber } from './jobs/trades-subscriber.js';
+import { runWsLiveSubscriber } from './jobs/ws-live-subscriber.js';
 import { ingestWallet } from './services/ingest-wallet.js';
 import { closeDb } from './db.js';
 import { log } from './log.js';
@@ -11,7 +13,11 @@ const COMMANDS = {
   bootstrap: 'Run a one-shot WS discovery sweep and queue every observed wallet.',
   leaderboard:
     'Fetch HL official leaderboard, persist tier-1 wallets, queue top-N for deep ingest.',
+  'leaderboard-poll':
+    'Poll HL leaderboard for top-7d-ROI + top trader-rankers, queue them as curation candidates.',
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
+  'ws-live':
+    'Long-running per-user WS subscriber for curated wallets (live cache + history). --reconcile=<seconds>.',
   'refresh-queue': 'Process the next batch of wallets in discovery_queue.',
   score: 'Recompute scores for every active master wallet (or one with --address).',
   'refresh-leader': 'Fetch fresh fills/agents for a single address (--address required).',
@@ -62,9 +68,27 @@ async function main(): Promise<void> {
       });
       break;
     }
+    case 'leaderboard-poll': {
+      const topRoi = flags['top-roi'] ? Number.parseInt(flags['top-roi'], 10) : undefined;
+      const topRankers = flags['top-rankers']
+        ? Number.parseInt(flags['top-rankers'], 10)
+        : undefined;
+      await runLeaderboardPoll({
+        ...(topRoi !== undefined ? { topRoi } : {}),
+        ...(topRankers !== undefined ? { topRankers } : {}),
+      });
+      break;
+    }
     case 'trades-watch': {
       const topCoins = flags['coins'] ? Number.parseInt(flags['coins'], 10) : undefined;
       await runTradesSubscriber(topCoins !== undefined ? { topCoins } : {});
+      break;
+    }
+    case 'ws-live': {
+      const reconcileSeconds = flags['reconcile']
+        ? Number.parseInt(flags['reconcile'], 10)
+        : undefined;
+      await runWsLiveSubscriber(reconcileSeconds !== undefined ? { reconcileSeconds } : {});
       break;
     }
     case 'refresh-queue':

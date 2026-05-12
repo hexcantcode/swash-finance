@@ -3,7 +3,10 @@
  *
  * Replays the J-1 scoring data path (master+agents → daily series → daily
  * returns) over a sample of Hyperliquid wallets and dumps the distribution of
- * the 10 raw basket metrics (plus the two track-record-scaled Sharpe/Sortino).
+ * the 7 raw basket metrics (plus the two track-record-scaled Sharpe/Sortino).
+ * (`expectancy` was dropped from the basket in the 2026-05-11 calibration —
+ * raw-USD, scale-dependent, undiscriminating near zero — so it is no longer
+ * summarised here.)
  * The point: replace the PROVISIONAL eyeballed knots in
  * packages/scoring/src/curves.ts with values grounded in the real
  * distribution — pick curve knots near the p10/p25/p50/p75/p90 of each metric.
@@ -25,10 +28,7 @@ import { fills, fundings, ledgerUpdates, leaderCache, wallets } from '@copytrade
 import {
   annualizedSortino,
   buildDailySeries,
-  calmar,
   dailySharpe,
-  deflatedSharpe,
-  expectancy,
   maxDrawdownPct,
   medianComposite,
   monthlyConsistency,
@@ -36,8 +36,9 @@ import {
   profitFactor,
   recoveryTimeDays,
   toDailyReturns,
+  trackRecordMultiplier,
 } from '@copytrade/scoring';
-import { quantile, sampleVariance } from 'simple-statistics';
+import { quantile } from 'simple-statistics';
 import { db, closeDb } from '../db.js';
 import { log } from '../log.js';
 import { writeFileSync } from 'node:fs';
@@ -46,14 +47,6 @@ const MS_DAY = 24 * 60 * 60 * 1000;
 const MIN_FILLS_FOR_SCORING = 10;
 const CURATED_THRESHOLD = 70;
 const SQRT_365 = Math.sqrt(365);
-
-// Local copy of FULL_CREDIT track-record multiplier (track-record.ts is not
-// parameterised, so just replicate the tiny formula here for clarity).
-const DAYS_PER_MONTH = 365 / 12;
-function trackRecordMultiplier(daysOfData: number): number {
-  if (!Number.isFinite(daysOfData) || daysOfData <= 0) return 0;
-  return Math.min(daysOfData / DAYS_PER_MONTH / 12, 1);
-}
 
 interface CliFlags {
   source: 'db' | 'leaderboard';
@@ -111,15 +104,12 @@ async function loadCandidateAddresses(flags: CliFlags): Promise<string[]> {
   return rows.map((r) => r.address);
 }
 
-/** The 12 quantities we summarise, in display order. */
+/** The 9 quantities we summarise, in display order. */
 const QUANTITY_KEYS = [
   'sharpe',
   'sortino',
-  'calmar',
   'psr',
-  'dsr',
   'profitFactor',
-  'expectancy',
   'maxDrawdownPct',
   'recoveryTimeDays',
   'monthlyConsistency',
@@ -133,8 +123,6 @@ interface WalletRow {
   daysOfData: number;
   activeDays: number;
   metrics: Record<QuantityKey, number | null>;
-  /** dailySharpe — recorded in pass 1, used to feed PSR/DSR in pass 2. */
-  dailySharpeVal: number | null;
   composite: number | null;
 }
 
@@ -246,7 +234,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Pass 1: compute everything except PSR/DSR, recording dailySharpe per wallet.
+  // Single pass: each wallet's PSR uses its own daily Sharpe vs a 0 benchmark,
+  // so no population statistics are needed.
   const rows: WalletRow[] = [];
   for (const address of addresses) {
     try {
@@ -261,14 +250,13 @@ async function main(): Promise<void> {
       const trm = trackRecordMultiplier(daysOfData);
       const sharpeScaled = ds === null ? null : ds * trm;
       const sortinoScaled = sortinoDaily === null ? null : sortinoDaily * trm;
+      const psr = ds !== null && Number.isFinite(ds) ? probabilisticSharpe(returns, ds, 0) : null;
       const metrics: Record<QuantityKey, number | null> = {
         sharpe: ds,
         sortino: sortinoDaily,
-        calmar: calmar(returns),
-        psr: null, // filled in pass 2
-        dsr: null, // filled in pass 2
-        profitFactor: profitFactor(returns),
-        expectancy: expectancy(perTradePnl),
+        psr,
+        // Same input as score.ts: per-trade pnl net of fees.
+        profitFactor: profitFactor(perTradePnl),
         maxDrawdownPct: maxDrawdownPct(returns),
         recoveryTimeDays: recoveryTimeDays(returns),
         monthlyConsistency: monthlyConsistency(
@@ -277,13 +265,24 @@ async function main(): Promise<void> {
         sharpeScaled,
         sortinoScaled,
       };
+      const comp = medianComposite({
+        metrics: {
+          sharpe: sharpeScaled,
+          sortino: sortinoScaled,
+          psr,
+          profitFactor: metrics.profitFactor,
+          maxDrawdownPct: metrics.maxDrawdownPct,
+          recoveryTimeDays: metrics.recoveryTimeDays,
+          monthlyConsistency: metrics.monthlyConsistency,
+        },
+        daysOfData,
+      });
       rows.push({
         address,
         daysOfData,
         activeDays: series.activeDays,
         metrics,
-        dailySharpeVal: ds,
-        composite: null,
+        composite: comp.score,
       });
     } catch (err: unknown) {
       log.warn(
@@ -293,58 +292,7 @@ async function main(): Promise<void> {
     }
   }
 
-  log.info({ processed: rows.length }, 'calibrate.pass1_done');
-
-  // Pass 2: PSR / DSR using the population variance of daily Sharpes.
-  const dailySharpes = rows
-    .map((r) => r.dailySharpeVal)
-    .filter((s): s is number => s !== null && Number.isFinite(s));
-  const trialCount = Math.max(dailySharpes.length, 1);
-  const srVariance = dailySharpes.length > 1 ? sampleVariance(dailySharpes) : 0;
-
-  for (const row of rows) {
-    try {
-      // Need returns again; cheaper to refetch than to hold all series in memory
-      // for huge samples — but for a research script we just recompute.
-      const data = await fetchWalletData(row.address);
-      if (data === null) continue;
-      const { returns } = buildSeriesAndReturns(data);
-      const ds = row.dailySharpeVal;
-      const psr = ds !== null && Number.isFinite(ds) ? probabilisticSharpe(returns, ds, 0) : null;
-      const dsr =
-        ds !== null && Number.isFinite(ds)
-          ? deflatedSharpe(returns, ds, { trialCount, srVariance })
-          : null;
-      row.metrics.psr = psr;
-      row.metrics.dsr = dsr;
-      const comp = medianComposite({
-        metrics: {
-          sharpe: row.metrics.sharpeScaled,
-          sortino: row.metrics.sortinoScaled,
-          calmar: row.metrics.calmar,
-          psr: row.metrics.psr,
-          dsr: row.metrics.dsr,
-          profitFactor: row.metrics.profitFactor,
-          expectancy: row.metrics.expectancy,
-          maxDrawdownPct: row.metrics.maxDrawdownPct,
-          recoveryTimeDays: row.metrics.recoveryTimeDays,
-          monthlyConsistency: row.metrics.monthlyConsistency,
-        },
-        activeDays: row.activeDays,
-      });
-      row.composite = comp.score;
-    } catch (err: unknown) {
-      log.warn(
-        { address: row.address, err: err instanceof Error ? err.message : String(err) },
-        'calibrate.pass2_wallet_failed',
-      );
-    }
-  }
-
-  log.info(
-    { processed: rows.length, trialCount, srVariance },
-    'calibrate.pass2_done',
-  );
+  log.info({ processed: rows.length }, 'calibrate.processed');
 
   // ---- Summary table ----
   console.log('');
@@ -380,11 +328,8 @@ async function main(): Promise<void> {
       'activeDays',
       'sharpe',
       'sortino',
-      'calmar',
       'psr',
-      'dsr',
       'profitFactor',
-      'expectancy',
       'maxDrawdownPct',
       'recoveryTimeDays',
       'monthlyConsistency',
@@ -402,11 +347,8 @@ async function main(): Promise<void> {
           csvNum(r.activeDays),
           csvNum(r.metrics.sharpe),
           csvNum(r.metrics.sortino),
-          csvNum(r.metrics.calmar),
           csvNum(r.metrics.psr),
-          csvNum(r.metrics.dsr),
           csvNum(r.metrics.profitFactor),
-          csvNum(r.metrics.expectancy),
           csvNum(r.metrics.maxDrawdownPct),
           csvNum(r.metrics.recoveryTimeDays),
           csvNum(r.metrics.monthlyConsistency),

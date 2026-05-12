@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dailySharpe } from './metrics.js';
-import { probabilisticSharpe, standardNormalCdf, standardNormalInverseCdf } from './psr.js';
+import { probabilisticSharpe, standardNormalCdf } from './psr.js';
 
 describe('standardNormalCdf', () => {
   it('Φ(0) = 0.5', () => {
@@ -14,21 +14,6 @@ describe('standardNormalCdf', () => {
   });
   it('Φ(3) ≈ 0.9987', () => {
     expect(standardNormalCdf(3)).toBeCloseTo(0.9987, 3);
-  });
-});
-
-describe('standardNormalInverseCdf', () => {
-  it('Φ⁻¹(0.5) = 0', () => {
-    expect(standardNormalInverseCdf(0.5)).toBeCloseTo(0, 5);
-  });
-  it('Φ⁻¹(0.975) ≈ 1.96', () => {
-    expect(standardNormalInverseCdf(0.975)).toBeCloseTo(1.96, 2);
-  });
-  it('round-trips through CDF', () => {
-    for (const p of [0.05, 0.2, 0.4, 0.6, 0.8, 0.95]) {
-      const z = standardNormalInverseCdf(p);
-      expect(standardNormalCdf(z)).toBeCloseTo(p, 4);
-    }
   });
 });
 

@@ -78,7 +78,8 @@ export function computeDecayFlag(
 
 export interface MedianCompositeInput {
   metrics: Partial<Record<MetricKey, number | null>>;
-  activeDays: number;
+  /** Calendar span of the track record: first→last event, in days. */
+  daysOfData: number;
 }
 
 export interface MedianCompositeResult {
@@ -86,9 +87,9 @@ export interface MedianCompositeResult {
   score: number;
   /** median of the present sub-scores, before the confidence cap (unrounded). */
   rawScore: number;
-  /** min(activeDays / 90, 1). */
+  /** min(daysOfData / 90, 1). */
   confidence: number;
-  /** activeDays < 90. */
+  /** daysOfData < 90. */
   provisional: boolean;
   /** one entry per basket metric, in basket order. */
   breakdown: Array<{ key: MetricKey; raw: number | null; score: number | null }>;
@@ -99,11 +100,8 @@ const CONFIDENCE_FULL_DAYS = 90;
 const BASKET: readonly MetricKey[] = [
   'sharpe',
   'sortino',
-  'calmar',
   'psr',
-  'dsr',
   'profitFactor',
-  'expectancy',
   'maxDrawdownPct',
   'recoveryTimeDays',
   'monthlyConsistency',
@@ -119,8 +117,14 @@ function median(xs: number[]): number {
 /**
  * Composite score = median of the normalized metric basket, capped by data
  * sufficiency. Median (not mean) so a single garbage metric can't swing the
- * score; null metrics drop out (e.g. DSR not yet computed). Scores 0 when no
+ * score; null metrics drop out (e.g. PSR not yet computed). Scores 0 when no
  * metric is present.
+ *
+ * The confidence cap is on the **calendar span** of the track record
+ * (`daysOfData`, first→last event): a short *total history* warrants less
+ * trust regardless of how active those days were. (It is deliberately NOT
+ * keyed on active-days — an intermittent-but-long-tenured trader shouldn't be
+ * penalized for the quiet stretches.)
  */
 export function medianComposite(input: MedianCompositeInput): MedianCompositeResult {
   const breakdown = BASKET.map((key) => {
@@ -129,12 +133,12 @@ export function medianComposite(input: MedianCompositeInput): MedianCompositeRes
   });
   const present = breakdown.map((b) => b.score).filter((s): s is number => s !== null);
   const rawScore = median(present);
-  const confidence = Math.min(Math.max(input.activeDays, 0) / CONFIDENCE_FULL_DAYS, 1);
+  const confidence = Math.min(Math.max(input.daysOfData, 0) / CONFIDENCE_FULL_DAYS, 1);
   return {
     score: Math.round(rawScore * confidence),
     rawScore,
     confidence,
-    provisional: input.activeDays < CONFIDENCE_FULL_DAYS,
+    provisional: input.daysOfData < CONFIDENCE_FULL_DAYS,
     breakdown,
   };
 }
