@@ -6,6 +6,9 @@ import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
 import { log } from './log.js';
 
+// Note: `ws-live-subscriber` runs as its own long-running process (`pnpm --filter
+// @copytrade/worker ws-live`), not one of the scheduled crons below.
+
 /** Scheduled long-running worker. Run via `pnpm worker:dev` or `pnpm worker:start`. */
 async function main(): Promise<void> {
   log.info('worker.starting');

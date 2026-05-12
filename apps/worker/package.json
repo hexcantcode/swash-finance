@@ -14,6 +14,7 @@
     "score": "tsx src/cli.ts score",
     "refresh-queue": "tsx src/cli.ts refresh-queue",
     "leaderboard-poll": "tsx src/cli.ts leaderboard-poll",
+    "ws-live": "tsx src/cli.ts ws-live",
     "refresh-leader": "tsx src/cli.ts refresh-leader",
     "calibrate": "tsx src/scripts/calibrate-curves.ts"
   },
@@ -22,6 +23,7 @@
     "@copytrade/hl-client": "workspace:*",
     "@copytrade/scoring": "workspace:*",
     "@copytrade/shared": "workspace:*",
+    "@nktkas/hyperliquid": "^0.32.2",
     "croner": "^9.0.0",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.39.1",
