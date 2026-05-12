@@ -28,6 +28,18 @@ Merge `data-sources` → `main`. It brings `0003`/`0004` and removes `calmar`/`d
 
 ---
 
+## STRICT RULE — one source of truth per data point, and propagate changes
+
+This is an analytics product; a number on screen is only as trustworthy as the discipline behind it.
+
+1. **One canonical definition per data point.** Every metric/figure (ROI, PnL, win rate, composite score, 7d window numbers, …) is computed/owned in exactly one place — the relevant `packages/scoring` function or `packages/db` column / server query. Components and loaders **read** that canonical value; they never recompute, re-derive, or "fix up" the same quantity locally. If you find the same number being calculated in two places, that's a bug — collapse it to one.
+
+2. **A data-point change isn't done until every consumer is updated.** When you change how something is computed, named, scaled, or shaped, trace the full chain — `packages/scoring` / DB column → server query (`apps/web/src/lib/server/queries/*`) → `+page.server.ts` loader → component props → display formatting (`$lib/utils/format.ts`) — and update them together in the same change. Before claiming done, grep for the field name across `apps/web/src` and `packages/` and confirm nothing stale remains.
+
+3. **Renames & removals are not "just" backend changes.** Dropping or renaming a column/metric breaks every component and type that referenced it. List those consumers up front and decide what each should show instead (a different metric? hidden? "—"?) — don't leave a component pointing at a field that no longer exists.
+
+---
+
 ## Other notes
 
 - The web app is a single page (`/` = the leaderboard + Winners + ticker). `/browse` 308-redirects to `/`. There is no theme toggle.
