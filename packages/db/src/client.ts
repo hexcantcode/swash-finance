@@ -20,6 +20,13 @@ export function createDb(config: DbConfig): { db: Db; pool: pg.Pool } {
     idleTimeoutMillis: config.idleTimeoutMillis ?? 30_000,
     ssl: config.url.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
   });
+  // Without an 'error' listener, an idle client that drops (network blip,
+  // laptop sleep/wake, DB restart) emits an unhandled 'error' that crashes the
+  // whole process. Swallow it — the pool discards the bad client and reconnects
+  // on the next query.
+  pool.on('error', (err) => {
+    console.error('[db] idle pool client error (recovering):', err.message);
+  });
   const db = drizzle(pool, { schema, casing: 'snake_case' });
   return { db, pool };
 }
