@@ -6,6 +6,7 @@ const LABEL: Record<MainTag, string> = {
   insider: 'Insider',
   specialist: 'Specialist',
   dark_horse: 'Dark horse',
+  generalist: 'Generalist',
 };
 
 export function mainTagClass(tag: string | null | undefined): string {

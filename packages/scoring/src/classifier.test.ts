@@ -29,8 +29,8 @@ const baseInputs: ClassifierInputs = {
 };
 
 describe('classifyMainTag', () => {
-  it('returns null for an unclassified low-sample wallet', () => {
-    expect(classifyMainTag(baseInputs)).toBeNull();
+  it('falls through to generalist for a wallet matching no specific archetype', () => {
+    expect(classifyMainTag(baseInputs)).toBe('generalist');
   });
 
   it('classifies fresh + concentrated + low-cadence as insider', () => {

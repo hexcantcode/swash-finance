@@ -10,7 +10,7 @@ export interface LeaderCard {
   metrics: {
     total_pnl_usd: number | null;
     total_volume_usd: number | null;
-    roi: number | null; // net_pnl / total_deposits, null when deposits=0
+    roi: number | null; // net_pnl_usd / account_value — return on current equity over the scored window; null only when account_value is unknown
     sharpe: number | null;
     sortino: number | null;
     psr: number | null;
@@ -128,7 +128,7 @@ export async function listLeaders(args: {
       winner_rank: wallets.winnerRank,
       total_pnl_usd: scores.netPnlUsd,
       total_volume_usd: scores.totalVolumeUsd,
-      roi: scores.netPnlPct,
+      account_value: wallets.accountValue,
       sharpe: scores.sharpe,
       sortino: scores.sortino,
       psr: scores.psr,
@@ -179,7 +179,7 @@ export async function listLeaders(args: {
     metrics: {
       total_pnl_usd: numOrNull(r.total_pnl_usd),
       total_volume_usd: numOrNull(r.total_volume_usd),
-      roi: numOrNull(r.roi),
+      roi: roiFromEquity(numOrNull(r.total_pnl_usd), numOrNull(r.account_value)),
       sharpe: numOrNull(r.sharpe),
       sortino: numOrNull(r.sortino),
       psr: numOrNull(r.psr),
@@ -197,6 +197,14 @@ export async function listLeaders(args: {
   }));
 
   return { leaders, total: totalRow[0]?.count ?? 0 };
+}
+
+/** Return on current equity over the scored window: net_pnl_usd / account_value.
+ *  One definition for the leaderboard ROI column; null only when account_value
+ *  is unknown (rare). */
+function roiFromEquity(netPnlUsd: number | null, accountValueUsd: number | null): number | null {
+  if (netPnlUsd === null || accountValueUsd === null || accountValueUsd <= 0) return null;
+  return netPnlUsd / accountValueUsd;
 }
 
 function numOrNull(value: string | null): number | null {

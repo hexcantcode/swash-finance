@@ -11,7 +11,7 @@ export function flipSide(side: Side): Side {
   return side === SIDE_BUY ? SIDE_SELL : SIDE_BUY;
 }
 
-export type MainTag = 'alpha_hunter' | 'veteran' | 'insider' | 'specialist' | 'dark_horse';
+export type MainTag = 'alpha_hunter' | 'veteran' | 'insider' | 'specialist' | 'dark_horse' | 'generalist';
 export type AssetTag = 'bluechip' | 'altcoin' | 'meme' | 'stocks' | 'mixed';
 export type CadenceTag = 'scalp' | 'intraday' | 'swing' | 'position';
 export type RiskTag = 'conservative' | 'balanced' | 'aggressive';
@@ -24,6 +24,7 @@ export const MAIN_TAGS: ReadonlyArray<MainTag> = [
   'insider',
   'specialist',
   'dark_horse',
+  'generalist',
 ] as const;
 
 export const MAIN_TAG_LABELS: Record<MainTag, string> = {
@@ -32,6 +33,7 @@ export const MAIN_TAG_LABELS: Record<MainTag, string> = {
   insider: 'Insider',
   specialist: 'Specialist',
   dark_horse: 'Dark Horse',
+  generalist: 'Generalist',
 };
 
 export const MAIN_TAG_DESCRIPTIONS: Record<MainTag, string> = {
@@ -42,6 +44,7 @@ export const MAIN_TAG_DESCRIPTIONS: Record<MainTag, string> = {
     'Fresh wallet (<60 days) with concentrated, event-driven activity. Often surfaces around news.',
   specialist: 'Dominant in one asset or category. Asset concentration > 60% with ≥50 trades.',
   dark_horse: 'Small sample (<50 trades) with strong signal (PSR > 0.9) and recent activity.',
+  generalist: 'A scored, active trader without a distinct archetype — the catch-all.',
 };
 
 export type DecayFlag = 'green' | 'yellow' | 'red';

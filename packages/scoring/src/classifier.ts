@@ -41,9 +41,10 @@ export interface ClassifierInputs {
  *   - dark_horse `total_trades < 200` (instead of 50) so the tag actually fires
  *     against discovery-sweep populations where every wallet has hundreds of fills.
  *
- * Returns null when none of the rules match — the wallet won't appear in /browse.
+ * Falls through to 'generalist' when no specific archetype matches — every
+ * scored wallet gets a main tag, so nothing renders as "Unclassified".
  */
-export function classifyMainTag(m: ClassifierInputs): MainTag | null {
+export function classifyMainTag(m: ClassifierInputs): MainTag {
   // 1. Alpha hunter — proven directional skill at significant sample.
   //    `active_days >= 14` lets short-window high-frequency traders qualify
   //    too; the PSR > 0.95 floor and 100-trade minimum already filter noise.
@@ -93,7 +94,9 @@ export function classifyMainTag(m: ClassifierInputs): MainTag | null {
     return 'specialist';
   }
 
-  return null;
+  // 6. Generalist — catch-all. Every scored wallet gets a main tag; nothing
+  //    surfaces as "Unclassified". "How kind" only — the composite says "how good".
+  return 'generalist';
 }
 
 export function classifyCadence(avgHoldSeconds: number | null): CadenceTag | null {

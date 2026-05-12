@@ -48,9 +48,6 @@
         <span class="k-roi-card-head-score {compositeScoreClass(row.composite_score)}">
           {row.composite_score ?? '—'}
         </span>
-        <span class="k-roi-card-head-sortino" title="Sortino ratio">
-          S {formatRatio(row.sortino)}
-        </span>
       </div>
 
       <div class="k-roi-card-stats">
@@ -65,6 +62,10 @@
         <div class="k-roi-card-stat">
           <span class="k-roi-card-stat-val">{formatPct(row.win_rate, 0)}</span>
           <span class="k-roi-card-stat-label">Win rate</span>
+        </div>
+        <div class="k-roi-card-stat">
+          <span class="k-roi-card-stat-val">{formatRatio(row.sortino)}</span>
+          <span class="k-roi-card-stat-label">Sortino</span>
         </div>
       </div>
     </a>
