@@ -33,14 +33,28 @@ import { log } from '../log.js';
  * ingests curated candidates' history before they can score >= 70 (and thus
  * before they become `curated`). This job only keeps the tail fresh.
  *
- * TODO: shard across connections if the curated set exceeds ~250 wallets × 4
- * subs ≈ HL's per-connection subscription limit. For v1 a single connection
- * is fine (curated set is small). `WebSocketTransport` auto-reconnects and
- * auto-resubscribes (resubscribe defaults to true) on connection drops, so
- * we don't have to re-issue subscriptions ourselves after a blip.
+ * **Sharding.** Hyperliquid hard-caps each WS connection at 10 *unique users*
+ * (not 10 subscriptions — one connection can hold 10 users × 4 subs = 40 subs).
+ * So we maintain a *pool* of shards: each shard is its own `WebSocketTransport`
+ * + `SubscriptionClient` holding up to `MAX_USERS_PER_CONNECTION` (= 9, one
+ * below the cap for a safety margin against a reconnect-resubscribe race)
+ * distinct user addresses. The reconcile loop diffs `wallets.curated` against
+ * the union of all shards' users, places new users on a non-full shard
+ * (creating a new shard when all are full), and drops users that are no longer
+ * curated (closing a shard's transport when it ends up empty).
+ *
+ * Each shard's `WebSocketTransport` auto-reconnects and auto-resubscribes
+ * (`resubscribe` defaults to true) on connection drops, so we don't have to
+ * re-issue that shard's subscriptions ourselves after a blip.
  */
 
 const DEFAULT_RECONCILE_SECONDS = 60;
+
+/**
+ * Max distinct user addresses per WS connection. HL's hard cap is 10; we use 9
+ * for a safety margin (a reconnect-resubscribe race could briefly double-count).
+ */
+const MAX_USERS_PER_CONNECTION = 9;
 
 interface UserSubs {
   webData2: { unsubscribe(): Promise<void> };
@@ -49,44 +63,58 @@ interface UserSubs {
   userLedger: { unsubscribe(): Promise<void> };
 }
 
+interface Shard {
+  transport: WebSocketTransport;
+  client: SubscriptionClient;
+  /** address -> 4 subscription handles. `size` is the unique-user count. */
+  users: Map<string, UserSubs>;
+}
+
+function newShard(): Shard {
+  const transport = new WebSocketTransport();
+  const client = new SubscriptionClient({ transport });
+  return { transport, client, users: new Map() };
+}
+
 export async function runWsLiveSubscriber(
   opts: { reconcileSeconds?: number } = {},
 ): Promise<void> {
   const reconcileSeconds = opts.reconcileSeconds ?? DEFAULT_RECONCILE_SECONDS;
 
-  const transport = new WebSocketTransport();
-  const client = new SubscriptionClient({ transport });
+  /** Connection pool. Each shard holds <= MAX_USERS_PER_CONNECTION users. */
+  const shards: Shard[] = [];
 
-  /** address -> 4 subscription handles. */
-  const subscribed = new Map<string, UserSubs>();
-
-  log.info({ reconcileSeconds }, 'ws-live.start');
+  log.info({ reconcileSeconds, maxUsersPerConnection: MAX_USERS_PER_CONNECTION }, 'ws-live.start');
 
   let stopping = false;
   const shutdown = async () => {
     if (stopping) return;
     stopping = true;
-    log.info({ totalSubs: subscribed.size }, 'ws-live.shutting_down');
-    await Promise.allSettled(
-      Array.from(subscribed.values()).flatMap((s) => [
-        s.webData2.unsubscribe(),
-        s.userFills.unsubscribe(),
-        s.userFundings.unsubscribe(),
-        s.userLedger.unsubscribe(),
-      ]),
-    );
-    subscribed.clear();
-    await transport.close().catch(() => {});
+    const totalUsers = shards.reduce((n, s) => n + s.users.size, 0);
+    log.info({ shards: shards.length, totalUsers }, 'ws-live.shutting_down');
+    for (const shard of shards) {
+      await Promise.allSettled(
+        Array.from(shard.users.values()).flatMap((s) => [
+          s.webData2.unsubscribe(),
+          s.userFills.unsubscribe(),
+          s.userFundings.unsubscribe(),
+          s.userLedger.unsubscribe(),
+        ]),
+      );
+      shard.users.clear();
+      await shard.transport.close().catch(() => {});
+    }
+    shards.length = 0;
     await closeDb().catch(() => {});
     process.exit(0);
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // Reconciliation loop: keep the subscription set in sync with `wallets.curated`.
+  // Reconciliation loop: keep the subscription pool in sync with `wallets.curated`.
   while (!stopping) {
     try {
-      await reconcileOnce(client, subscribed);
+      await reconcileOnce(shards, () => stopping);
     } catch (err) {
       log.warn({ err: errMsg(err) }, 'ws-live.reconcile_failed');
     }
@@ -94,10 +122,12 @@ export async function runWsLiveSubscriber(
   }
 }
 
-async function reconcileOnce(
-  client: SubscriptionClient,
-  subscribed: Map<string, UserSubs>,
-): Promise<void> {
+/** Find the shard currently holding `address`, or undefined. */
+function findShardFor(shards: Shard[], address: string): Shard | undefined {
+  return shards.find((s) => s.users.has(address));
+}
+
+async function reconcileOnce(shards: Shard[], isStopping: () => boolean): Promise<void> {
   const rows = await db()
     .select({ address: wallets.address })
     .from(wallets)
@@ -111,33 +141,57 @@ async function reconcileOnce(
   let added = 0;
   let removed = 0;
 
-  // Subscribe newly-curated addresses.
+  // Subscribe newly-curated addresses, placing each on a non-full shard
+  // (spinning up a new shard/connection when every existing shard is full).
   for (const address of desired) {
-    if (subscribed.has(address)) continue;
+    if (isStopping()) return;
+    if (findShardFor(shards, address)) continue;
+    let shard = shards.find((s) => s.users.size < MAX_USERS_PER_CONNECTION);
+    if (!shard) {
+      shard = newShard();
+      shards.push(shard);
+    }
     try {
-      const subs = await subscribeUser(client, address);
-      subscribed.set(address, subs);
+      const subs = await subscribeUser(shard.client, address);
+      shard.users.set(address, subs);
       added += 1;
     } catch (err) {
+      // With MAX_USERS_PER_CONNECTION = 9 the "Cannot track more than 10 unique
+      // users" error shouldn't happen — log and move on if it somehow does.
       log.warn({ address, err: errMsg(err) }, 'ws-live.subscribe_failed');
+      // If a brand-new shard failed on its first user, drop it so we retry next cycle.
+      if (shard.users.size === 0 && shards[shards.length - 1] === shard) {
+        shards.pop();
+        await shard.transport.close().catch(() => {});
+      }
     }
   }
 
-  // Unsubscribe addresses no longer curated.
-  for (const [address, subs] of Array.from(subscribed.entries())) {
-    if (desired.has(address)) continue;
-    await Promise.allSettled([
-      subs.webData2.unsubscribe(),
-      subs.userFills.unsubscribe(),
-      subs.userFundings.unsubscribe(),
-      subs.userLedger.unsubscribe(),
-    ]);
-    subscribed.delete(address);
-    removed += 1;
+  // Unsubscribe addresses no longer curated; drop a shard once it's empty.
+  for (const shard of shards) {
+    for (const [address, subs] of Array.from(shard.users.entries())) {
+      if (desired.has(address)) continue;
+      await Promise.allSettled([
+        subs.webData2.unsubscribe(),
+        subs.userFills.unsubscribe(),
+        subs.userFundings.unsubscribe(),
+        subs.userLedger.unsubscribe(),
+      ]);
+      shard.users.delete(address);
+      removed += 1;
+    }
+  }
+  for (let i = shards.length - 1; i >= 0; i--) {
+    const shard = shards[i]!;
+    if (shard.users.size === 0) {
+      shards.splice(i, 1);
+      await shard.transport.close().catch(() => {});
+    }
   }
 
+  const totalUsers = shards.reduce((n, s) => n + s.users.size, 0);
   log.info(
-    { curated: desired.size, added, removed, totalSubs: subscribed.size },
+    { curated: desired.size, added, removed, shards: shards.length, totalUsers },
     'ws-live.reconciled',
   );
 }
