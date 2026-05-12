@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-  <title>Swash — hyperliquid trader leaderboard</title>
+  <title>Swash — The right traders. Mirrored to your wallet.</title>
   <meta
     name="description"
     content="Curated, behaviorally classified, statistically corrected leaderboard of the most credible traders on Hyperliquid."

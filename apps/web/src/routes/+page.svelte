@@ -43,7 +43,7 @@
 </script>
 
 <svelte:head>
-  <title>Swash — hyperliquid trader leaderboard</title>
+  <title>Swash — The right traders. Mirrored to your wallet.</title>
 </svelte:head>
 
 <main id="main-content" class="stripe-content">
