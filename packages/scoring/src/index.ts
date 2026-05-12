@@ -8,3 +8,5 @@ export * from './consistency.js';
 export * from './track-record.js';
 export * from './curves.js';
 export * from './eligibility.js';
+export * from './copyability.js';
+export * from './leverage.js';

@@ -45,7 +45,11 @@
           class="stripe-avatar stripe-avatar-ring k-roi-card-avatar"
         />
         <span class="k-roi-card-addr">{truncateAddress(row.address)}</span>
-        <span class="k-roi-card-head-score {compositeScoreClass(row.composite_score)}">
+        <span
+          class="k-roi-card-head-score {compositeScoreClass(row.composite_score)}"
+          style="margin-left: auto;"
+          title="Composite score"
+        >
           {row.composite_score ?? '—'}
         </span>
       </div>

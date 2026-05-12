@@ -20,9 +20,12 @@ import {
   classifyRisk,
   classifySize,
   computeBehavioral,
+  computeCopyability,
   computeDecayFlag,
+  computeLeverageProfile,
   dailySharpe,
   evaluateEligibility,
+  MIN_ACCOUNT_VALUE_USD,
   expectancy,
   maxDrawdownPct,
   medianComposite,
@@ -43,16 +46,12 @@ const MIN_FILLS_FOR_SCORING = 10;
 const RECENT_WINDOW_180D_MS = 180 * MS_DAY;
 
 /**
- * Eligibility floors borrowed from kismet's HL worker. These drop two
- * categories of garbage before we spend scoring CPU on them:
- *
- *   - $0 → profited → withdrew everything wallets that produce
- *     millions-of-percent ROI (account_value catches them)
- *   - Tiny accounts that 100x'd on a single $50 trade (volume catches them)
- *
- * Wallets in the `wallets` table that miss either floor are silently skipped.
+ * Candidate floors. Below these we don't spend scoring CPU — and `MIN_ACCOUNT_VALUE_USD`
+ * (= the leaderboard *listing* floor, owned by `@copytrade/scoring`) also drops
+ * the "$0 → profited → withdrew everything" wallets that produce millions-of-%
+ * ROI. `MIN_VOLUME_USD` is a looser lifetime-volume floor than curation's.
+ * Wallets in the `wallets` table that miss either are silently skipped.
  */
-const MIN_ACCOUNT_VALUE_USD = 1_000;
 const MIN_VOLUME_USD = 10_000;
 
 /**
@@ -250,11 +249,12 @@ async function scoreSingleWallet(args: {
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
 
-  // Composite — 7-metric median basket. Sharpe/Sortino are the daily-unit
+  // Quality — 7-metric median basket (0..100). Sharpe/Sortino are the daily-unit
   // values scaled by the track-record multiplier. (`expectancy` is intentionally
   // NOT in the basket — raw-USD, scale-dependent, undiscriminating near zero;
-  // still computed for the `scores.expectancy` display column below.)
-  const composite = medianComposite({
+  // still computed for the `scores.expectancy` display column below.) We take the
+  // *un-capped* median here; the data-sufficiency discount now lives in `copyability`.
+  const quality = medianComposite({
     metrics: {
       sharpe: dSharpe !== null ? dSharpe * mult : null,
       sortino: sortinoDaily !== null ? sortinoDaily * mult : null,
@@ -265,33 +265,64 @@ async function scoreSingleWallet(args: {
       monthlyConsistency: monthlyConsistencyVal,
     },
     daysOfData,
-  });
+  }).rawScore;
 
-  // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
   const accountValueUsd =
     args.accountValue !== null && Number.isFinite(Number.parseFloat(args.accountValue))
       ? Number.parseFloat(args.accountValue)
       : null;
+  // Historical gross leverage profile, reconstructed from the fill stream
+  // (typical = median across the moments a position was open).
+  const leverageProfile = computeLeverageProfile(
+    fillsRows.map((f) => ({
+      blockTimeMs: f.blockTimeMs,
+      coin: f.coin,
+      side: f.side as 'B' | 'A',
+      px: f.px,
+      sz: f.sz,
+      startPosition: f.startPosition,
+    })),
+    accountValueUsd,
+  );
   const firstSeenMs = Math.min(
     args.firstSeenAt.getTime(),
     series.firstEventMs ?? Number.POSITIVE_INFINITY,
   );
+  const capitalBaseKnown = ledgerRows.some((r) => r.type === 'deposit' && r.usdc != null);
   const eligibility = evaluateEligibility({
     accountValueUsd,
     totalVolumeUsd: behavioral.totalNotional.toNumber(),
     firstSeenMs,
     activeDays: series.activeDays,
     roundTripTrades: null, // interim — round-trips not computed yet; gate skips this on null
-    capitalBaseKnown: ledgerRows.some((r) => r.type === 'deposit' && r.usdc != null),
+    capitalBaseKnown,
     makerShare: behavioral.makerTakerRatio,
     avgHoldSeconds: behavioral.avgHoldSeconds,
     longShortRatio: behavioral.longShortRatio,
     totalFills: fillsRows.length,
   });
+
+  // Copyability ∈ [0,1] — folds the capital / sample-size / track-record floors
+  // plus leverage & single-asset concentration into one multiplier; hard 0 for
+  // bot pattern / no reconstructable capital base / over the leverage cap /
+  // sub-$2k equity. composite = round(quality × copyability).
+  const copyability = computeCopyability({
+    accountValueUsd,
+    roundTrips: fillsRows.length, // interim: total fills as a round-trip proxy
+    daysOfData,
+    leverage: leverageProfile?.typicalGross ?? null,
+    assetConcentration: behavioral.assetConcentration,
+    maxDrawdownPct: maxDd,
+    isMarketMaker: eligibility.failures.includes('market_maker_pattern'),
+    capitalBaseKnown,
+  });
+  const compositeScore = Math.round(quality * copyability.value);
+
+  // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
   const wasCurated = args.curated;
   const nowCurated =
     eligibility.eligible &&
-    (composite.score >= 70 || (wasCurated && composite.score >= 65));
+    (compositeScore >= 70 || (wasCurated && compositeScore >= 65));
 
   const now = new Date();
   const scoreRow: NewScore = {
@@ -325,7 +356,7 @@ async function scoreSingleWallet(args: {
     rolling30dSharpe: numToStr(rolling30dSharpe),
     rolling7dSharpe: numToStr(rolling7dSharpe),
     decayFlag,
-    compositeScore: composite.score,
+    compositeScore,
     updatedAt: now,
   };
 
@@ -357,7 +388,7 @@ async function scoreSingleWallet(args: {
   await db()
     .update(wallets)
     .set({
-      compositeScore: composite.score,
+      compositeScore,
       primaryTag: mainTag,
       ingestState: 'scored',
       curated: nowCurated,
@@ -370,9 +401,14 @@ async function scoreSingleWallet(args: {
   log.info(
     {
       address: args.address,
-      score: composite.score,
+      score: compositeScore,
+      quality: Math.round(quality),
+      copyability: Number(copyability.value.toFixed(2)),
       eligible: eligibility.eligible,
       curated: nowCurated,
+      ...(copyability.breakdown.penalties.length > 0
+        ? { copyabilityNotes: copyability.breakdown.penalties }
+        : {}),
       ...(eligibility.failures.length > 0 ? { failures: eligibility.failures } : {}),
     },
     'score.wallet',

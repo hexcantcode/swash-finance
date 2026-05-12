@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import { scores, walletTags, wallets } from '@copytrade/db';
+import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
 
 export interface LeaderCard {
@@ -74,6 +75,8 @@ export async function listLeaders(args: {
   const baseFilters = [
     eq(wallets.isAgent, false),
     isNotNull(wallets.compositeScore),
+    // Listing floor: only wallets with real skin in the game (≥ $25K equity).
+    sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
   ];
 
   if (filters.minScore !== undefined) {

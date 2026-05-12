@@ -1,6 +1,9 @@
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { fills, leaderCache, scores, walletTags, wallets } from '@copytrade/db';
+import { computeCopyability } from '@copytrade/scoring';
 import { db } from '../db.js';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Detail payload for the trader profile page.
@@ -21,7 +24,18 @@ import { db } from '../db.js';
  */
 export interface LeaderDetail {
   address: string;
+  /** composite = round(quality × copyability) — the stored score. */
   composite_score: number | null;
+  /** Copyability factor C ∈ [0,1], recomputed on the fly (null when no scoring row).
+   *  The hard-zero rules for bot-pattern / no-capital-base aren't replayed here —
+   *  if the worker hard-zeroed it, `composite_score` is already 0. */
+  copyability: number | null;
+  /** Per-factor copyability breakdown for display. */
+  copyability_breakdown:
+    | { capital: number; sample: number; history: number; mirror: number }
+    | null;
+  /** Why copyability is below 1 — soft penalties + hard rules. */
+  copyability_notes: string[];
   primary_tag: string | null;
   tags: { type: string; value: string }[];
   scoring: ScoringDetail | null;
@@ -147,6 +161,27 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   const live_source =
     cacheRow?.source === 'ws' || cacheRow?.source === 'rest' ? cacheRow.source : null;
 
+  // Copyability C ∈ [0,1], recomputed from the analyzed/live tiers (same inputs
+  // the scoring run used, minus the bot / capital-base hard-zero checks — those
+  // would already have zeroed `compositeScore`). See
+  // docs/plans/2026-05-12-copyability-aware-scoring-design.md.
+  const recordFirstMs = score?.firstTradeAt?.getTime() ?? null;
+  const recordLastMs = score?.lastTradeAt?.getTime() ?? null;
+  const recordSpanDays =
+    recordFirstMs != null && recordLastMs != null ? (recordLastMs - recordFirstMs) / DAY_MS : 0;
+  const copyability = score
+    ? computeCopyability({
+        accountValueUsd: numOrNull(walletRow.accountValue ?? null),
+        roundTrips: score.totalTrades,
+        daysOfData: recordSpanDays,
+        leverage,
+        assetConcentration: numOrNull(score.assetConcentration),
+        maxDrawdownPct: numOrNull(score.maxDrawdownPct),
+        isMarketMaker: false,
+        capitalBaseKnown: true,
+      })
+    : null;
+
   const tagRows = await db()
     .select({ tagType: walletTags.tagType, tagValue: walletTags.tagValue })
     .from(walletTags)
@@ -239,6 +274,16 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   return {
     address: masterAddress,
     composite_score: walletRow.compositeScore,
+    copyability: copyability?.value ?? null,
+    copyability_breakdown: copyability
+      ? {
+          capital: copyability.breakdown.capital,
+          sample: copyability.breakdown.sample,
+          history: copyability.breakdown.history,
+          mirror: copyability.breakdown.mirror,
+        }
+      : null,
+    copyability_notes: copyability?.breakdown.penalties ?? [],
     primary_tag: walletRow.primaryTag,
     tags: tagRows.map((t) => ({ type: t.tagType, value: t.tagValue })),
     scoring: score
