@@ -21,27 +21,36 @@ import { closeDb, db } from '../db.js';
 import { log } from '../log.js';
 
 /**
- * `ws-live-subscriber` — long-running worker that holds per-user Hyperliquid
- * WS subscriptions for every `curated` wallet and keeps the live-tier cache
- * (`leader_cache`) plus the history tables (`fills`/`fundings`/`ledger_updates`)
- * fresh in real time.
+ * `ws-live-subscriber` — long-running worker that tracks the current winner set
+ * (HL 7d-ROI top-10, filtered) — one connection, ≤10 users — holding per-user
+ * Hyperliquid WS subscriptions for each winner wallet and keeping the live-tier
+ * cache (`leader_cache`) plus the history tables (`fills`/`fundings`/
+ * `ledger_updates`) fresh in real time.
  *
  * Runs as its own process (like `trades-subscriber`) — NOT one of the
  * scheduled crons in `index.ts`. Launch via `pnpm --filter @copytrade/worker ws-live`.
  *
  * No backfill: the leaderboard-poll + refresh-queue + score flow already
- * ingests curated candidates' history before they can score >= 70 (and thus
- * before they become `curated`). This job only keeps the tail fresh.
+ * ingests winner candidates' history (every winner is queued for deep-ingest +
+ * scoring when it enters the set). This job only keeps the tail fresh.
+ *
+ * **The set.** `leaderboard-poll` makes the in/out decision — it reconciles
+ * `wallets.winner` / `winner_rank` (HL's top-10 by 7d ROI passing the noise
+ * filter). We just subscribe `where winner = true order by winner_rank` (≤10).
+ * Hysteresis: an address is only *unsubscribed* once it's been absent from the
+ * desired set for 2 consecutive reconcile cycles, so a winner that briefly
+ * blips out (or a stale read) doesn't churn the connection.
  *
  * **Sharding.** Hyperliquid hard-caps each WS connection at 10 *unique users*
  * (not 10 subscriptions — one connection can hold 10 users × 4 subs = 40 subs).
- * So we maintain a *pool* of shards: each shard is its own `WebSocketTransport`
- * + `SubscriptionClient` holding up to `MAX_USERS_PER_CONNECTION` (= 9, one
- * below the cap for a safety margin against a reconnect-resubscribe race)
- * distinct user addresses. The reconcile loop diffs `wallets.curated` against
- * the union of all shards' users, places new users on a non-full shard
- * (creating a new shard when all are full), and drops users that are no longer
- * curated (closing a shard's transport when it ends up empty).
+ * The winner set is ≤10, so this only ever uses a single shard, but the pool
+ * machinery is kept (harmless): each shard is its own `WebSocketTransport` +
+ * `SubscriptionClient` holding up to `MAX_USERS_PER_CONNECTION` (= 9, one below
+ * the cap for a safety margin against a reconnect-resubscribe race) distinct
+ * user addresses; the reconcile loop diffs the desired set against the union of
+ * all shards' users, places new users on a non-full shard (creating a new shard
+ * when all are full), and drops users no longer wanted (closing a shard's
+ * transport when it ends up empty).
  *
  * Each shard's `WebSocketTransport` auto-reconnects and auto-resubscribes
  * (`resubscribe` defaults to true) on connection drops, so we don't have to
@@ -55,6 +64,17 @@ const DEFAULT_RECONCILE_SECONDS = 60;
  * for a safety margin (a reconnect-resubscribe race could briefly double-count).
  */
 const MAX_USERS_PER_CONNECTION = 9;
+
+/** The winners section holds the top-10 by 7d ROI (HL caps a WS connection at 10 unique users). */
+const WINNER_LIMIT = 10;
+
+/**
+ * Unsubscribe hysteresis: only drop a subscribed address once it's been absent
+ * from the desired set for this many consecutive reconcile cycles. Guards
+ * against a winner that briefly blips out of `winner = true` (or a stale read)
+ * churning the connection.
+ */
+const MAX_MISSED_CYCLES = 2;
 
 interface UserSubs {
   webData2: { unsubscribe(): Promise<void> };
@@ -83,6 +103,8 @@ export async function runWsLiveSubscriber(
 
   /** Connection pool. Each shard holds <= MAX_USERS_PER_CONNECTION users. */
   const shards: Shard[] = [];
+  /** Per-subscribed-address count of consecutive reconcile cycles it's been absent from the desired set. */
+  const missedCycles = new Map<string, number>();
 
   log.info({ reconcileSeconds, maxUsersPerConnection: MAX_USERS_PER_CONNECTION }, 'ws-live.start');
 
@@ -111,10 +133,10 @@ export async function runWsLiveSubscriber(
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // Reconciliation loop: keep the subscription pool in sync with `wallets.curated`.
+  // Reconciliation loop: keep the subscription pool in sync with the winner set.
   while (!stopping) {
     try {
-      await reconcileOnce(shards, () => stopping);
+      await reconcileOnce(shards, missedCycles, () => stopping);
     } catch (err) {
       log.warn({ err: errMsg(err) }, 'ws-live.reconcile_failed');
     }
@@ -127,24 +149,34 @@ function findShardFor(shards: Shard[], address: string): Shard | undefined {
   return shards.find((s) => s.users.has(address));
 }
 
-async function reconcileOnce(shards: Shard[], isStopping: () => boolean): Promise<void> {
+async function reconcileOnce(
+  shards: Shard[],
+  missedCycles: Map<string, number>,
+  isStopping: () => boolean,
+): Promise<void> {
+  // The desired set is the current winner set — HL's top-10 by 7d ROI passing
+  // the noise filter, as decided by `leaderboard-poll`. (`winner_rank` 1..N is
+  // display-adjacent here; we just need the ≤10 members.)
   const rows = await db()
     .select({ address: wallets.address })
     .from(wallets)
-    .where(sql`${wallets.curated} = true`);
+    .where(sql`${wallets.winner} = true`)
+    .orderBy(sql`${wallets.winnerRank} asc nulls last`)
+    .limit(WINNER_LIMIT);
   // Use the master address — for v1 we subscribe to masters only.
-  // TODO: also subscribe to curated wallets' agent addresses (resolve via
-  // extraAgents / `wallets.master_address` links) so agent-only activity is
-  // attributed to the master in real time.
+  // TODO: also subscribe to winners' agent addresses (resolve via extraAgents /
+  // `wallets.master_address` links) so agent-only activity is attributed to the
+  // master in real time.
   const desired = new Set<string>(rows.map((r) => normalizeAddress(r.address)));
 
   let added = 0;
   let removed = 0;
 
-  // Subscribe newly-curated addresses, placing each on a non-full shard
+  // Subscribe new winner addresses, placing each on a non-full shard
   // (spinning up a new shard/connection when every existing shard is full).
   for (const address of desired) {
     if (isStopping()) return;
+    missedCycles.delete(address);
     if (findShardFor(shards, address)) continue;
     let shard = shards.find((s) => s.users.size < MAX_USERS_PER_CONNECTION);
     if (!shard) {
@@ -167,10 +199,16 @@ async function reconcileOnce(shards: Shard[], isStopping: () => boolean): Promis
     }
   }
 
-  // Unsubscribe addresses no longer curated; drop a shard once it's empty.
+  // Unsubscribe addresses no longer in the desired set — but only after they've
+  // been absent for MAX_MISSED_CYCLES consecutive reconciles (hysteresis).
   for (const shard of shards) {
     for (const [address, subs] of Array.from(shard.users.entries())) {
       if (desired.has(address)) continue;
+      const missed = (missedCycles.get(address) ?? 0) + 1;
+      if (missed < MAX_MISSED_CYCLES) {
+        missedCycles.set(address, missed);
+        continue;
+      }
       await Promise.allSettled([
         subs.webData2.unsubscribe(),
         subs.userFills.unsubscribe(),
@@ -178,6 +216,7 @@ async function reconcileOnce(shards: Shard[], isStopping: () => boolean): Promis
         subs.userLedger.unsubscribe(),
       ]);
       shard.users.delete(address);
+      missedCycles.delete(address);
       removed += 1;
     }
   }
@@ -191,7 +230,7 @@ async function reconcileOnce(shards: Shard[], isStopping: () => boolean): Promis
 
   const totalUsers = shards.reduce((n, s) => n + s.users.size, 0);
   log.info(
-    { curated: desired.size, added, removed, shards: shards.length, totalUsers },
+    { winners: desired.size, added, removed, pendingDrop: missedCycles.size, shards: shards.length, totalUsers },
     'ws-live.reconciled',
   );
 }
