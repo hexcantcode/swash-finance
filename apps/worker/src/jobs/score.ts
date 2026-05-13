@@ -21,14 +21,12 @@ import {
   computeDecayFlag,
   computeLeverageProfile,
   computeScore,
-  dailySharpe,
   expectancy,
   isMarketMakerPattern,
   MIN_ACCOUNT_VALUE_USD,
   maxDrawdownPct,
   monthlyConsistency,
   passesGate,
-  probabilisticSharpe,
   profitFactor,
   recoveryTimeDays,
   toDailyReturns,
@@ -187,14 +185,15 @@ async function scoreSingleWallet(args: {
   // consumes the *daily* (un-annualized) Sharpe; the annualized Sharpe is
   // for the `scores.sharpe` display column.
   const sharpe = annualizedSharpe(returns);
-  const dSharpe = dailySharpe(returns);
   const sortino = annualizedSortino(returns);
   const maxDd = maxDrawdownPct(returns);
   const recovery = recoveryTimeDays(returns);
   const pf = profitFactor(perTradePnl);
   const wr = winRate(perTradePnl);
   const exp = expectancy(perTradePnl);
-  const psr = dSharpe !== null ? probabilisticSharpe(returns, dSharpe, 0) : null;
+  // PSR dropped in score v2 (it only fed the old composite). `scores.psr`
+  // column kept for backwards compatibility, written as null.
+  const psr: number | null = null;
   const monthlyConsistencyVal = monthlyConsistency(
     series.daily.map((d) => ({ dayKey: d.dayKey, pnl: d.pnl })),
   );

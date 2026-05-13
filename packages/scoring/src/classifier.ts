@@ -179,3 +179,24 @@ export function classifyAssetClass(
   }
   return 'altcoin';
 }
+
+/**
+ * Trader-page badge — is this wallet's recent track record close to its peak
+ * Sharpe (green), losing edge (yellow), or in serious decay (red)? Written to
+ * `scores.decay_flag` as a display-only signal; the v2 score doesn't read it.
+ *
+ *  - green:  recent within 20% of peak Sharpe
+ *  - yellow: recent 50-80% of peak
+ *  - red:    recent < 50% of peak, or recent Sharpe is negative
+ */
+export function computeDecayFlag(
+  recentSharpe: number | null,
+  peakSharpe: number | null,
+): 'green' | 'yellow' | 'red' | null {
+  if (recentSharpe === null || peakSharpe === null || peakSharpe <= 0) return null;
+  if (recentSharpe < 0) return 'red';
+  const ratio = recentSharpe / peakSharpe;
+  if (ratio >= 0.8) return 'green';
+  if (ratio >= 0.5) return 'yellow';
+  return 'red';
+}
