@@ -338,8 +338,8 @@ body {
 }
 
 .k-mobile-header-brand img {
-  width: 32px;
-  height: 32px;
+  height: 36px;
+  width: auto;
   display: block;
 }
 
@@ -379,8 +379,8 @@ body {
 }
 
 .k-sidenav-brand img {
-  width: 32px;
-  height: 32px;
+  height: 36px;
+  width: auto;
   display: block;
 }
 

@@ -129,7 +129,7 @@
   <!-- Mobile header (visible < 1024px) -->
   <header class="k-mobile-header" aria-label="Primary mobile">
     <a href="/" class="k-mobile-header-brand" aria-label="Swash — home">
-      <img src="/logoicon.png" alt="" aria-hidden="true" />
+      <img src="/logotext.png" alt="" aria-hidden="true" />
     </a>
     <div class="k-mobile-header-right">
       {@render searchForm()}
@@ -142,7 +142,7 @@
   <!-- Sidebar (visible ≥ 1024px) -->
   <nav class="k-sidenav" aria-label="Primary">
     <a href="/" class="k-sidenav-brand" aria-label="Swash — home">
-      <img src="/logoicon.png" alt="" aria-hidden="true" />
+      <img src="/logotext.png" alt="" aria-hidden="true" />
     </a>
     <ul class="k-sidenav-items">
       <li>
