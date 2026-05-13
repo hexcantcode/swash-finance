@@ -90,7 +90,7 @@
     <TradeTicker trades={data.recentTrades} />
   </section>
 
-  <section class="k-trader-section" style="margin-top: var(--space-4);">
+  <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
         <div class="k-mini-table-head">Top gainers · 24h</div>

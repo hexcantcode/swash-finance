@@ -204,17 +204,6 @@
         <span class="k-trader-stat-value">{formatPct(data.leader.scoring?.win_rate ?? null, 0)}</span>
       </div>
       <div class="k-trader-stat">
-        <span class="k-trader-stat-label">Copyability</span>
-        <span
-          class="k-trader-stat-value"
-          title={data.leader.copyability_notes.length > 0
-            ? data.leader.copyability_notes.join(' · ')
-            : undefined}
-        >
-          {formatPct(data.leader.copyability, 0)}
-        </span>
-      </div>
-      <div class="k-trader-stat">
         <span class="k-trader-stat-label">Avg hold</span>
         <span class="k-trader-stat-value">{formatDuration(data.leader.scoring?.avg_hold_seconds ?? null)}</span>
       </div>

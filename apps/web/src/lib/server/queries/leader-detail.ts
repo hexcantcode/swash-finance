@@ -1,6 +1,5 @@
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { fills, leaderCache, scores, walletTags, wallets } from '@copytrade/db';
-import { computeCopyability } from '@copytrade/scoring';
 import { db } from '../db.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,14 +26,6 @@ export interface LeaderDetail {
   /** Score v2: 0.4·profit + 0.3·consistency + 0.3·risk for gate-passers; null
    *  when the wallet failed the gate. See docs/plans/2026-05-13-score-v2-design.md. */
   score: number | null;
-  /** @deprecated Old copyability factor; no longer surfaced. */
-  copyability: number | null;
-  /** Per-factor copyability breakdown for display. */
-  copyability_breakdown:
-    | { capital: number; sample: number; history: number; mirror: number }
-    | null;
-  /** Why copyability is below 1 — soft penalties + hard rules. */
-  copyability_notes: string[];
   primary_tag: string | null;
   tags: { type: string; value: string }[];
   scoring: ScoringDetail | null;
@@ -160,26 +151,9 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   const live_source =
     cacheRow?.source === 'ws' || cacheRow?.source === 'rest' ? cacheRow.source : null;
 
-  // Legacy copyability recompute — kept for backwards compatibility with the
-  // trader page's old "copyability breakdown" panel. Score v2 doesn't read
-  // this; the page can hide the panel and rely on the `score` plus failed-gate
-  // list. See docs/plans/2026-05-13-score-v2-design.md.
-  const recordFirstMs = score?.firstTradeAt?.getTime() ?? null;
-  const recordLastMs = score?.lastTradeAt?.getTime() ?? null;
-  const recordSpanDays =
-    recordFirstMs != null && recordLastMs != null ? (recordLastMs - recordFirstMs) / DAY_MS : 0;
-  const copyability = score
-    ? computeCopyability({
-        accountValueUsd: numOrNull(walletRow.accountValue ?? null),
-        roundTrips: score.totalTrades,
-        daysOfData: recordSpanDays,
-        leverage,
-        assetConcentration: numOrNull(score.assetConcentration),
-        maxDrawdownPct: numOrNull(score.maxDrawdownPct),
-        isMarketMaker: false,
-        capitalBaseKnown: true,
-      })
-    : null;
+  // Score v2 (gate + computeScore) is the single source. The legacy
+  // copyability breakdown panel is gone; the trader page surfaces the
+  // `score` number directly. See docs/plans/2026-05-13-score-v2-design.md.
 
   const tagRows = await db()
     .select({ tagType: walletTags.tagType, tagValue: walletTags.tagValue })
@@ -273,16 +247,6 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   return {
     address: masterAddress,
     score: walletRow.score,
-    copyability: copyability?.value ?? null,
-    copyability_breakdown: copyability
-      ? {
-          capital: copyability.breakdown.capital,
-          sample: copyability.breakdown.sample,
-          history: copyability.breakdown.history,
-          mirror: copyability.breakdown.mirror,
-        }
-      : null,
-    copyability_notes: copyability?.breakdown.penalties ?? [],
     primary_tag: walletRow.primaryTag,
     tags: tagRows.map((t) => ({ type: t.tagType, value: t.tagValue })),
     scoring: score
