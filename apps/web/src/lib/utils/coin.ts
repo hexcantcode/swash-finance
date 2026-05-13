@@ -59,7 +59,7 @@ export const COIN_WHITE_BG_SYMBOLS: ReadonlySet<string> = new Set([
 export const COIN_LOGO_OVERRIDES: ReadonlySet<string> = new Set([
   'NATGAS', 'URNM', 'WHEAT', 'KWEB', 'BIRD', 'CAR',
   'BMNR', 'TENCENT', 'XIAOMI', 'EBAY', 'GAS',
-  'USENERGY', 'SEMI', 'MSFT', 'COPPER',
+  'USENERGY', 'SEMI', 'MSFT', 'COPPER', 'SMSN',
 ]);
 
 /**
@@ -100,16 +100,37 @@ export function coinIsExcluded(coin: string): boolean {
 /**
  * Coarse classification for the assets-page filter tabs.
  *
- * Main HL perp dex = always crypto. HIP-3 dexes lean strongly one way: hyna
- * mirrors crypto majors, para lists crypto indices (BTCD, TOTAL2, OTHERS),
- * abcd is crypto-native; everything else (xyz, cash, km, vntl, flx) is
- * TradFi tickers + commodities + indices.
+ * - `index`: any basket/index instrument — broad country indices (SP500,
+ *   JP225, …), country/sector ETFs (EWJ, KWEB, XLE, …), vntl sector themes
+ *   (BIOTECH, ROBOT, …), and crypto market-cap indices (BTCD, TOTAL2,
+ *   OTHERS). Matched by an explicit symbol set so it overrides any
+ *   per-dex default.
+ * - `crypto`: main HL perp dex + crypto-native HIP-3 dexes (hyna, abcd),
+ *   minus anything caught by the index set above.
+ * - `stocks`: everything else — individual TradFi tickers (TSLA, NVDA, …),
+ *   commodities (GOLD, COPPER, NATGAS, …) and FX (EUR, JPY).
  */
-export type CoinCategory = 'crypto' | 'stocks';
+export type CoinCategory = 'crypto' | 'stocks' | 'index';
 
 const HIP3_CRYPTO_DEXES: ReadonlySet<string> = new Set(['hyna', 'abcd', 'para']);
 
-export function coinCategory(dex: string | null): CoinCategory {
-  if (dex === null) return 'crypto';
-  return HIP3_CRYPTO_DEXES.has(dex) ? 'crypto' : 'stocks';
+const COIN_INDEX_SYMBOLS: ReadonlySet<string> = new Set([
+  // Broad country / region indices
+  'JP225', 'KR200', 'SP500', 'US500', 'USA100', 'USA500',
+  // Country / region ETFs
+  'EWJ', 'EWY', 'EWZ', 'KWEB',
+  // US sector indices / ETFs
+  'XLE', 'SEMI', 'SEMIS', 'USTECH', 'USENERGY', 'USBOND', 'SMALL2000',
+  // vntl sector themes
+  'BIOTECH', 'DEFENSE', 'ENERGY', 'INFOTECH', 'MAG7', 'NUCLEAR', 'ROBOT',
+  // Other index-like
+  'DRAM', 'XYZ100',
+  // Crypto market-cap indices
+  'BTCD', 'OTHERS', 'TOTAL2',
+]);
+
+export function coinCategory(coin: string, dex: string | null): CoinCategory {
+  if (COIN_INDEX_SYMBOLS.has(bareSymbol(coin))) return 'index';
+  if (dex === null || HIP3_CRYPTO_DEXES.has(dex)) return 'crypto';
+  return 'stocks';
 }

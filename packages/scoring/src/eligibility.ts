@@ -63,7 +63,20 @@ export interface EligibilityResult {
   failures: EligibilityFailure[];
 }
 
-function looksLikeMarketMaker(input: EligibilityInputs): boolean {
+/** Subset of `EligibilityInputs` needed for the bot/MM-pattern check.
+ *  Exported so the new gate (gate.ts) can call this without the rest of
+ *  `evaluateEligibility`'s legacy gate logic. */
+export interface MarketMakerInputs {
+  makerShare: number | null;
+  avgHoldSeconds: number | null;
+  longShortRatio: number | null;
+  totalFills: number | null;
+}
+
+/** True when ALL the market-maker / grid-bot signals fire together.
+ *  Single source of truth; called from both `evaluateEligibility` and the new
+ *  `passesGate` path. */
+export function isMarketMakerPattern(input: MarketMakerInputs): boolean {
   return (
     input.makerShare != null &&
     input.makerShare > MM_MAX_MAKER_SHARE &&
@@ -109,7 +122,7 @@ export function evaluateEligibility(input: EligibilityInputs): EligibilityResult
     failures.push('capital_base_unknown');
   }
 
-  if (looksLikeMarketMaker(input)) {
+  if (isMarketMakerPattern(input)) {
     failures.push('market_maker_pattern');
   }
 

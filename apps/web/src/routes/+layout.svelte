@@ -147,22 +147,22 @@
     <ul class="k-sidenav-items">
       <li>
         <a
-          href="/"
-          class="k-sidenav-item"
-          class:is-active={tradersActive}
-          aria-current={tradersActive ? 'page' : undefined}
-        >
-          Traders
-        </a>
-      </li>
-      <li>
-        <a
           href="/assets"
           class="k-sidenav-item"
           class:is-active={assetsActive}
           aria-current={assetsActive ? 'page' : undefined}
         >
           Assets
+        </a>
+      </li>
+      <li>
+        <a
+          href="/"
+          class="k-sidenav-item"
+          class:is-active={tradersActive}
+          aria-current={tradersActive ? 'page' : undefined}
+        >
+          Traders
         </a>
       </li>
     </ul>
@@ -208,17 +208,6 @@
   <nav class="k-bottomnav" aria-label="Primary mobile">
     <div class="k-bottomnav-inner">
       <a
-        href="/"
-        class="k-bottomnav-item"
-        class:is-active={tradersActive}
-        aria-current={tradersActive ? 'page' : undefined}
-      >
-        <svg class="k-bottomnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d={ICON_TRADERS} />
-        </svg>
-        <span class="k-bottomnav-label">Traders</span>
-      </a>
-      <a
         href="/assets"
         class="k-bottomnav-item"
         class:is-active={assetsActive}
@@ -228,6 +217,17 @@
           <path d={ICON_ASSETS} />
         </svg>
         <span class="k-bottomnav-label">Assets</span>
+      </a>
+      <a
+        href="/"
+        class="k-bottomnav-item"
+        class:is-active={tradersActive}
+        aria-current={tradersActive ? 'page' : undefined}
+      >
+        <svg class="k-bottomnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d={ICON_TRADERS} />
+        </svg>
+        <span class="k-bottomnav-label">Traders</span>
       </a>
     </div>
   </nav>

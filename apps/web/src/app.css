@@ -396,13 +396,13 @@ body {
 .k-sidenav-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
-  color: var(--stripe-text-tertiary);
+  color: var(--stripe-text-primary);
   text-decoration: none;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   transition:
     color var(--transition-fast),
     background-color var(--transition-fast);
@@ -410,7 +410,6 @@ body {
 
 .k-sidenav-item:hover {
   color: var(--stripe-text-secondary);
-  background: var(--stripe-bg-tertiary);
 }
 
 .k-sidenav-item:focus-visible {
@@ -420,8 +419,8 @@ body {
 
 .k-sidenav-item.is-active,
 .k-sidenav-item.is-active:hover {
-  color: var(--stripe-accent);
-  background: var(--stripe-accent-subtle);
+  color: var(--stripe-accent-dark);
+  background: var(--stripe-accent-muted);
 }
 
 /* ── Top bar (desktop, hidden by default) ────────────────── */
@@ -458,7 +457,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--stripe-text-muted);
+  color: var(--stripe-text-primary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
@@ -470,12 +469,11 @@ body {
 .k-bottomnav-item:focus-visible {
   outline: none;
   color: var(--stripe-text-primary);
-  background: var(--stripe-bg-tertiary);
 }
 
 .k-bottomnav-item.is-active,
 .k-bottomnav-item.is-active:hover {
-  color: var(--stripe-accent);
+  color: var(--stripe-accent-dark);
 }
 
 .k-bottomnav-icon {
@@ -846,16 +844,16 @@ body {
 .k-filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 5px;
+  padding: 4px 10px;
   border: 1px solid var(--stripe-border);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--stripe-text-tertiary);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition:
     color var(--transition-fast),

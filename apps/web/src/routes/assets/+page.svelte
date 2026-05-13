@@ -16,10 +16,19 @@
     [...assets].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0)),
   );
   const visibleByVolume = $derived(
-    filter === null ? byVolume : byVolume.filter((a) => coinCategory(a.dex) === filter),
+    filter === null
+      ? byVolume
+      : byVolume.filter((a) => coinCategory(a.coin, a.dex) === filter),
   );
-  const cryptoCount = $derived(assets.filter((a) => coinCategory(a.dex) === 'crypto').length);
-  const stocksCount = $derived(assets.filter((a) => coinCategory(a.dex) === 'stocks').length);
+  const cryptoCount = $derived(
+    assets.filter((a) => coinCategory(a.coin, a.dex) === 'crypto').length,
+  );
+  const stocksCount = $derived(
+    assets.filter((a) => coinCategory(a.coin, a.dex) === 'stocks').length,
+  );
+  const indexCount = $derived(
+    assets.filter((a) => coinCategory(a.coin, a.dex) === 'index').length,
+  );
   const withChange = $derived(assets.filter((a) => a.change24h !== null));
   const winners = $derived(
     [...withChange].sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0)).slice(0, 5),
@@ -133,7 +142,16 @@
           aria-pressed={filter === 'stocks'}
           onclick={() => (filter = filter === 'stocks' ? null : 'stocks')}
         >
-          Stocks &amp; Commodities <span class="k-filter-chip-count">{stocksCount}</span>
+          Stock &amp; Commodity <span class="k-filter-chip-count">{stocksCount}</span>
+        </button>
+        <button
+          type="button"
+          class="k-filter-chip"
+          class:is-active={filter === 'index'}
+          aria-pressed={filter === 'index'}
+          onclick={() => (filter = filter === 'index' ? null : 'index')}
+        >
+          Index <span class="k-filter-chip-count">{indexCount}</span>
         </button>
         <button
           type="button"

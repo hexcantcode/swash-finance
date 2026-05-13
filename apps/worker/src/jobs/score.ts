@@ -18,21 +18,22 @@ import {
   classifyProfile,
   classifySize,
   computeBehavioral,
-  computeCopyability,
   computeDecayFlag,
   computeLeverageProfile,
+  computeScore,
   dailySharpe,
-  evaluateEligibility,
-  MIN_ACCOUNT_VALUE_USD,
   expectancy,
+  isMarketMakerPattern,
+  MIN_ACCOUNT_VALUE_USD,
   maxDrawdownPct,
-  medianComposite,
   monthlyConsistency,
+  passesGate,
   probabilisticSharpe,
   profitFactor,
   recoveryTimeDays,
   toDailyReturns,
   trackRecordMultiplier,
+  weeklyProfitableRatio,
   winRate,
 } from '@copytrade/scoring';
 import { db } from '../db.js';
@@ -76,9 +77,11 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   const candidates = await db()
     .select({
       address: wallets.address,
-      curated: wallets.curated,
       accountValue: wallets.accountValue,
       firstSeenAt: wallets.firstSeenAt,
+      // Score v2: profit input reads HL's reported 30d ROI directly — no
+      // deposit-base reconstruction in the path anymore.
+      hlRoi30d: wallets.hlRoi30d,
     })
     .from(wallets)
     .where(
@@ -112,13 +115,13 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
       const result = await scoreSingleWallet({
         address: c.address,
         hip3Dexes,
-        curated: c.curated,
         accountValue: c.accountValue,
         firstSeenAt: c.firstSeenAt,
+        hlRoi30d: c.hlRoi30d,
       });
       scored += 1;
       tagged += result.tagsApplied;
-      if (result.curated) curatedCount += 1;
+      if (result.scored) curatedCount += 1;
     } catch (err: unknown) {
       log.error(
         { address: c.address, err: err instanceof Error ? err.message : String(err) },
@@ -133,17 +136,17 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
 async function scoreSingleWallet(args: {
   address: string;
   hip3Dexes: Set<string>;
-  curated: boolean;
   accountValue: string | null;
   firstSeenAt: Date;
-}): Promise<{ tagsApplied: number; curated: boolean }> {
+  hlRoi30d: string | null;
+}): Promise<{ tagsApplied: number; scored: boolean }> {
   const addresses = await collectMasterAndAgents(args.address);
 
   const fillsRows = await db()
     .select()
     .from(fills)
     .where(inArray(fills.userAddress, addresses));
-  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0, curated: false };
+  if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0, scored: false };
 
   const fundingsRows = await db()
     .select()
@@ -251,48 +254,50 @@ async function scoreSingleWallet(args: {
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
 
-  // ── Data-quality gate ──────────────────────────────────────────────────
-  // When the deposit base can't be reconstructed (`netPnlPct === null`), the
-  // daily-return series is unreliable — so every metric derived from it
-  // (Sharpe, Sortino, PSR, max DD, recovery) is junk. Drop those from the
-  // quality basket *and* floor the composite. Also: an *exact-zero* max
-  // drawdown over a real record is a degenerate-series artifact ("0 → curve →
-  // 100"), not a real "never lost" — treat it as missing. And clamp absurd
-  // Sharpe/Sortino (near-zero-denominator blow-ups, e.g. a 4000+ Sortino) to
-  // "missing" rather than letting them peg the curve at 100.
-  const netPnlPct = computeRoi(series.netPnl.toNumber(), ledgerRows);
-  const SORTINO_CEIL = 30; // annualized; above this it's a near-zero-downside artifact
-  const SHARPE_CEIL = 15; // annualized
-  const reliableSeries = netPnlPct !== null;
-  const sharpeOk = sharpe !== null && Number.isFinite(sharpe) && Math.abs(sharpe) <= SHARPE_CEIL;
-  const sortinoOk = sortino !== null && Number.isFinite(sortino) && Math.abs(sortino) <= SORTINO_CEIL;
-  const qSharpe = reliableSeries && sharpeOk ? sharpe : null;
-  const qDSharpe = reliableSeries && sharpeOk ? dSharpe : null;
-  const qSortinoDaily = reliableSeries && sortinoOk ? sortinoDaily : null;
-  const qPsr = reliableSeries && sharpeOk ? psr : null;
-  const qMaxDd = reliableSeries && maxDd !== null && maxDd !== 0 ? maxDd : null;
-  const qRecovery = reliableSeries ? recovery : null;
+  // ── Score v2 ───────────────────────────────────────────────────────────
+  // Two stages: gate (3 hard rules) → score (0.4·profit + 0.3·consistency +
+  // 0.3·risk, each on a linear band). See docs/plans/2026-05-13-score-v2-design.md.
+  // The Sharpe/Sortino/PSR/profit-factor/maxDD numbers computed above are
+  // kept as display-only stats on the `scores` row — they no longer feed the
+  // score itself.
 
-  // Quality — median basket (0..100). Sharpe/Sortino are the daily-unit values
-  // scaled by the track-record multiplier. (`expectancy` is intentionally NOT
-  // in the basket — raw-USD, scale-dependent, undiscriminating near zero; still
-  // stored for display.) Un-capped median here; the data-sufficiency discount
-  // lives in `copyability`, and the data-quality gate above drops junk inputs.
-  const quality = medianComposite({
-    metrics: {
-      sharpe: qDSharpe !== null ? qDSharpe * mult : null,
-      sortino: qSortinoDaily !== null ? qSortinoDaily * mult : null,
-      psr: qPsr,
-      profitFactor: pf,
-      maxDrawdownPct: qMaxDd,
-      recoveryTimeDays: qRecovery,
-      monthlyConsistency: monthlyConsistencyVal,
-    },
-    daysOfData,
-  }).rawScore;
+  // Gate input: bot/MM detection still uses the existing behavioral signals
+  // (high maker share + sub-minute holds + balanced long-short + many fills).
+  const isMarketMaker = isMarketMakerPattern({
+    makerShare: behavioral.makerTakerRatio,
+    avgHoldSeconds: behavioral.avgHoldSeconds,
+    longShortRatio: behavioral.longShortRatio,
+    totalFills: fillsRows.length,
+  });
+  const gate = passesGate({
+    accountValueUsd,
+    lastFillMs: series.lastEventMs,
+    isMarketMaker,
+    nowMs: Date.now(),
+  });
 
-  // Historical gross leverage profile, reconstructed from the fill stream
-  // (typical = median across the moments a position was open).
+  // Score inputs (only consumed if the gate passes — but cheap to compute).
+  const weeklyConsistency = weeklyProfitableRatio({
+    fills: fillsRows.map((f) => ({
+      blockTimeMs: f.blockTimeMs,
+      closedPnl: Number.parseFloat(f.closedPnl),
+    })),
+  });
+  const hlRoi30dNumber =
+    args.hlRoi30d !== null && Number.isFinite(Number.parseFloat(args.hlRoi30d))
+      ? Number.parseFloat(args.hlRoi30d)
+      : null;
+  const scoreResult = gate.passed
+    ? computeScore({
+        roi30d: hlRoi30dNumber,
+        weeksProfitableRatio: weeklyConsistency.ratio,
+        maxDrawdownPct: maxDd,
+      })
+    : null;
+  const scoreValue = scoreResult?.score ?? null;
+
+  // Reconstruct the leverage profile for the `scores.expectancy`/display
+  // stats only (the score doesn't read it).
   const leverageProfile = computeLeverageProfile(
     fillsRows.map((f) => ({
       blockTimeMs: f.blockTimeMs,
@@ -304,50 +309,18 @@ async function scoreSingleWallet(args: {
     })),
     accountValueUsd,
   );
-  const firstSeenMs = Math.min(
-    args.firstSeenAt.getTime(),
-    series.firstEventMs ?? Number.POSITIVE_INFINITY,
-  );
-  const capitalBaseKnown = ledgerRows.some((r) => r.type === 'deposit' && r.usdc != null);
-  const eligibility = evaluateEligibility({
-    accountValueUsd,
-    totalVolumeUsd: behavioral.totalNotional.toNumber(),
-    firstSeenMs,
-    activeDays: series.activeDays,
-    roundTripTrades: behavioral.roundTrips,
-    capitalBaseKnown,
-    makerShare: behavioral.makerTakerRatio,
-    avgHoldSeconds: behavioral.avgHoldSeconds,
-    longShortRatio: behavioral.longShortRatio,
-    totalFills: fillsRows.length,
-  });
 
-  // Copyability ∈ [0,1] — folds the capital / sample-size / track-record floors
-  // plus leverage & single-asset concentration into one multiplier; hard 0 for
-  // bot pattern / no reconstructable capital base / over the leverage cap /
-  // sub-$2k equity. composite = round(quality × copyability).
-  const copyability = computeCopyability({
-    accountValueUsd,
-    roundTrips: behavioral.roundTrips,
-    daysOfData,
-    leverage: leverageProfile?.typicalGross ?? null,
-    assetConcentration: behavioral.assetConcentration,
-    maxDrawdownPct: maxDd,
-    isMarketMaker: eligibility.failures.includes('market_maker_pattern'),
-    capitalBaseKnown,
-  });
-  // Composite = quality × copyability, then floored when the deposit base
-  // couldn't be reconstructed — an unverifiable record can't be "good" (≥50),
-  // let alone curated (≥70).
-  const DATA_QUALITY_CAP = 49;
-  const compositeRaw = Math.round(quality * copyability.value);
-  const compositeScore = reliableSeries ? compositeRaw : Math.min(compositeRaw, DATA_QUALITY_CAP);
+  // `curated` becomes a derived "score is computed" boolean: gate passed AND
+  // all three inputs available. No more separate threshold (composite ≥ 70)
+  // or hysteresis logic; the gate is the gate.
+  const nowCurated = scoreValue !== null;
+  void leverageProfile; // referenced by no current write; kept for log line below
 
-  // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
-  const wasCurated = args.curated;
-  const nowCurated =
-    eligibility.eligible &&
-    (compositeScore >= 70 || (wasCurated && compositeScore >= 65));
+  // The deposit-base ROI (`netPnlPct`) is no longer in the score path, but
+  // we keep computing it for the trader page's display column (it answers
+  // "ROI on visible deposits"). Wallets without a reconstructable deposit
+  // base just show "—" for that field; the score doesn't care.
+  const netPnlPct = computeRoi(series.netPnl.toNumber(), ledgerRows);
 
   const now = new Date();
   const scoreRow: NewScore = {
@@ -362,16 +335,17 @@ async function scoreSingleWallet(args: {
     activeDays: series.activeDays,
     netPnlUsd: clampNetPnlUsd(series.netPnl.toNumber()),
     netPnlPct,
-    // Stored values are the *gated* ones — what the score actually trusted —
-    // so the trader page shows "—" rather than a junk Sharpe/Sortino/DD.
-    sharpe: numToStr(qSharpe),
-    sortino: numToStr(reliableSeries && sortinoOk ? sortino : null),
-    psr: numToStr(qPsr),
+    // Display-only stats — no longer gated by data-quality flags, since the
+    // score doesn't read them. The trader page shows the raw numbers; a
+    // user can read them as "this trader's Sharpe over the visible fills".
+    sharpe: numToStr(sharpe),
+    sortino: numToStr(sortino),
+    psr: numToStr(psr),
     profitFactor: numToStr(pf),
     winRate: numToStr(wr),
     expectancy: numToStr(exp),
-    maxDrawdownPct: numToStr(qMaxDd),
-    recoveryTimeDays: qRecovery,
+    maxDrawdownPct: numToStr(maxDd),
+    recoveryTimeDays: recovery,
     avgHoldSeconds: behavioral.avgHoldSeconds !== null ? Math.round(behavioral.avgHoldSeconds) : null,
     tradesPerDayAvg: numToStr(behavioral.tradesPerDayAvg),
     makerTakerRatio: numToStr(behavioral.makerTakerRatio),
@@ -383,7 +357,7 @@ async function scoreSingleWallet(args: {
     rolling30dSharpe: numToStr(rolling30dSharpe),
     rolling7dSharpe: numToStr(rolling7dSharpe),
     decayFlag,
-    compositeScore,
+    compositeScore: scoreValue,
     updatedAt: now,
   };
 
@@ -411,12 +385,12 @@ async function scoreSingleWallet(args: {
   await db()
     .update(wallets)
     .set({
-      compositeScore,
+      compositeScore: scoreValue,
       primaryTag: profileTag,
       ingestState: 'scored',
       curated: nowCurated,
-      ...(nowCurated && !wasCurated ? { curatedSince: now } : {}),
-      ...(!nowCurated ? { curatedSince: null } : {}),
+      ...(nowCurated && !args.firstSeenAt ? {} : {}),
+      curatedSince: nowCurated ? now : null,
       updatedAt: now,
     })
     .where(eq(wallets.address, args.address));
@@ -424,22 +398,25 @@ async function scoreSingleWallet(args: {
   log.info(
     {
       address: args.address,
-      score: compositeScore,
-      quality: Math.round(quality),
-      copyability: Number(copyability.value.toFixed(2)),
+      score: scoreValue,
       profile: profileTag,
       roundTrips: behavioral.roundTrips,
-      eligible: eligibility.eligible,
-      curated: nowCurated,
-      ...(copyability.breakdown.penalties.length > 0
-        ? { copyabilityNotes: copyability.breakdown.penalties }
-        : {}),
-      ...(eligibility.failures.length > 0 ? { failures: eligibility.failures } : {}),
+      ...(scoreResult
+        ? {
+            breakdown: scoreResult.breakdown,
+            inputs: {
+              roi30d: hlRoi30dNumber,
+              weeksProfitable: weeklyConsistency.profitableWeeks,
+              weeksActive: weeklyConsistency.weeksWithActivity,
+              maxDd,
+            },
+          }
+        : { gateFailures: gate.failures }),
     },
     'score.wallet',
   );
 
-  return { tagsApplied: tagRows.length, curated: nowCurated };
+  return { tagsApplied: tagRows.length, scored: nowCurated };
 }
 
 async function collectMasterAndAgents(masterAddress: string): Promise<string[]> {
