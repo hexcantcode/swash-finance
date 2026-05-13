@@ -26,13 +26,16 @@ import { persistAndQueueLeaderboardRows } from './leaderboard-ingest.js';
  * `refresh-queue` can deep-ingest them; the next `score` run then evaluates
  * them against the curation gate (see jobs/score.ts).
  *
- * It *also* reconciles the **winner set**: HL's top-10 wallets by 7d ROI that
- * pass a lightweight noise filter (the only fields a raw leaderboard row can
- * support — account value, 7d volume, ROI sanity). These ≤10 addresses get
- * `wallets.winner = true` + `winner_rank` 1..N (by 7d ROI), and they're the
- * only wallets the `ws-live-subscriber` holds a live WS subscription for. The
- * display ordering of the winners section is by *our* composite, not by
- * `winner_rank`, so new winners are also queued for deep-ingest + scoring.
+ * It *also* reconciles the **winner set** (= "Top Earners" on the home page):
+ * HL's top-10 wallets by **7d realized PnL** that pass a lightweight noise
+ * filter (the only fields a raw leaderboard row can support — account value,
+ * 7d volume, ROI sanity). These ≤10 addresses get `wallets.winner = true` +
+ * `winner_rank` 1..N (by 7d PnL desc), and they're the only wallets the
+ * `ws-live-subscriber` holds a live WS subscription for. Display ordering on
+ * the home page Top-Earners strip follows `winner_rank` directly (so the
+ * biggest absolute earner leads — matching Hyperdash's `/explore/global`
+ * 7d-PnL view). New winners are also queued for deep-ingest + scoring so
+ * they pick up a composite for the secondary "Best to copy" surface.
  *
  * This job never deep-ingests inline — that's `refresh-queue`'s job. Cron
  * cadence: every 15 minutes.
@@ -126,14 +129,19 @@ export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Pro
     source: 'hl_leaderboard_poll',
   });
 
-  // ── Winner set: HL top-10 by 7d ROI, noise-filtered ───────────────────────
-  // Walk *all* fetched rows sorted by 7d ROI desc (not just the eligible
-  // bucket — the winner filter is its own, stricter gate), apply the
-  // lightweight raw-row noise filter, take the first WINNER_LIMIT that pass.
-  const sortedByRoi7d = [...rawRows].sort((a, b) => b.week.roi - a.week.roi);
+  // ── Winner set: HL top-10 by 7d realized PnL, noise-filtered ──────────────
+  // Walk *all* fetched rows sorted by 7d PnL desc (not just the eligible
+  // bucket — the winner filter is its own, stricter gate that already cuts
+  // small accounts via WINNER_MIN_7D_VOLUME_USD / MIN_ACCOUNT_VALUE_USD).
+  // Apply the lightweight raw-row noise filter and take the first
+  // WINNER_LIMIT that pass. Earlier code used `week.roi` — that pushed huge
+  // absolute-PnL whales like Loracle ($14M / 32% ROI) below 100×-small-
+  // account ROI scalpers; switching to `week.pnl` matches Hyperdash's
+  // `/explore/global` 7d-PnL ranking, which is what users compare against.
+  const sortedByPnl7d = [...rawRows].sort((a, b) => b.week.pnl - a.week.pnl);
   const winners: LeaderboardRow[] = [];
   let evaluated = 0;
-  for (const r of sortedByRoi7d) {
+  for (const r of sortedByPnl7d) {
     evaluated += 1;
     if (passesWinnerFilter(r)) {
       winners.push(r);

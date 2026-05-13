@@ -19,20 +19,21 @@ export interface WeeklyLeaderRow {
 }
 
 /**
- * The "Winners" cards: the canonical winner set — `wallets.winner` — which the
- * `leaderboard-poll` job computes as HL's top-10 by 7d ROI passing the noise
- * filter (account value ≥ MIN_ACCOUNT_VALUE_USD ($25K), 7d volume ≥ $100K, ROI
- * sanity). One source of
- * truth: this is the same set the live-WS subscriber tracks; `wallets.winner` /
- * `wallets.winnerRank` are owned by `leaderboard-poll`, and the HL 7d numbers
- * (`hlRoi7d` / `hlPnl7dUsd` / `hlVolume7dUsd`) by that same job's upsert.
+ * The "Top Earners" cards: the canonical winner set — `wallets.winner` — which
+ * `leaderboard-poll` populates as HL's top-10 by **7d realized PnL** passing
+ * the noise filter (account value ≥ MIN_ACCOUNT_VALUE_USD ($25K), 7d volume ≥
+ * $100K, |ROI| ≤ 50). One source of truth: this is the same set the live-WS
+ * subscriber tracks; `wallets.winner` / `wallets.winnerRank` are owned by
+ * `leaderboard-poll`, and the HL 7d numbers (`hlPnl7dUsd` / `hlRoi7d` /
+ * `hlVolume7dUsd`) by that same job's upsert.
  *
- * Cards are ordered by **composite score** (desc) — so the highest-quality of
- * the hot-this-week traders leads — not by raw 7d ROI. Left-joins `scores` for
- * win rate / Sharpe / Sortino; a winner that just entered the set and hasn't
- * been ingested+scored yet shows `—` for those until the next score run.
+ * Cards are ordered by **`winner_rank` asc** — which by construction is 7d
+ * PnL desc — so Loracle ($14M) leads, not the small-account 90%-ROI traders
+ * who'd top a ROI-sorted list but only earned a fraction of the absolute PnL.
+ * Left-joins `scores` for the analyzed-tier metrics; winners that haven't
+ * been deep-ingested yet show `—` for those until the next score run.
  */
-export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]> {
+export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
   const rows = await db()
     .select({
       address: wallets.address,
@@ -51,7 +52,7 @@ export async function listTopByWeeklyRoi(limit = 10): Promise<WeeklyLeaderRow[]>
     .from(wallets)
     .leftJoin(scores, eq(scores.address, wallets.address))
     .where(eq(wallets.winner, true))
-    .orderBy(desc(wallets.compositeScore), asc(wallets.winnerRank))
+    .orderBy(asc(wallets.winnerRank))
     .limit(limit);
 
   return rows.map((r) => ({

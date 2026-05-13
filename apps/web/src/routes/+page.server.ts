@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { listLeaders, type BrowseFilters } from '$lib/server/queries/leaders';
 import { listRecentTrades } from '$lib/server/queries/recent-trades';
-import { listTopByWeeklyRoi } from '$lib/server/queries/weekly-leaders';
+import { listTopEarners7d } from '$lib/server/queries/weekly-leaders';
 import type { PageServerLoad } from './$types';
 
 const ALLOWED_SORTS = ['composite_score', 'pnl', 'equity', 'frequency'] as const;
@@ -17,7 +17,7 @@ const QuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
-/** How many ROI-maker cards the "Winners" strip shows. */
+/** How many cards the "Top Earners (7d)" strip shows. */
 const WINNERS_SHOWN = 10;
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -35,19 +35,24 @@ export const load: PageServerLoad = async ({ url }) => {
   const page = params.page ?? 1;
   const limit = params.limit ?? 25;
 
-  const [leaders, weeklyRoi, recentTrades] = await Promise.all([
+  const [leaders, topEarners, recentTrades] = await Promise.all([
     listLeaders({ filters, sort, page, limit }),
-    listTopByWeeklyRoi(10),
+    listTopEarners7d(10),
     listRecentTrades(40),
   ]);
 
-  // "Winners" cards: last week's biggest ROI makers among wallets that pass our
-  // listing criteria (`listTopByWeeklyRoi` already returns that filtered set).
-  const winners = [...weeklyRoi]
-    .filter((r) => r.roi_7d != null && Number.isFinite(r.roi_7d))
-    .sort((a, b) => (b.roi_7d ?? -Infinity) - (a.roi_7d ?? -Infinity))
+  // "Top Earners (7d)" cards: biggest realized 7d PnL among wallets that pass
+  // the listing noise filter. Already ranked 1..N by `winner_rank` (= 7d PnL
+  // desc) inside `listTopEarners7d`, so we just take the first N and surface
+  // both PnL and ROI to the card.
+  const winners = topEarners
+    .filter((r) => r.pnl_7d_usd != null && Number.isFinite(r.pnl_7d_usd))
     .slice(0, WINNERS_SHOWN)
-    .map((r) => ({ address: r.address, roi_7d: r.roi_7d }));
+    .map((r) => ({
+      address: r.address,
+      pnl_7d_usd: r.pnl_7d_usd,
+      roi_7d: r.roi_7d,
+    }));
 
   return {
     topLeaders: leaders.leaders,

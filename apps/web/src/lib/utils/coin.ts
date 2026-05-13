@@ -30,6 +30,16 @@ function bareSymbol(coin: string): string {
 }
 
 /**
+ * Display label for a coin — the bare symbol with original case preserved
+ * (so `kPEPE` stays `kPEPE`, not `KPEPE`). Strips a HIP-3 `dex:` prefix to
+ * match how rows are labelled in the assets table.
+ */
+export function coinDisplayName(coin: string): string {
+  const i = coin.indexOf(':');
+  return i === -1 ? coin : coin.slice(i + 1);
+}
+
+/**
  * Logos that HL serves as dark/transparent silhouettes — they disappear into
  * the dark page background unless we put a white disc behind them.
  * Add to this list when a logo audit turns up another offender.

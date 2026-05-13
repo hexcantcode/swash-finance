@@ -86,28 +86,3 @@
     </footer>
   </section>
 </main>
-
-<footer class="k-site-footer">
-  <div class="k-site-footer-top">
-    <div class="k-site-footer-brand">
-      <div class="k-site-footer-brand-row">
-        <span class="k-site-footer-brand-name">Swash</span>
-      </div>
-      <p class="k-site-footer-tagline">The right traders. Mirrored to your wallet.</p>
-      <span class="k-site-footer-copyright">© 2026 Swash</span>
-    </div>
-
-    <div class="k-site-footer-col">
-      <h3 class="k-site-footer-col-title">Product</h3>
-      <a href="/" class="k-site-footer-link">Leaderboard</a>
-    </div>
-
-    <div class="k-site-footer-col">
-      <h3 class="k-site-footer-col-title">Resources</h3>
-      <a href="/methodology" class="k-site-footer-link">Methodology</a>
-      <a href="/about" class="k-site-footer-link">About</a>
-    </div>
-  </div>
-
-  <div class="k-site-footer-bottom"></div>
-</footer>

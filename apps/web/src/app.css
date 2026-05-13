@@ -304,9 +304,121 @@ body {
   border-bottom: 0.5px solid var(--stripe-border);
 }
 
+.k-topnav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
 .k-topnav-search-form {
   display: flex;
-  flex: 0 1 300px;
+  align-items: center;
+  background: var(--stripe-bg-secondary);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition:
+    width 180ms ease,
+    border-color 120ms ease;
+}
+
+.k-topnav-search-form.is-collapsed {
+  width: 36px;
+}
+
+.k-topnav-search-form.is-expanded {
+  width: 260px;
+}
+
+.k-topnav-search-form:focus-within {
+  border-color: var(--stripe-border-focus);
+}
+
+.k-topnav-search-toggle {
+  flex: 0 0 36px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--stripe-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.k-topnav-search-toggle:hover {
+  color: var(--stripe-text-primary);
+}
+
+.k-topnav-search-toggle:focus-visible {
+  outline: none;
+  color: var(--stripe-text-primary);
+}
+
+/* Input inside the expandable header search — overrides .k-filter-search width/chrome. */
+.k-topnav-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0 12px 0 0;
+  height: 32px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--stripe-text-primary);
+  transition: opacity 120ms ease;
+}
+
+.k-topnav-search-input::placeholder {
+  color: var(--stripe-text-muted);
+}
+
+.k-topnav-search-form.is-collapsed .k-topnav-search-input {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.k-topnav-search-input:focus {
+  outline: none;
+  border-color: transparent;
+}
+
+.k-connect-wallet {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  background: var(--stripe-accent);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.k-connect-wallet:hover {
+  background: var(--stripe-accent-light);
+}
+
+.k-connect-wallet:active {
+  transform: translateY(1px);
+}
+
+.k-connect-wallet:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .k-topnav-brand {

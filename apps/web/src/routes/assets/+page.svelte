@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { coinCategory, coinIconUrl, coinNeedsWhiteBg, type CoinCategory } from '$lib/utils/coin';
   import { pnlSignClass } from '$lib/utils/format';
+  import TradeTicker from '$lib/components/TradeTicker.svelte';
   import type { AssetRow } from '$lib/server/queries/assets';
   import type { PageData } from './$types';
 
@@ -76,6 +77,10 @@
 </svelte:head>
 
 <main id="main-content" class="stripe-content">
+  <section class="k-trader-section" style="margin-top: 0; margin-bottom: var(--space-6);">
+    <TradeTicker trades={data.recentTrades} />
+  </section>
+
   <section class="k-trader-section" style="margin-top: var(--space-4);">
     <div class="k-winners-losers">
       <div class="k-mini-table">
