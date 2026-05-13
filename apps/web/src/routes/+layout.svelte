@@ -9,6 +9,7 @@
   const path = $derived($page.url.pathname);
   const tradersActive = $derived(path === '/' || path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
+  const analyticsActive = $derived(path.startsWith('/analytics'));
 
   let searchInput = $state($page.url.searchParams.get('search') ?? '');
   let searchExpanded = $state(($page.url.searchParams.get('search') ?? '') !== '');
@@ -67,6 +68,9 @@
   const ICON_TRADERS =
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
   const ICON_ASSETS = 'M3 3v18h18 M18 17V9 M13 17V5 M8 17v-3';
+  // 4x4 dot grid — fits the "matrix" mental model in the analytics page.
+  const ICON_ANALYTICS =
+    'M5 5h.01 M10 5h.01 M15 5h.01 M19 5h.01 M5 10h.01 M10 10h.01 M15 10h.01 M19 10h.01 M5 15h.01 M10 15h.01 M15 15h.01 M19 15h.01 M5 19h.01 M10 19h.01 M15 19h.01 M19 19h.01';
 </script>
 
 <svelte:head>
@@ -165,6 +169,16 @@
           Traders
         </a>
       </li>
+      <li>
+        <a
+          href="/analytics"
+          class="k-sidenav-item"
+          class:is-active={analyticsActive}
+          aria-current={analyticsActive ? 'page' : undefined}
+        >
+          Analytics
+        </a>
+      </li>
     </ul>
   </nav>
 
@@ -228,6 +242,17 @@
           <path d={ICON_TRADERS} />
         </svg>
         <span class="k-bottomnav-label">Traders</span>
+      </a>
+      <a
+        href="/analytics"
+        class="k-bottomnav-item"
+        class:is-active={analyticsActive}
+        aria-current={analyticsActive ? 'page' : undefined}
+      >
+        <svg class="k-bottomnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d={ICON_ANALYTICS} />
+        </svg>
+        <span class="k-bottomnav-label">Analytics</span>
       </a>
     </div>
   </nav>

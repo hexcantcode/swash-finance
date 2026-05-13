@@ -1370,6 +1370,15 @@ body {
 .k-section-head .k-section-title {
   margin-bottom: 0;
 }
+/* Inline subhead next to a section title: "Top open positions · by PnL · 25". */
+.k-section-sub {
+  margin-left: var(--space-2);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-tertiary);
+  text-transform: none;
+}
 
 .k-card {
   background: var(--stripe-bg-primary);
@@ -2306,6 +2315,87 @@ tr.k-row-flash-down > td {
 }
 .k-open-positions-refreshed .is-stale {
   color: var(--stripe-warning, #f5a623);
+}
+
+/* ── Analytics · Position matrix ─────────────────────────── */
+/* 25-row × ~18-col grid: tracked traders down the side, coin icons
+ * across the top. Each cell is a small tinted square — green for long,
+ * red for short, opacity scaled by `--k-cell-opacity` (set inline by the
+ * page from `pct_of_book`). Empty cells get a very faint default tint
+ * so the grid stays legible. Hover surfaces a `title` tooltip. */
+.k-matrix-wrap {
+  overflow-x: auto;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  padding: var(--space-3);
+}
+.k-matrix {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.k-matrix-rowhead {
+  background: transparent;
+  font-weight: 500;
+  text-align: left;
+  padding: 4px 8px 4px 0;
+  min-width: 170px;
+}
+.k-matrix-traderlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stripe-text-secondary);
+  text-decoration: none;
+}
+.k-matrix-traderlink:hover {
+  color: var(--stripe-accent);
+}
+.k-matrix-traderavatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.k-matrix-traderscore {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 10px;
+  color: var(--stripe-text-tertiary);
+}
+.k-matrix-colhead {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+}
+.k-matrix-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--stripe-bg-tertiary);
+}
+.k-matrix-icon.is-white-bg {
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1px;
+}
+.k-matrix-cell {
+  width: 22px;
+  height: 20px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
+.k-cell-long {
+  background: rgba(1, 205, 162, calc(var(--k-cell-opacity, 0.4)));
+}
+.k-cell-short {
+  background: rgba(255, 92, 92, calc(var(--k-cell-opacity, 0.4)));
 }
 
 /* ── Skip link / a11y ────────────────────────────────────── */
