@@ -71,6 +71,136 @@
     return () => clearInterval(id);
   });
 
+  // ── Live price via HL WS `allMids` ──────────────────────────────────
+  // Subscribe browser-side; on every tick update `livePrice`, flash the
+  // header price, and recompute each open-position's unrealized PnL from
+  // the new mark. Per-row flash is driven by a Svelte-reactive map keyed
+  // by trader address — animations re-trigger on each tick via the
+  // `data-flash-id` attribute below.
+  let livePrice = $state<number | null>(null);
+  let priceFlash = $state<'up' | 'down' | null>(null);
+  /** Per-row flash signals — value increments each time the row's PnL
+   *  ticks in that direction, so DOM key/attr changes restart the CSS
+   *  animation cleanly. */
+  let rowFlashes = $state<Record<string, { dir: 'up' | 'down'; n: number }>>({});
+
+  /** Resolve "mids[coin]" for the page's coin. HIP-3 coins look like
+   *  `dex:SYMBOL`; HL's WS returns mids keyed by the fully-qualified name
+   *  on the `dex.SYMBOL` form for those dexes. Try the raw coin first. */
+  function readMid(mids: Record<string, string>, coin: string): number | null {
+    const direct = mids[coin];
+    if (typeof direct === 'string') {
+      const n = Number.parseFloat(direct);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  }
+
+  onMount(() => {
+    let priceFlashTimer: ReturnType<typeof setTimeout> | null = null;
+    let ws: WebSocket | null = null;
+    let prevLive: number | null = null;
+    /** Last live PnL per address — used to decide row flash direction. */
+    const lastRowPnl = new Map<string, number>();
+    const rowFlashTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    function connect() {
+      ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+      ws.onopen = () => {
+        ws?.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'allMids' } }));
+      };
+      ws.onmessage = (ev) => {
+        let msg: unknown;
+        try {
+          msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+        } catch {
+          return;
+        }
+        if (
+          typeof msg !== 'object' ||
+          msg === null ||
+          (msg as { channel?: unknown }).channel !== 'allMids'
+        ) {
+          return;
+        }
+        const data = (msg as { data?: { mids?: Record<string, string> } }).data;
+        if (!data?.mids) return;
+        const px = readMid(data.mids, asset.coin);
+        if (px === null) return;
+
+        // ── Header price flash ────────────────────────────────────────
+        if (prevLive !== null && px !== prevLive) {
+          priceFlash = px > prevLive ? 'up' : 'down';
+          if (priceFlashTimer) clearTimeout(priceFlashTimer);
+          priceFlashTimer = setTimeout(() => (priceFlash = null), 700);
+        }
+        prevLive = px;
+        livePrice = px;
+
+        // ── Per-row PnL flash on the open-positions panel ────────────
+        for (const p of openPositions) {
+          const signedSz = p.side === 'long' ? p.szBase : -p.szBase;
+          const livePnl = signedSz * (px - p.entryPxUsd);
+          const prev = lastRowPnl.get(p.address);
+          if (prev !== undefined && livePnl !== prev) {
+            const dir = livePnl > prev ? 'up' : 'down';
+            const existing = rowFlashes[p.address];
+            // bump `n` to force the CSS animation to restart.
+            rowFlashes = {
+              ...rowFlashes,
+              [p.address]: { dir, n: (existing?.n ?? 0) + 1 },
+            };
+            const t = rowFlashTimers.get(p.address);
+            if (t) clearTimeout(t);
+            rowFlashTimers.set(
+              p.address,
+              setTimeout(() => {
+                const { [p.address]: _drop, ...rest } = rowFlashes;
+                rowFlashes = rest;
+              }, 700),
+            );
+          }
+          lastRowPnl.set(p.address, livePnl);
+        }
+      };
+      ws.onclose = () => {
+        // Lazy reconnect — `setTimeout` so we don't tightloop on a refused conn.
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.CLOSED) connect();
+        }, 2_000);
+      };
+      ws.onerror = () => {
+        try { ws?.close(); } catch { /* ignore */ }
+      };
+    }
+    connect();
+
+    return () => {
+      if (priceFlashTimer) clearTimeout(priceFlashTimer);
+      for (const t of rowFlashTimers.values()) clearTimeout(t);
+      try {
+        if (ws) {
+          // Replace onclose so it doesn't fire a reconnect.
+          ws.onclose = null;
+          ws.close();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+  });
+
+  /** Live-recomputed unrealized PnL for each open position, keyed by row. */
+  const livePositionPnl = $derived.by(() => {
+    if (livePrice === null) return new Map<string, number>();
+    const m = new Map<string, number>();
+    for (const p of openPositions) {
+      const signedSz = p.side === 'long' ? p.szBase : -p.szBase;
+      m.set(p.address, signedSz * (livePrice - p.entryPxUsd));
+    }
+    return m;
+  });
+
   // ── Formatting helpers (mirror the assets index page) ────────────────
   function fmtPrice(v: number | null): string {
     if (v === null || !Number.isFinite(v)) return '—';
@@ -176,7 +306,11 @@
         {/if}
       </div>
       <div class="k-asset-quote">
-        <span class="k-asset-price">{fmtPrice(asset.price)}</span>
+        <span
+          class="k-asset-price"
+          class:k-price-flash-up={priceFlash === 'up'}
+          class:k-price-flash-down={priceFlash === 'down'}
+        >{fmtPrice(livePrice ?? asset.price)}</span>
         <span class="k-asset-change {pnlSignClass(asset.change24h)}">
           {fmtPct(asset.change24h)}
           <span class="k-asset-change-label">· 24h</span>
@@ -314,7 +448,15 @@
             </div>
           {:else}
             {#each openPositions as p (p.address + ':' + p.entryPxUsd)}
-              <a class="k-mini-table-row" href="/trader/{p.address}">
+              {@const livePnl = livePositionPnl.get(p.address) ?? p.unrealizedPnlUsd}
+              {@const flash = rowFlashes[p.address]}
+              <a
+                class="k-mini-table-row"
+                class:k-row-flash-up={flash?.dir === 'up'}
+                class:k-row-flash-down={flash?.dir === 'down'}
+                data-flash-tick={flash?.n ?? 0}
+                href="/trader/{p.address}"
+              >
                 <img
                   src={effigyUrl(p.address)}
                   alt=""
@@ -329,8 +471,8 @@
                   >
                   {formatPnl(p.notionalUsd)}
                 </span>
-                <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
-                  {formatPnl(p.unrealizedPnlUsd)}
+                <span class="k-mini-table-chg {pnlSignClass(livePnl)}">
+                  {formatPnl(livePnl)}
                 </span>
               </a>
             {/each}

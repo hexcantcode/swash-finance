@@ -2211,6 +2211,44 @@ body {
   letter-spacing: 0.06em;
 }
 
+/* ── Live-price flash animations ─────────────────────────── */
+/* Header price flashes a brief colored tint when the HL `allMids` WS
+ * pushes a new tick. Pure CSS keyframe; runs once per class application,
+ * then `transition` from removing the class fades back to default. */
+@keyframes k-price-flash-up {
+  0%   { color: var(--stripe-success); }
+  100% { color: var(--stripe-text-primary); }
+}
+@keyframes k-price-flash-down {
+  0%   { color: var(--stripe-danger); }
+  100% { color: var(--stripe-text-primary); }
+}
+.k-asset-price.k-price-flash-up {
+  animation: k-price-flash-up 700ms ease-out;
+}
+.k-asset-price.k-price-flash-down {
+  animation: k-price-flash-down 700ms ease-out;
+}
+
+/* Per-row flash on the open-positions panel. Subtle row tint that fades
+ * out — visible but doesn't fight the existing row hover. The
+ * `data-flash-tick` attribute changes each tick to retrigger the animation
+ * even when the same direction fires twice in a row. */
+@keyframes k-row-flash-up {
+  0%   { background: var(--stripe-success-subtle); }
+  100% { background: transparent; }
+}
+@keyframes k-row-flash-down {
+  0%   { background: var(--stripe-danger-subtle); }
+  100% { background: transparent; }
+}
+.k-mini-table-row.k-row-flash-up {
+  animation: k-row-flash-up 700ms ease-out;
+}
+.k-mini-table-row.k-row-flash-down {
+  animation: k-row-flash-down 700ms ease-out;
+}
+
 /* ── Asset page · Consensus mini-tables ──────────────────── */
 /* The double-panel pattern (Open positions / Latest opens) reuses
  * `.k-winners-losers` + `.k-mini-table` from the home and asset-index
