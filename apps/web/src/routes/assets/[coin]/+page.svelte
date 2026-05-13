@@ -253,7 +253,7 @@
 
   <section class="k-trader-section">
     <div class="k-section-head">
-      <h2 class="k-section-title">Tracked-trader activity on {asset.symbol}</h2>
+      <h2 class="k-section-title">Consensus</h2>
     </div>
     {#if openPositions.length === 0 && latestOpens.length === 0}
       <p class="k-empty">No tracked-trader activity on {asset.symbol} yet.</p>
@@ -305,130 +305,66 @@
       </div>
       {/if}
 
-      <div class="k-positions-grid">
-        <div class="k-positions-col">
-          <h3 class="k-positions-subhead">Open positions <span class="k-positions-count">{openPositions.length}</span></h3>
+      <div class="k-winners-losers">
+        <div class="k-mini-table">
+          <div class="k-mini-table-head">Open positions · {openPositions.length}</div>
           {#if openPositions.length === 0}
-            <p class="k-empty">None of the tracked traders currently hold {asset.symbol}.</p>
+            <div class="k-mini-table-empty">
+              None of the tracked traders currently hold {asset.symbol}.
+            </div>
           {:else}
-          <div class="k-table-wrap">
-            <table
-              class="stripe-table"
-              aria-label="Open {asset.symbol} positions of tracked traders, sorted by unrealized PnL"
-            >
-          <thead>
-            <tr>
-              <th class="stripe-table-trader">Trader</th>
-              <th class="stripe-table-numeric">Notional</th>
-              <th class="stripe-table-numeric">Entry</th>
-              <th class="stripe-table-numeric">Unrealized</th>
-              <th class="stripe-table-numeric">Refreshed</th>
-            </tr>
-          </thead>
-          <tbody>
             {#each openPositions as p (p.address + ':' + p.entryPxUsd)}
-              <tr>
-                <td class="stripe-table-trader">
-                  <a class="k-trader-link" href="/trader/{p.address}">
-                    <img
-                      src={effigyUrl(p.address)}
-                      alt=""
-                      loading="lazy"
-                      onerror={hideBrokenAvatar}
-                      class="stripe-avatar stripe-avatar-ring"
-                    />
-                    <span>{truncateAddress(p.address)}</span>
-                  </a>
-                </td>
-                <td class="stripe-table-numeric">
-                  <span class="k-cell-stack">
-                    <span class="k-cell-primary">
-                      <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}>
-                        {p.side === 'long' ? '↑' : '↓'}
-                      </span>
-                      {formatPnl(p.notionalUsd)}
-                    </span>
-                    <span class="k-cell-sub">{p.leverage}×</span>
-                  </span>
-                </td>
-                <td class="stripe-table-numeric">{fmtEntry(p.entryPxUsd)}</td>
-                <td class="stripe-table-numeric">
-                  <span class="k-cell-stack">
-                    <span class="k-cell-primary {pnlSignClass(p.unrealizedPnlUsd)}">
-                      {formatPnl(p.unrealizedPnlUsd)}
-                    </span>
-                    <span class="k-cell-sub {pnlSignClass(p.returnOnEquity)}">
-                      {fmtRoe(p.returnOnEquity)} ROE
-                    </span>
-                  </span>
-                </td>
-                <td class="stripe-table-numeric k-open-positions-refreshed">
-                  {#if p.lastRefreshedAtMs !== null}
-                    <span class:is-stale={Date.now() - p.lastRefreshedAtMs > 30 * 60 * 1000}>
-                      {formatRelativeTime(new Date(p.lastRefreshedAtMs))}
-                    </span>
-                  {:else}
-                    —
-                  {/if}
-                </td>
-              </tr>
+              <a class="k-mini-table-row" href="/trader/{p.address}">
+                <img
+                  src={effigyUrl(p.address)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                />
+                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
+                <span class="k-mini-table-price">
+                  <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
+                    >{p.side === 'long' ? '↑' : '↓'}</span
+                  >
+                  {formatPnl(p.notionalUsd)}
+                </span>
+                <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
+                  {formatPnl(p.unrealizedPnlUsd)}
+                </span>
+              </a>
             {/each}
-          </tbody>
-        </table>
-          </div>
           {/if}
         </div>
 
-        <div class="k-positions-col">
-          <h3 class="k-positions-subhead">Latest opens <span class="k-positions-count">{latestOpens.length}</span></h3>
+        <div class="k-mini-table">
+          <div class="k-mini-table-head">Latest opens · {latestOpens.length}</div>
           {#if latestOpens.length === 0}
-            <p class="k-empty">No recent opens on {asset.symbol}.</p>
+            <div class="k-mini-table-empty">No recent opens on {asset.symbol}.</div>
           {:else}
-            <div class="k-table-wrap">
-              <table
-                class="stripe-table"
-                aria-label="Most-recent position opens on {asset.symbol} by tracked traders"
-              >
-                <thead>
-                  <tr>
-                    <th class="stripe-table-trader">Trader</th>
-                    <th class="stripe-table-numeric">Side</th>
-                    <th class="stripe-table-numeric">Entry</th>
-                    <th class="stripe-table-numeric">When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each latestOpens as o (o.address + ':' + o.blockTimeMs)}
-                    <tr>
-                      <td class="stripe-table-trader">
-                        <a class="k-trader-link" href="/trader/{o.address}">
-                          <img
-                            src={effigyUrl(o.address)}
-                            alt=""
-                            loading="lazy"
-                            onerror={hideBrokenAvatar}
-                            class="stripe-avatar stripe-avatar-ring"
-                          />
-                          <span>{truncateAddress(o.address)}</span>
-                        </a>
-                      </td>
-                      <td class="stripe-table-numeric">
-                        <span
-                          class="k-side-arrow k-side-{o.side === 'B' ? 'long' : 'short'}"
-                          aria-label={o.side === 'B' ? 'opened long' : 'opened short'}
-                        >
-                          {o.side === 'B' ? '↑' : '↓'}
-                        </span>
-                      </td>
-                      <td class="stripe-table-numeric">{fmtEntry(o.pxUsd)}</td>
-                      <td class="stripe-table-numeric k-open-positions-refreshed">
-                        {formatRelativeTime(new Date(o.blockTimeMs))}
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
+            {#each latestOpens as o (o.address + ':' + o.blockTimeMs)}
+              <a class="k-mini-table-row" href="/trader/{o.address}">
+                <img
+                  src={effigyUrl(o.address)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                />
+                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(o.address)}</span>
+                <span class="k-mini-table-price">
+                  <span
+                    class="k-side-arrow k-side-{o.side === 'B' ? 'long' : 'short'}"
+                    aria-label={o.side === 'B' ? 'opened long' : 'opened short'}
+                    >{o.side === 'B' ? '↑' : '↓'}</span
+                  >
+                  {fmtEntry(o.pxUsd)}
+                </span>
+                <span class="k-mini-table-chg k-mini-table-time">
+                  {formatRelativeTime(new Date(o.blockTimeMs))}
+                </span>
+              </a>
+            {/each}
           {/if}
         </div>
       </div>

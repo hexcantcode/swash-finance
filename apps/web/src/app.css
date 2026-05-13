@@ -2211,65 +2211,32 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* Two-column layout for "Open positions" + "Latest opens" on the asset
- * detail page. Stacks vertically below 900px. */
-.k-positions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .k-positions-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.k-positions-col {
-  min-width: 0;
-}
-.k-positions-subhead {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-2) 0;
+/* ── Asset page · Consensus mini-tables ──────────────────── */
+/* The double-panel pattern (Open positions / Latest opens) reuses
+ * `.k-winners-losers` + `.k-mini-table` from the home and asset-index
+ * pages. The classes below tweak it for the asset-detail context. */
+
+/* Empty-state inside a mini-table panel — same vibe as `.k-empty` but it
+ * inherits the panel's bordered background, so just add padding + tertiary text. */
+.k-mini-table-empty {
+  padding: var(--space-4) var(--space-3);
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--stripe-text-secondary);
+  color: var(--stripe-text-tertiary);
+  text-align: center;
 }
-.k-positions-count {
-  font-family: var(--font-mono);
-  font-size: 11px;
+
+/* Right-most cell of "Latest opens" is a relative-time string ("2d ago"),
+ * not a number — drop the bold + tabular-num styling that `.k-mini-table-chg`
+ * inherits and lighten the colour. */
+.k-mini-table-time {
   font-weight: 400;
+  font-variant-numeric: normal;
+  color: var(--stripe-text-tertiary);
   letter-spacing: 0;
-  text-transform: none;
-  color: var(--stripe-text-tertiary);
 }
 
-/* ── Asset page · open-positions table ───────────────────── */
-/* Two-row "primary / sub" cell layout — notional row carries the leverage
- * underneath as small grey text; PnL row carries the ROE underneath. */
-.k-cell-stack {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
-}
-.k-cell-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
-}
-.k-cell-sub {
-  margin-top: 2px;
-  font-size: 10px;
-  color: var(--stripe-text-tertiary);
-  letter-spacing: 0.02em;
-}
-
-/* Side glyph in the notional cell. */
+/* Side glyph (↑ / ↓) shared by the chart-marker rings, the positions cells
+ * here, and the latest-opens cells. */
 .k-side-arrow {
   display: inline-block;
   width: 12px;
