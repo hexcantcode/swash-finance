@@ -107,7 +107,7 @@ export function formatRelativeTime(input: Date | string | null | undefined, now:
 }
 
 export function effigyUrl(address: string): string {
-  return `https://effigy.im/a/${address}.png`;
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${address.toLowerCase()}`;
 }
 
 export function compositeScoreClass(score: number | null | undefined): string {

@@ -212,16 +212,23 @@ body {
   line-height: 1.5;
 }
 
+/* Default = mobile shell. Header is fixed-top, bottom-nav is fixed-bottom,
+   so reserve vertical room for both around the page content. Desktop
+   overrides below shift this to a sidebar layout. */
 .stripe-content {
   position: relative;
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--space-5) var(--space-6);
+  padding:
+    calc(56px + var(--space-5))
+    var(--space-6)
+    calc(76px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 640px) {
   .stripe-content {
-    padding: var(--space-4);
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
 }
 
@@ -291,29 +298,277 @@ body {
   color: var(--stripe-danger);
 }
 
-/* ── Top nav ─────────────────────────────────────────────── */
-.k-topnav {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-6);
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAV SHELL — mobile-first with one breakpoint at 1024px.
+
+   Mobile (default):                   Desktop (≥ 1024px):
+     .k-mobile-header  (top, 56h)        .k-sidenav   (left, 200w, full h)
+     .k-bottomnav      (bottom, 56h)     .k-topbar    (top right of sidebar)
+
+   The opposite-breakpoint surfaces collapse via `display: none`. Both the
+   page content and the site footer get `margin-left: 200px` on desktop so
+   they line up next to the sidebar.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Mobile header (default) ─────────────────────────────── */
+.k-mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-6);
+  padding: 0 var(--space-4);
+  gap: var(--space-3);
+  background: rgba(31, 31, 31, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 0.5px solid var(--stripe-border);
 }
 
-.k-topnav-right {
-  display: flex;
+.k-mobile-header-brand {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
+  gap: 8px;
+  text-decoration: none;
+  flex: 0 0 auto;
 }
 
-.k-topnav-search-form {
+.k-mobile-header-brand img {
+  width: 36px;
+  height: 36px;
+  display: block;
+  /* The source PNG has padding around the mark; scale the rendered image
+     past its box so the logo reads as a tighter glyph. The bounding box
+     stays at 36×36 for layout, but the visible content paints ~45×45. */
+  transform: scale(1.25);
+  transform-origin: center;
+}
+
+.k-mobile-header-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+/* On mobile, let the expanded search consume whatever width is left in the
+   right cluster instead of holding its desktop 260px fixed width — which
+   would overflow on 360-px-wide phones. */
+@media (max-width: 1023px) {
+  .k-mobile-header-right .k-topnav-search-form.is-expanded {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+/* ── Sidebar (desktop, hidden by default) ────────────────── */
+.k-sidenav {
+  display: none;
+}
+
+.k-sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--space-5);
+  height: 56px;
+  text-decoration: none;
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+
+.k-sidenav-brand img {
+  width: 36px;
+  height: 36px;
+  display: block;
+  /* See `.k-mobile-header-brand img` — same zoom-in treatment so the
+     logo glyph reads larger than the source PNG's padded bounds. */
+  transform: scale(1.25);
+  transform-origin: center;
+}
+
+.k-sidenav-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  margin: 0;
+}
+
+.k-sidenav-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.k-sidenav-item:hover {
+  color: var(--stripe-text-secondary);
+  background: var(--stripe-bg-tertiary);
+}
+
+.k-sidenav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.k-sidenav-item.is-active,
+.k-sidenav-item.is-active:hover {
+  color: var(--stripe-accent);
+  background: var(--stripe-accent-subtle);
+}
+
+/* ── Top bar (desktop, hidden by default) ────────────────── */
+.k-topbar {
+  display: none;
+}
+
+/* ── Bottom nav (default = mobile) ───────────────────────── */
+.k-bottomnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(31, 31, 31, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid var(--stripe-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.k-bottomnav-inner {
+  display: flex;
+  align-items: stretch;
+  max-width: 480px;
+  height: 56px;
+  margin: 0 auto;
+}
+
+.k-bottomnav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--stripe-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.k-bottomnav-item:hover {
+  color: var(--stripe-text-secondary);
+}
+
+.k-bottomnav-item:focus-visible {
+  outline: none;
+  color: var(--stripe-text-primary);
+  background: var(--stripe-bg-tertiary);
+}
+
+.k-bottomnav-item.is-active,
+.k-bottomnav-item.is-active:hover {
+  color: var(--stripe-accent);
+}
+
+.k-bottomnav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.k-bottomnav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Desktop breakpoint ──────────────────────────────────── */
+@media (min-width: 1024px) {
+  .k-mobile-header,
+  .k-bottomnav {
+    display: none;
+  }
+
+  .k-sidenav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200px;
+    height: 100vh;
+    z-index: 100;
+    background: var(--stripe-bg-deep);
+    border-right: 0.5px solid var(--stripe-border);
+  }
+
+  .k-topbar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 200px;
+    right: 0;
+    height: 56px;
+    z-index: 90;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: 0 var(--space-6);
+    background: var(--stripe-bg-deep);
+    border-bottom: 0.5px solid var(--stripe-border);
+  }
+
+  /* Page + footer occupy the viewport-minus-sidebar zone and center their
+     children inside it. Layout pattern from cream-hl's stripe-content. */
+  .stripe-content,
+  .k-site-footer {
+    margin-left: 200px;
+    width: calc(100vw - 200px);
+    max-width: none;
+    margin-right: 0;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .stripe-content {
+    padding-top: calc(56px + var(--space-5));
+  }
+
+  /* Main content spans up to 1200px, centered inside the available zone. */
+  .stripe-content > * {
+    width: 100%;
+    max-width: 1200px;
+  }
+
+  /* Footer is intentionally narrower than content so it doesn't dominate. */
+  .k-site-footer > * {
+    width: 100%;
+    max-width: 720px;
+  }
+}
+
+/* ── Shared search form (mobile-header + desktop topbar) ─── */
+.k-topnav-search-form {
+  position: relative;
   height: 36px;
   background: var(--stripe-bg-secondary);
   border-radius: var(--radius-md);
@@ -337,12 +592,13 @@ body {
 }
 
 .k-topnav-search-toggle {
-  flex: 0 0 36px;
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 36px;
   height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   background: transparent;
   border: 0;
   padding: 0;
@@ -361,17 +617,17 @@ body {
   color: var(--stripe-text-primary);
 }
 
-/* Input inside the expandable header search — overrides .k-filter-search width/chrome. */
+/* Input fills the form; right padding reserves space for the absolutely-positioned icon button. */
 .k-topnav-search-input {
-  flex: 1 1 auto;
-  min-width: 0;
+  position: absolute;
+  inset: 0 36px 0 0;
+  width: auto;
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 0 0 0 14px;
-  height: 36px;
+  padding: 0 8px 0 14px;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 36px;
@@ -403,14 +659,14 @@ body {
 .k-connect-wallet {
   display: inline-flex;
   align-items: center;
-  height: 32px;
+  height: 36px;
   padding: 0 14px;
   background: var(--stripe-bg-secondary);
   color: var(--stripe-accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0;
   border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -434,54 +690,6 @@ body {
 .k-connect-wallet:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
-}
-
-.k-topnav-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--stripe-accent);
-  text-decoration: none;
-  transition: opacity var(--transition-fast);
-}
-.k-topnav-brand span {
-  display: inline-block;
-  line-height: 1;
-}
-.k-topnav-brand:hover {
-  opacity: 0.85;
-}
-
-.k-topnav-logo {
-  width: 32px;
-  height: 32px;
-  display: block;
-}
-
-.k-topnav-links {
-  display: flex;
-  gap: var(--space-1);
-}
-
-.k-topnav-link {
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--stripe-text-tertiary);
-  text-decoration: none;
-  transition:
-    color 120ms ease,
-    background-color 120ms ease;
-}
-
-.k-topnav-link:hover,
-.k-topnav-link.is-active {
-  color: var(--stripe-text-primary);
-  background: var(--stripe-bg-secondary);
 }
 
 /* ── Header / footer ─────────────────────────────────────── */
@@ -1763,6 +1971,15 @@ body {
   text-decoration: none;
   border-bottom: 0.5px solid var(--stripe-border);
   transition: background-color var(--transition-fast);
+}
+
+/* Lock the leading icon to 20×20 in mini-table rows so the Winners (trader
+   avatars) and Top gainers/losers (coin icons) tables share the same row
+   height regardless of which icon component the row uses. */
+.k-mini-table-row .stripe-avatar,
+.k-mini-table-row .k-coin-icon {
+  width: 20px;
+  height: 20px;
 }
 .k-mini-table-row:last-child {
   border-bottom: 0;
