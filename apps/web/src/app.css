@@ -2242,11 +2242,19 @@ body {
   0%   { background: var(--stripe-danger-subtle); }
   100% { background: transparent; }
 }
-.k-mini-table-row.k-row-flash-up {
+.k-mini-table-row.k-row-flash-up,
+tr.k-row-flash-up {
   animation: k-row-flash-up 700ms ease-out;
 }
-.k-mini-table-row.k-row-flash-down {
+.k-mini-table-row.k-row-flash-down,
+tr.k-row-flash-down {
   animation: k-row-flash-down 700ms ease-out;
+}
+/* For `<tr>` we have to repaint the cells too, since some browsers don't
+ * paint the row's background under the cell paint. */
+tr.k-row-flash-up > td,
+tr.k-row-flash-down > td {
+  background-color: inherit;
 }
 
 /* ── Asset page · Consensus mini-tables ──────────────────── */

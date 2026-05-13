@@ -79,10 +79,6 @@
   // `data-flash-id` attribute below.
   let livePrice = $state<number | null>(null);
   let priceFlash = $state<'up' | 'down' | null>(null);
-  /** Per-row flash signals — value increments each time the row's PnL
-   *  ticks in that direction, so DOM key/attr changes restart the CSS
-   *  animation cleanly. */
-  let rowFlashes = $state<Record<string, { dir: 'up' | 'down'; n: number }>>({});
 
   /** Resolve "mids[coin]" for the page's coin. HIP-3 coins look like
    *  `dex:SYMBOL`; HL's WS returns mids keyed by the fully-qualified name
@@ -100,9 +96,6 @@
     let priceFlashTimer: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
     let prevLive: number | null = null;
-    /** Last live PnL per address — used to decide row flash direction. */
-    const lastRowPnl = new Map<string, number>();
-    const rowFlashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     function connect() {
       ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
@@ -129,6 +122,10 @@
         if (px === null) return;
 
         // ── Header price flash ────────────────────────────────────────
+        // Per-row flash on the open-positions table is deliberately *not*
+        // wired here — at the user's call those rows stay idle so the
+        // section reads like a stable "who's holding what" snapshot. The
+        // PnL cells still re-render live via `livePositionPnl` below.
         if (prevLive !== null && px !== prevLive) {
           priceFlash = px > prevLive ? 'up' : 'down';
           if (priceFlashTimer) clearTimeout(priceFlashTimer);
@@ -136,32 +133,6 @@
         }
         prevLive = px;
         livePrice = px;
-
-        // ── Per-row PnL flash on the open-positions panel ────────────
-        for (const p of openPositions) {
-          const signedSz = p.side === 'long' ? p.szBase : -p.szBase;
-          const livePnl = signedSz * (px - p.entryPxUsd);
-          const prev = lastRowPnl.get(p.address);
-          if (prev !== undefined && livePnl !== prev) {
-            const dir = livePnl > prev ? 'up' : 'down';
-            const existing = rowFlashes[p.address];
-            // bump `n` to force the CSS animation to restart.
-            rowFlashes = {
-              ...rowFlashes,
-              [p.address]: { dir, n: (existing?.n ?? 0) + 1 },
-            };
-            const t = rowFlashTimers.get(p.address);
-            if (t) clearTimeout(t);
-            rowFlashTimers.set(
-              p.address,
-              setTimeout(() => {
-                const { [p.address]: _drop, ...rest } = rowFlashes;
-                rowFlashes = rest;
-              }, 700),
-            );
-          }
-          lastRowPnl.set(p.address, livePnl);
-        }
       };
       ws.onclose = () => {
         // Lazy reconnect — `setTimeout` so we don't tightloop on a refused conn.
@@ -177,7 +148,6 @@
 
     return () => {
       if (priceFlashTimer) clearTimeout(priceFlashTimer);
-      for (const t of rowFlashTimers.values()) clearTimeout(t);
       try {
         if (ws) {
           // Replace onclose so it doesn't fire a reconnect.
@@ -449,14 +419,7 @@
           {:else}
             {#each openPositions as p (p.address + ':' + p.entryPxUsd)}
               {@const livePnl = livePositionPnl.get(p.address) ?? p.unrealizedPnlUsd}
-              {@const flash = rowFlashes[p.address]}
-              <a
-                class="k-mini-table-row"
-                class:k-row-flash-up={flash?.dir === 'up'}
-                class:k-row-flash-down={flash?.dir === 'down'}
-                data-flash-tick={flash?.n ?? 0}
-                href="/trader/{p.address}"
-              >
+              <a class="k-mini-table-row" href="/trader/{p.address}">
                 <img
                   src={effigyUrl(p.address)}
                   alt=""

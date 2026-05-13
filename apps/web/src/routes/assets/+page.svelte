@@ -37,9 +37,21 @@
     [...withChange].sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0)).slice(0, 5),
   );
 
-  // Near-real-time: re-pull asset contexts every 12s and swap them in.
+  // ── Live prices via HL WS `allMids` ─────────────────────────────────
+  // Browser subscribes to HL's `allMids` channel — pushes a fresh mark
+  // price for every coin on every tick (~hundreds of ms). On each tick we
+  // mutate `assets[].price` in place for the matching coin and add a
+  // brief green/red flash to the row whose price moved.
+  let livePrices = $state<Record<string, number>>({});
+  /** Row-flash signals keyed by coin — `n` ticks up on each price change
+   *  so the CSS animation restarts even when consecutive ticks share
+   *  direction. */
+  let rowFlashes = $state<Record<string, { dir: 'up' | 'down'; n: number }>>({});
+
+  // 12s REST fallback — refreshes the slow-moving fields (24h volume, open
+  // interest, funding rate) that `allMids` doesn't carry. Stays as-is.
   onMount(() => {
-    const id = setInterval(async () => {
+    const pollId = setInterval(async () => {
       try {
         const r = await fetch('/api/assets');
         if (!r.ok) return;
@@ -49,8 +61,105 @@
         /* ignore transient poll failures */
       }
     }, 12_000);
-    return () => clearInterval(id);
+
+    let ws: WebSocket | null = null;
+    const lastTick = new Map<string, number>();
+    const flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    function connect() {
+      ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+      ws.onopen = () => {
+        ws?.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'allMids' } }));
+      };
+      ws.onmessage = (ev) => {
+        let msg: unknown;
+        try {
+          msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+        } catch {
+          return;
+        }
+        if (
+          typeof msg !== 'object' ||
+          msg === null ||
+          (msg as { channel?: unknown }).channel !== 'allMids'
+        ) {
+          return;
+        }
+        const data = (msg as { data?: { mids?: Record<string, string> } }).data;
+        const mids = data?.mids;
+        if (!mids) return;
+
+        // Pick up only the coins we actually display. Skip the rest of
+        // the ~180-coin mids dict.
+        const nextLive: Record<string, number> = { ...livePrices };
+        const flashUpdates: Record<string, { dir: 'up' | 'down'; n: number }> = {};
+        for (const a of assets) {
+          const raw = mids[a.coin];
+          if (typeof raw !== 'string') continue;
+          const px = Number.parseFloat(raw);
+          if (!Number.isFinite(px)) continue;
+          const prev = lastTick.get(a.coin);
+          if (prev !== undefined && px !== prev) {
+            const dir: 'up' | 'down' = px > prev ? 'up' : 'down';
+            const cur = rowFlashes[a.coin];
+            flashUpdates[a.coin] = { dir, n: (cur?.n ?? 0) + 1 };
+            const t = flashTimers.get(a.coin);
+            if (t) clearTimeout(t);
+            const coin = a.coin;
+            flashTimers.set(
+              coin,
+              setTimeout(() => {
+                const { [coin]: _drop, ...rest } = rowFlashes;
+                rowFlashes = rest;
+              }, 700),
+            );
+          }
+          lastTick.set(a.coin, px);
+          nextLive[a.coin] = px;
+        }
+        livePrices = nextLive;
+        if (Object.keys(flashUpdates).length > 0) {
+          rowFlashes = { ...rowFlashes, ...flashUpdates };
+        }
+      };
+      ws.onclose = () => {
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.CLOSED) connect();
+        }, 2_000);
+      };
+      ws.onerror = () => {
+        try { ws?.close(); } catch { /* ignore */ }
+      };
+    }
+    connect();
+
+    return () => {
+      clearInterval(pollId);
+      for (const t of flashTimers.values()) clearTimeout(t);
+      try {
+        if (ws) {
+          ws.onclose = null;
+          ws.close();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
   });
+
+  /** Live mark price for a coin, falling back to the polled `AssetRow.price`. */
+  function priceOf(a: AssetRow): number | null {
+    return livePrices[a.coin] ?? a.price;
+  }
+  /** Live 24h change recomputed from the live price + prev-day reference. */
+  function change24hOf(a: AssetRow): number | null {
+    const live = livePrices[a.coin];
+    if (live === undefined || a.price === null || a.change24h === null) return a.change24h;
+    // prevDayPx = price / (1 + change24h)
+    const prevDayPx = a.price / (1 + a.change24h);
+    if (!Number.isFinite(prevDayPx) || prevDayPx === 0) return a.change24h;
+    return (live - prevDayPx) / prevDayPx;
+  }
 
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
@@ -95,7 +204,14 @@
       <div class="k-mini-table">
         <div class="k-mini-table-head">Top gainers · 24h</div>
         {#each winners as a (a.coin)}
-          <a class="k-mini-table-row" href="/assets/{a.coin}">
+          {@const f = rowFlashes[a.coin]}
+          <a
+            class="k-mini-table-row"
+            class:k-row-flash-up={f?.dir === 'up'}
+            class:k-row-flash-down={f?.dir === 'down'}
+            data-flash-tick={f?.n ?? 0}
+            href="/assets/{a.coin}"
+          >
             <img
               src={coinIconUrl(a.coin)}
               alt=""
@@ -105,15 +221,22 @@
               class:is-white-bg={coinNeedsWhiteBg(a.coin)}
             />
             <span class="k-coin-sym">{a.symbol}</span>
-            <span class="k-mini-table-price">{fmtPrice(a.price)}</span>
-            <span class="k-mini-table-chg {pnlSignClass(a.change24h)}">{fmtPct(a.change24h)}</span>
+            <span class="k-mini-table-price">{fmtPrice(priceOf(a))}</span>
+            <span class="k-mini-table-chg {pnlSignClass(change24hOf(a))}">{fmtPct(change24hOf(a))}</span>
           </a>
         {/each}
       </div>
       <div class="k-mini-table">
         <div class="k-mini-table-head">Top losers · 24h</div>
         {#each losers as a (a.coin)}
-          <a class="k-mini-table-row" href="/assets/{a.coin}">
+          {@const f = rowFlashes[a.coin]}
+          <a
+            class="k-mini-table-row"
+            class:k-row-flash-up={f?.dir === 'up'}
+            class:k-row-flash-down={f?.dir === 'down'}
+            data-flash-tick={f?.n ?? 0}
+            href="/assets/{a.coin}"
+          >
             <img
               src={coinIconUrl(a.coin)}
               alt=""
@@ -123,8 +246,8 @@
               class:is-white-bg={coinNeedsWhiteBg(a.coin)}
             />
             <span class="k-coin-sym">{a.symbol}</span>
-            <span class="k-mini-table-price">{fmtPrice(a.price)}</span>
-            <span class="k-mini-table-chg {pnlSignClass(a.change24h)}">{fmtPct(a.change24h)}</span>
+            <span class="k-mini-table-price">{fmtPrice(priceOf(a))}</span>
+            <span class="k-mini-table-chg {pnlSignClass(change24hOf(a))}">{fmtPct(change24hOf(a))}</span>
           </a>
         {/each}
       </div>
@@ -178,7 +301,12 @@
         </thead>
         <tbody>
           {#each visibleByVolume as a (a.coin)}
-            <tr>
+            {@const f = rowFlashes[a.coin]}
+            <tr
+              class:k-row-flash-up={f?.dir === 'up'}
+              class:k-row-flash-down={f?.dir === 'down'}
+              data-flash-tick={f?.n ?? 0}
+            >
               <td class="stripe-table-trader">
                 <a class="k-trader-link" href="/assets/{a.coin}">
                   <img
@@ -192,8 +320,8 @@
                   <span>{a.symbol}</span>
                 </a>
               </td>
-              <td class="stripe-table-numeric">{fmtPrice(a.price)}</td>
-              <td class="stripe-table-numeric {pnlSignClass(a.change24h)}">{fmtPct(a.change24h)}</td>
+              <td class="stripe-table-numeric">{fmtPrice(priceOf(a))}</td>
+              <td class="stripe-table-numeric {pnlSignClass(change24hOf(a))}">{fmtPct(change24hOf(a))}</td>
               <td class="stripe-table-numeric">{fmtBigUsd(a.volume24h)}</td>
               <td class="stripe-table-numeric">{fmtBigUsd(a.openInterestUsd)}</td>
               <td class="stripe-table-numeric">{fmtPct(a.funding, 4)}</td>
