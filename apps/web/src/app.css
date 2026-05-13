@@ -149,16 +149,6 @@ body {
 }
 
 /* Background atmosphere */
-.bg-noise::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
 .bg-noise::after {
   content: '';
   position: fixed;
@@ -169,8 +159,8 @@ body {
     to bottom,
     rgba(255, 255, 255, 0),
     rgba(255, 255, 255, 0) 50%,
-    rgba(0, 0, 0, 0.1) 50%,
-    rgba(0, 0, 0, 0.1)
+    rgba(0, 0, 0, 0.05) 50%,
+    rgba(0, 0, 0, 0.05)
   );
   background-size: 100% 4px;
 }
@@ -518,6 +508,54 @@ body {
 .tag-neutral {
   background: var(--stripe-bg-elevated);
   color: var(--stripe-text-tertiary);
+}
+
+/* Filter chips above the assets-page main table. Two toggle buttons:
+   Crypto / Stocks & Commodities. Active state outlined in teal. */
+.k-asset-filters {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.k-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--stripe-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.k-filter-chip:hover {
+  color: var(--stripe-text-secondary);
+  border-color: var(--stripe-border-light);
+}
+
+.k-filter-chip.is-active {
+  color: var(--stripe-accent-light);
+  border-color: var(--stripe-accent);
+  background: var(--stripe-accent-subtle);
+}
+
+.k-filter-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--stripe-text-muted);
+}
+
+.k-filter-chip.is-active .k-filter-chip-count {
+  color: var(--stripe-accent-light);
 }
 
 /* HIP-3 source-dex badge — appears next to the symbol on the assets list
@@ -1551,6 +1589,16 @@ body {
   flex: 0 0 auto;
   border-radius: var(--radius-full);
   background: var(--stripe-bg-tertiary);
+}
+
+/* Modifier — for logos HL ships as dark silhouettes (see COIN_WHITE_BG_SYMBOLS
+   in $lib/utils/coin.ts). White disc + 1px inset so the artwork doesn't sit
+   edge-to-edge against the circle. */
+.k-coin-icon.is-white-bg,
+.k-asset-icon.is-white-bg {
+  background: #fff;
+  padding: 1px;
+  object-fit: contain;
 }
 
 /* Top gainers / losers — two compact 5-row tables side by side. */

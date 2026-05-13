@@ -1,3 +1,4 @@
+import { coinIsExcluded } from '$lib/utils/coin';
 import { hl } from '../hl.js';
 
 export interface AssetRow {
@@ -74,6 +75,7 @@ export async function listAssets(): Promise<AssetRow[]> {
     const u = mainMeta.universe[i];
     const c = mainCtxs[i];
     if (!u || !c || u.isDelisted) continue;
+    if (coinIsExcluded(u.name)) continue;
     rows.push(toRow(u.name, u.name, null, u, c));
   }
 
@@ -92,6 +94,7 @@ export async function listAssets(): Promise<AssetRow[]> {
       const u = meta.universe[i];
       const c = ctxs[i];
       if (!u || !c || u.isDelisted) continue;
+      if (coinIsExcluded(u.name)) continue;
       // HL returns HIP-3 universe entries already qualified (e.g. `xyz:TSLA`).
       // Don't re-prefix: just split out the bare symbol for the display label.
       const colon = u.name.indexOf(':');

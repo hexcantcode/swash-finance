@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import TVChart from '$lib/components/TVChart.svelte';
-  import { coinIconUrl } from '$lib/utils/coin';
+  import { coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import { effigyUrl, formatPnl, pnlSignClass, truncateAddress } from '$lib/utils/format';
   import {
     RANGE_KEYS,
@@ -115,6 +115,7 @@
           loading="lazy"
           onerror={hideBrokenAvatar}
           class="k-asset-icon"
+          class:is-white-bg={coinNeedsWhiteBg(asset.coin)}
         />
         <h1 class="k-asset-symbol">{asset.symbol}</h1>
         {#if asset.maxLeverage}

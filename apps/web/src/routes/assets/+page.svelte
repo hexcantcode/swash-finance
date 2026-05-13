@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { coinIconUrl } from '$lib/utils/coin';
+  import { coinCategory, coinIconUrl, coinNeedsWhiteBg, type CoinCategory } from '$lib/utils/coin';
   import { pnlSignClass } from '$lib/utils/format';
   import type { AssetRow } from '$lib/server/queries/assets';
   import type { PageData } from './$types';
@@ -8,10 +8,17 @@
   let { data }: { data: PageData } = $props();
 
   let assets = $state<AssetRow[]>(data.assets);
+  // null = no filter (show all). Toggle on/off by clicking the active chip.
+  let filter = $state<CoinCategory | null>(null);
 
   const byVolume = $derived(
     [...assets].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0)),
   );
+  const visibleByVolume = $derived(
+    filter === null ? byVolume : byVolume.filter((a) => coinCategory(a.dex) === filter),
+  );
+  const cryptoCount = $derived(assets.filter((a) => coinCategory(a.dex) === 'crypto').length);
+  const stocksCount = $derived(assets.filter((a) => coinCategory(a.dex) === 'stocks').length);
   const withChange = $derived(assets.filter((a) => a.change24h !== null));
   const winners = $derived(
     [...withChange].sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0)).slice(0, 5),
@@ -81,6 +88,7 @@
               loading="lazy"
               onerror={hideBrokenAvatar}
               class="k-coin-icon"
+              class:is-white-bg={coinNeedsWhiteBg(a.coin)}
             />
             <span class="k-coin-sym">{a.symbol}</span>
             <span class="k-mini-table-price">{fmtPrice(a.price)}</span>
@@ -98,6 +106,7 @@
               loading="lazy"
               onerror={hideBrokenAvatar}
               class="k-coin-icon"
+              class:is-white-bg={coinNeedsWhiteBg(a.coin)}
             />
             <span class="k-coin-sym">{a.symbol}</span>
             <span class="k-mini-table-price">{fmtPrice(a.price)}</span>
@@ -111,6 +120,26 @@
   <section class="k-trader-section">
     <div class="k-section-head">
       <h2 class="k-section-title">All assets</h2>
+      <div class="k-asset-filters" role="group" aria-label="Filter assets by category">
+        <button
+          type="button"
+          class="k-filter-chip"
+          class:is-active={filter === 'stocks'}
+          aria-pressed={filter === 'stocks'}
+          onclick={() => (filter = filter === 'stocks' ? null : 'stocks')}
+        >
+          Stocks &amp; Commodities <span class="k-filter-chip-count">{stocksCount}</span>
+        </button>
+        <button
+          type="button"
+          class="k-filter-chip"
+          class:is-active={filter === 'crypto'}
+          aria-pressed={filter === 'crypto'}
+          onclick={() => (filter = filter === 'crypto' ? null : 'crypto')}
+        >
+          Crypto <span class="k-filter-chip-count">{cryptoCount}</span>
+        </button>
+      </div>
     </div>
     <div class="k-table-wrap">
       <table class="stripe-table" aria-label="Hyperliquid perp assets by 24h volume">
@@ -125,7 +154,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each byVolume as a (a.coin)}
+          {#each visibleByVolume as a (a.coin)}
             <tr>
               <td class="stripe-table-trader">
                 <a class="k-trader-link" href="/assets/{a.coin}">
@@ -135,6 +164,7 @@
                     loading="lazy"
                     onerror={hideBrokenAvatar}
                     class="k-coin-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(a.coin)}
                   />
                   <span>{a.symbol}</span>
                 </a>
