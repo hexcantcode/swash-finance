@@ -7,6 +7,7 @@ export type {
   ExtraAgentsResponse,
   L2BookResponse,
   MetaResponse,
+  MetaAndAssetCtxsResponse,
   PerpDexsResponse,
   RecentTradesResponse,
   SpotMetaResponse,

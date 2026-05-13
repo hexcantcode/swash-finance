@@ -10,16 +10,12 @@
     pnlSignClass,
     truncateAddress,
   } from '$lib/utils/format';
-  import { profileTagClass, profileTagLabel } from '$lib/utils/tags';
 
   interface Props {
     rows: LeaderCard[];
     serverSorted?: boolean;
     sort?: SortKey;
     onSortChange?: (key: SortKey) => void;
-    tagOptions?: Array<{ value: string; label: string }>;
-    activeTag?: string | undefined;
-    onTagChange?: (value: string | undefined) => void;
   }
 
   export type SortKey = 'composite_score' | 'pnl' | 'equity' | 'frequency';
@@ -29,9 +25,6 @@
     serverSorted = false,
     sort = 'composite_score',
     onSortChange,
-    tagOptions = [],
-    activeTag = undefined,
-    onTagChange,
   }: Props = $props();
 
   let localSort = $state<SortKey>(sort);
@@ -102,31 +95,6 @@
   // Keep the table a constant height — pad short result sets with empty rows.
   const MIN_ROWS = 10;
   const ghostCount = $derived(Math.max(0, MIN_ROWS - displayed.length));
-
-  // Profile column-header dropdown (filter).
-  let tagMenuOpen = $state(false);
-
-  function pickTag(value: string | undefined) {
-    onTagChange?.(value);
-    tagMenuOpen = false;
-  }
-
-  function tagMenu(node: HTMLElement) {
-    function onPointerDown(e: Event) {
-      if (tagMenuOpen && !node.contains(e.target as Node)) tagMenuOpen = false;
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') tagMenuOpen = false;
-    }
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('keydown', onKeyDown);
-    return {
-      destroy() {
-        document.removeEventListener('pointerdown', onPointerDown, true);
-        document.removeEventListener('keydown', onKeyDown);
-      },
-    };
-  }
 </script>
 
 <div class="k-table-wrap">
@@ -134,60 +102,6 @@
     <thead>
       <tr>
         <th class="stripe-table-trader">Trader</th>
-        <th class="stripe-table-numeric">
-          {#if onTagChange}
-            <div class="k-th-tag" use:tagMenu>
-              <button
-                type="button"
-                class="k-th-sort-button"
-                class:is-active={!!activeTag}
-                aria-haspopup="menu"
-                aria-expanded={tagMenuOpen}
-                onclick={() => (tagMenuOpen = !tagMenuOpen)}
-              >
-                {activeTag ? profileTagLabel(activeTag) : 'Profile'}<span
-                  class="stripe-th-sort-indicator">▾</span
-                >
-              </button>
-              {#if tagMenuOpen}
-                <div class="k-th-tag-pop" role="menu">
-                  <button
-                    type="button"
-                    class="k-th-tag-opt"
-                    class:is-active={!activeTag}
-                    role="menuitem"
-                    onclick={() => pickTag(undefined)}
-                  >
-                    All
-                  </button>
-                  {#each tagOptions as opt (opt.value)}
-                    <button
-                      type="button"
-                      class="k-th-tag-opt"
-                      class:is-active={activeTag === opt.value}
-                      role="menuitem"
-                      onclick={() => pickTag(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {:else}
-            Profile
-          {/if}
-        </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('composite_score')}>
-          <button
-            type="button"
-            class="k-th-sort-button"
-            class:is-active={activeSort === 'composite_score'}
-            onclick={() => setSort('composite_score')}
-          >
-            Score<span class="stripe-th-sort-indicator">{indicator('composite_score')}</span>
-          </button>
-        </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
           <button
             type="button"
@@ -206,6 +120,16 @@
             onclick={() => setSort('equity')}
           >
             Equity<span class="stripe-th-sort-indicator">{indicator('equity')}</span>
+          </button>
+        </th>
+        <th class="stripe-table-numeric" aria-sort={ariaSort('composite_score')}>
+          <button
+            type="button"
+            class="k-th-sort-button"
+            class:is-active={activeSort === 'composite_score'}
+            onclick={() => setSort('composite_score')}
+          >
+            Score<span class="stripe-th-sort-indicator">{indicator('composite_score')}</span>
           </button>
         </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
@@ -236,19 +160,16 @@
               <span>{truncateAddress(row.address)}</span>
             </a>
           </td>
-          <td class="stripe-table-numeric">
-            <span class="tag-chip {profileTagClass(row.primary_tag)}">{profileTagLabel(row.primary_tag)}</span>
+          <td class="stripe-table-numeric {pnlSignClass(row.metrics.total_pnl_usd)}">
+            {formatPnl(row.metrics.total_pnl_usd)}
           </td>
+          <td class="stripe-table-numeric">{formatUsd(row.account_value)}</td>
           <td class="stripe-table-numeric">
             <span class="k-score-cell">
               <span class={compositeScoreClass(row.composite_score)}>{row.composite_score ?? '—'}</span>
               <ScoreBars score={row.composite_score} />
             </span>
           </td>
-          <td class="stripe-table-numeric {pnlSignClass(row.metrics.total_pnl_usd)}">
-            {formatPnl(row.metrics.total_pnl_usd)}
-          </td>
-          <td class="stripe-table-numeric">{formatUsd(row.account_value)}</td>
           <td class="stripe-table-numeric">{formatTradesPerWeek(row.metrics.trades_per_week)}</td>
         </tr>
       {/each}
@@ -260,7 +181,6 @@
               <span>—</span>
             </span>
           </td>
-          <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>

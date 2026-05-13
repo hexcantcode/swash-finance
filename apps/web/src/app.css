@@ -1425,19 +1425,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── 7d ROI trader cards (landing, horizontal scroll) ───── */
+/* ── Winners — last week's ROI-maker cards (horizontal scroll) ───── */
 .k-card-scroll {
   display: flex;
   gap: var(--space-3);
   overflow-x: auto;
-  /* top padding both drops the cards a touch below the heading and leaves
-     room for the hover lift/shadow so it isn't clipped by overflow */
-  padding-top: var(--space-4);
+  padding-top: var(--space-2);
   padding-bottom: var(--space-3);
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 }
-
 .k-card-scroll::-webkit-scrollbar {
   height: 6px;
 }
@@ -1448,82 +1445,125 @@ body {
 
 .k-roi-card {
   flex: 0 0 auto;
-  width: 224px;
+  width: 200px;
   scroll-snap-align: start;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-  padding: 10px var(--space-3);
+  padding: 9px var(--space-3);
+  text-decoration: none;
   background: var(--stripe-bg-primary);
   border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
   transition:
     border-color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+    background-color var(--transition-fast);
 }
-
 .k-roi-card:hover {
   border-color: var(--stripe-accent);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-}
-
-.k-roi-card-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  background: var(--stripe-bg-secondary);
 }
 
 .k-roi-card-avatar {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
 }
 
 .k-roi-card-addr {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--stripe-text-secondary);
-  white-space: nowrap;
-}
-
-.k-roi-card-head-score {
-  margin-left: auto;
-  flex: 0 0 auto;
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-
-.k-roi-card-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3) var(--space-2);
-}
-
-.k-roi-card-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.k-roi-card-stat-val {
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-
-.k-roi-card-stat-label {
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--stripe-text-tertiary);
+}
+
+.k-roi-card-roi {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Assets page ─────────────────────────────────────────── */
+/* Coin logo (HL CDN .svg) — used in the mini-tables and the main table. */
+.k-coin-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--stripe-bg-tertiary);
+}
+
+/* Top gainers / losers — two compact 5-row tables side by side. */
+.k-winners-losers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+@media (max-width: 560px) {
+  .k-winners-losers {
+    grid-template-columns: 1fr;
+  }
+}
+
+.k-mini-table {
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  overflow: hidden;
+}
+.k-mini-table-head {
+  padding: var(--space-2) var(--space-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-tertiary);
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+.k-mini-table-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px var(--space-3);
+  text-decoration: none;
+  border-bottom: 0.5px solid var(--stripe-border);
+  transition: background-color var(--transition-fast);
+}
+.k-mini-table-row:last-child {
+  border-bottom: 0;
+}
+.k-mini-table-row:hover {
+  background: var(--stripe-bg-secondary);
+}
+.k-coin-sym {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+}
+.k-mini-table-price {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+}
+.k-mini-table-chg {
+  flex: 0 0 auto;
+  min-width: 64px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Skip link / a11y ────────────────────────────────────── */

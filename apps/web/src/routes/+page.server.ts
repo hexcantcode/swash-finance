@@ -17,6 +17,9 @@ const QuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+/** How many ROI-maker cards the "Winners" strip shows. */
+const WINNERS_SHOWN = 10;
+
 export const load: PageServerLoad = async ({ url }) => {
   const parsed = QuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
   const params = parsed.success ? parsed.data : {};
@@ -38,6 +41,14 @@ export const load: PageServerLoad = async ({ url }) => {
     listRecentTrades(40),
   ]);
 
+  // "Winners" cards: last week's biggest ROI makers among wallets that pass our
+  // listing criteria (`listTopByWeeklyRoi` already returns that filtered set).
+  const winners = [...weeklyRoi]
+    .filter((r) => r.roi_7d != null && Number.isFinite(r.roi_7d))
+    .sort((a, b) => (b.roi_7d ?? -Infinity) - (a.roi_7d ?? -Infinity))
+    .slice(0, WINNERS_SHOWN)
+    .map((r) => ({ address: r.address, roi_7d: r.roi_7d }));
+
   return {
     topLeaders: leaders.leaders,
     total: leaders.total,
@@ -45,7 +56,7 @@ export const load: PageServerLoad = async ({ url }) => {
     limit,
     sort,
     appliedFilters: filters,
-    weeklyRoi,
+    winners,
     recentTrades,
   };
 };

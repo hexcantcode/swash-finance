@@ -251,19 +251,41 @@ async function scoreSingleWallet(args: {
   const sizeTag = classifySize(behavioral.totalNotional.toNumber());
   const decayFlag = computeDecayFlag(rolling30dSharpe, peakSharpe);
 
-  // Quality — 7-metric median basket (0..100). Sharpe/Sortino are the daily-unit
-  // values scaled by the track-record multiplier. (`expectancy` is intentionally
-  // NOT in the basket — raw-USD, scale-dependent, undiscriminating near zero;
-  // still computed for the `scores.expectancy` display column below.) We take the
-  // *un-capped* median here; the data-sufficiency discount now lives in `copyability`.
+  // ── Data-quality gate ──────────────────────────────────────────────────
+  // When the deposit base can't be reconstructed (`netPnlPct === null`), the
+  // daily-return series is unreliable — so every metric derived from it
+  // (Sharpe, Sortino, PSR, max DD, recovery) is junk. Drop those from the
+  // quality basket *and* floor the composite. Also: an *exact-zero* max
+  // drawdown over a real record is a degenerate-series artifact ("0 → curve →
+  // 100"), not a real "never lost" — treat it as missing. And clamp absurd
+  // Sharpe/Sortino (near-zero-denominator blow-ups, e.g. a 4000+ Sortino) to
+  // "missing" rather than letting them peg the curve at 100.
+  const netPnlPct = computeRoi(series.netPnl.toNumber(), ledgerRows);
+  const SORTINO_CEIL = 30; // annualized; above this it's a near-zero-downside artifact
+  const SHARPE_CEIL = 15; // annualized
+  const reliableSeries = netPnlPct !== null;
+  const sharpeOk = sharpe !== null && Number.isFinite(sharpe) && Math.abs(sharpe) <= SHARPE_CEIL;
+  const sortinoOk = sortino !== null && Number.isFinite(sortino) && Math.abs(sortino) <= SORTINO_CEIL;
+  const qSharpe = reliableSeries && sharpeOk ? sharpe : null;
+  const qDSharpe = reliableSeries && sharpeOk ? dSharpe : null;
+  const qSortinoDaily = reliableSeries && sortinoOk ? sortinoDaily : null;
+  const qPsr = reliableSeries && sharpeOk ? psr : null;
+  const qMaxDd = reliableSeries && maxDd !== null && maxDd !== 0 ? maxDd : null;
+  const qRecovery = reliableSeries ? recovery : null;
+
+  // Quality — median basket (0..100). Sharpe/Sortino are the daily-unit values
+  // scaled by the track-record multiplier. (`expectancy` is intentionally NOT
+  // in the basket — raw-USD, scale-dependent, undiscriminating near zero; still
+  // stored for display.) Un-capped median here; the data-sufficiency discount
+  // lives in `copyability`, and the data-quality gate above drops junk inputs.
   const quality = medianComposite({
     metrics: {
-      sharpe: dSharpe !== null ? dSharpe * mult : null,
-      sortino: sortinoDaily !== null ? sortinoDaily * mult : null,
-      psr,
+      sharpe: qDSharpe !== null ? qDSharpe * mult : null,
+      sortino: qSortinoDaily !== null ? qSortinoDaily * mult : null,
+      psr: qPsr,
       profitFactor: pf,
-      maxDrawdownPct: maxDd,
-      recoveryTimeDays: recovery,
+      maxDrawdownPct: qMaxDd,
+      recoveryTimeDays: qRecovery,
       monthlyConsistency: monthlyConsistencyVal,
     },
     daysOfData,
@@ -314,7 +336,12 @@ async function scoreSingleWallet(args: {
     isMarketMaker: eligibility.failures.includes('market_maker_pattern'),
     capitalBaseKnown,
   });
-  const compositeScore = Math.round(quality * copyability.value);
+  // Composite = quality × copyability, then floored when the deposit base
+  // couldn't be reconstructed — an unverifiable record can't be "good" (≥50),
+  // let alone curated (≥70).
+  const DATA_QUALITY_CAP = 49;
+  const compositeRaw = Math.round(quality * copyability.value);
+  const compositeScore = reliableSeries ? compositeRaw : Math.min(compositeRaw, DATA_QUALITY_CAP);
 
   // Curation gate: eligibility floors + composite >= 70 to enter, 65 to stay.
   const wasCurated = args.curated;
@@ -334,15 +361,17 @@ async function scoreSingleWallet(args: {
     lastTradeAt: series.lastEventMs !== null ? new Date(series.lastEventMs) : null,
     activeDays: series.activeDays,
     netPnlUsd: clampNetPnlUsd(series.netPnl.toNumber()),
-    netPnlPct: computeRoi(series.netPnl.toNumber(), ledgerRows),
-    sharpe: numToStr(sharpe),
-    sortino: numToStr(sortino),
-    psr: numToStr(psr),
+    netPnlPct,
+    // Stored values are the *gated* ones — what the score actually trusted —
+    // so the trader page shows "—" rather than a junk Sharpe/Sortino/DD.
+    sharpe: numToStr(qSharpe),
+    sortino: numToStr(reliableSeries && sortinoOk ? sortino : null),
+    psr: numToStr(qPsr),
     profitFactor: numToStr(pf),
     winRate: numToStr(wr),
     expectancy: numToStr(exp),
-    maxDrawdownPct: numToStr(maxDd),
-    recoveryTimeDays: recovery,
+    maxDrawdownPct: numToStr(qMaxDd),
+    recoveryTimeDays: qRecovery,
     avgHoldSeconds: behavioral.avgHoldSeconds !== null ? Math.round(behavioral.avgHoldSeconds) : null,
     tradesPerDayAvg: numToStr(behavioral.tradesPerDayAvg),
     makerTakerRatio: numToStr(behavioral.makerTakerRatio),

@@ -1,7 +1,7 @@
 <script lang="ts">
   import LeaderTable, { type SortKey } from '$lib/components/LeaderTable.svelte';
   import TradeTicker from '$lib/components/TradeTicker.svelte';
-  import WeeklyRoiCards from '$lib/components/WeeklyRoiCards.svelte';
+  import RoiCards from '$lib/components/RoiCards.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import type { PageData } from './$types';
@@ -10,15 +10,6 @@
     data: PageData;
   }
   let { data }: Props = $props();
-
-  // Profile archetype filter options (the "Profile" column dropdown).
-  const PROFILE_OPTIONS: Array<{ value: string; label: string }> = [
-    { value: 'alpha', label: 'Alpha' },
-    { value: 'veteran', label: 'Veteran' },
-    { value: 'rising_star', label: 'Rising Star' },
-    { value: 'specialist', label: 'Specialist' },
-    { value: 'allrounder', label: 'All-Rounder' },
-  ];
 
   function setParam(key: string, value: string | undefined): void {
     const params = new URLSearchParams($page.url.searchParams);
@@ -48,25 +39,23 @@
   <section class="k-trader-section">
     <div class="k-section-head">
       <h2 class="k-section-title">Winners</h2>
-      <span class="stripe-text-tertiary stripe-body-sm">per Hyperliquid's official 7d window</span>
     </div>
 
-    {#if data.weeklyRoi.length === 0}
+    {#if data.winners.length === 0}
       <div class="stripe-empty">
-        <div class="stripe-empty-title">no 7d data yet</div>
+        <div class="stripe-empty-title">no winners yet</div>
         <p class="stripe-empty-text">
           Run <code>pnpm leaderboard</code> to fetch HL leaderboard.
         </p>
       </div>
     {:else}
-      <WeeklyRoiCards rows={data.weeklyRoi} />
+      <RoiCards rows={data.winners} />
     {/if}
   </section>
 
   <section class="k-trader-section">
     <div class="k-section-head">
       <h2 class="k-section-title">Leaderboard</h2>
-      <span class="stripe-text-tertiary stripe-body-sm">ranked by composite score</span>
     </div>
 
     <LeaderTable
@@ -74,9 +63,6 @@
       serverSorted
       sort={data.sort as SortKey}
       onSortChange={setSort}
-      tagOptions={PROFILE_OPTIONS}
-      activeTag={data.appliedFilters.profileTag}
-      onTagChange={(v) => setParam('tag', v)}
     />
 
     <footer class="k-footer">

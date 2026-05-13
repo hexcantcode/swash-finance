@@ -11,6 +11,7 @@ import type {
   HlResult,
   L2BookResponse,
   MetaResponse,
+  MetaAndAssetCtxsResponse,
   PerpDexsResponse,
   RecentTradesResponse,
   SpotMetaResponse,
@@ -75,6 +76,17 @@ export class HlInfoClient {
   async allMids(opts: HlReadOptions = {}): Promise<HlResult<AllMidsResponse>> {
     const data = await this.client.allMids(opts.signal);
     return wrapFresh(data, WEIGHTS.allMids);
+  }
+
+  /** Perp meta (universe) + asset contexts (mark px, prev-day px, 24h volume,
+   *  open interest, funding) for the main perp dex. Pass `dex` for a HIP-3 dex. */
+  async metaAndAssetCtxs(
+    opts: HlReadOptions & { dex?: string } = {},
+  ): Promise<HlResult<MetaAndAssetCtxsResponse>> {
+    const data = opts.dex
+      ? await this.client.metaAndAssetCtxs({ dex: opts.dex }, opts.signal)
+      : await this.client.metaAndAssetCtxs(opts.signal);
+    return wrapFresh(data, WEIGHTS.metaAndAssetCtxs);
   }
 
   async l2Book(coin: string, opts: HlReadOptions = {}): Promise<HlResult<L2BookResponse>> {

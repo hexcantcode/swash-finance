@@ -5,6 +5,10 @@
 
   let { children } = $props();
 
+  const path = $derived($page.url.pathname);
+  const tradersActive = $derived(path === '/' || path.startsWith('/trader'));
+  const assetsActive = $derived(path.startsWith('/assets'));
+
   let searchInput = $state($page.url.searchParams.get('search') ?? '');
   // Keep the box in sync with the URL after navigation.
   $effect(() => {
@@ -36,6 +40,24 @@
     <a href="/" class="k-topnav-brand" aria-label="Swash — home">
       <img src="/logoicon.png" alt="" class="k-topnav-logo" aria-hidden="true" />
     </a>
+    <nav class="k-topnav-links" aria-label="Sections">
+      <a
+        href="/"
+        class="k-topnav-link"
+        class:is-active={tradersActive}
+        aria-current={tradersActive ? 'page' : undefined}
+      >
+        Traders
+      </a>
+      <a
+        href="/assets"
+        class="k-topnav-link"
+        class:is-active={assetsActive}
+        aria-current={assetsActive ? 'page' : undefined}
+      >
+        Assets
+      </a>
+    </nav>
     <form class="k-topnav-search-form" role="search" onsubmit={submitSearch}>
       <input
         type="search"

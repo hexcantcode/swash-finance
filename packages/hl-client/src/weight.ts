@@ -4,6 +4,7 @@
  */
 export const WEIGHTS = {
   meta: 20,
+  metaAndAssetCtxs: 20,
   perpDexs: 20,
   spotMeta: 20,
   allMids: 2,
