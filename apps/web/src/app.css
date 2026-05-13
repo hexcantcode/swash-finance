@@ -2150,6 +2150,45 @@ body {
   color: var(--stripe-text-tertiary);
 }
 
+/* ── Asset page · open positions table ───────────────────── */
+/* Compact variant of `.stripe-table` for the "Open positions on X" section.
+ * Slightly tighter padding + smaller side pill. */
+.k-open-positions.stripe-table {
+  min-width: 0;
+}
+.k-open-positions.stripe-table th,
+.k-open-positions.stripe-table td {
+  padding: 10px var(--space-3);
+  font-size: 12px;
+}
+
+.k-side-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.k-side-long {
+  background: var(--stripe-success-subtle);
+  color: var(--stripe-success);
+}
+.k-side-short {
+  background: var(--stripe-danger-subtle);
+  color: var(--stripe-danger);
+}
+
+/* Refresh time — dim it; "stale" means leader_cache hasn't been touched in
+ * the last 30 min, so the position numbers may have moved since. */
+.k-open-positions-refreshed {
+  color: var(--stripe-text-tertiary);
+  font-size: 11px;
+}
+.k-open-positions-refreshed .is-stale {
+  color: var(--stripe-warning, #f5a623);
+}
 
 /* ── Skip link / a11y ────────────────────────────────────── */
 .skip-link {

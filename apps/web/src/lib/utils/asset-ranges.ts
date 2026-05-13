@@ -38,6 +38,28 @@ export interface TraderOpen {
   pxUsd: number;
 }
 
+/** An open position on this asset held by a tracked trader. Sourced from
+ *  `leader_cache.positions_json`. Numbers come pre-parsed from the JSON
+ *  strings; `lastRefreshedAtMs` lets the UI render a freshness badge. */
+export interface OpenPosition {
+  address: string;
+  /** 'long' if szi > 0, 'short' if szi < 0. */
+  side: 'long' | 'short';
+  /** position size in base coin (signed in JSON; absolute here). */
+  szBase: number;
+  entryPxUsd: number;
+  /** notional in USD (HL's `positionValue`). */
+  notionalUsd: number;
+  unrealizedPnlUsd: number;
+  /** unrealized PnL / margin used. HL ships this as `returnOnEquity`. */
+  returnOnEquity: number;
+  leverage: number;
+  /** ms epoch of the leader_cache row's last refresh — for the "X ago" badge. */
+  lastRefreshedAtMs: number | null;
+  /** `'ws'` (live, from WS subscriber) or `'rest'` (REST snapshot, can be hours/days stale). */
+  source: 'ws' | 'rest' | null;
+}
+
 /** Top-traders row for the asset detail page. */
 export interface TopTrader {
   address: string;

@@ -4,10 +4,17 @@
   import { page } from '$app/stores';
   import TVChart from '$lib/components/TVChart.svelte';
   import { coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
-  import { effigyUrl, formatPnl, pnlSignClass, truncateAddress } from '$lib/utils/format';
+  import {
+    effigyUrl,
+    formatPnl,
+    formatRelativeTime,
+    pnlSignClass,
+    truncateAddress,
+  } from '$lib/utils/format';
   import {
     RANGE_KEYS,
     type CandlePoint,
+    type OpenPosition,
     type RangeKey,
     type TopTrader,
     type TraderOpen,
@@ -20,6 +27,7 @@
   let asset = $state(data.asset);
   let topTraders = $state<TopTrader[]>(data.topTraders);
   let traderOpens = $state<TraderOpen[]>(data.traderOpens);
+  let openPositions = $state<OpenPosition[]>(data.openPositions);
   // When the URL changes (range tab → goto → loader re-runs), sync the local
   // state from the new server data. The 12s poll mutates `candles` directly
   // between loader runs.
@@ -28,6 +36,7 @@
     asset = data.asset;
     topTraders = data.topTraders;
     traderOpens = data.traderOpens;
+    openPositions = data.openPositions;
   });
   // Range is driven by the URL search param so it survives reloads + back/fwd.
   const range = $derived<RangeKey>(data.range);
@@ -193,6 +202,74 @@
             </div>
           </a>
         {/each}
+      </div>
+    {/if}
+  </section>
+
+  <section class="k-trader-section">
+    <div class="k-section-head">
+      <h2 class="k-section-title">Open positions on {asset.symbol}</h2>
+    </div>
+    {#if openPositions.length === 0}
+      <p class="k-empty">No tracked trader is currently holding {asset.symbol}.</p>
+    {:else}
+      <div class="k-table-wrap">
+        <table
+          class="stripe-table k-open-positions"
+          aria-label="Open {asset.symbol} positions of tracked traders, sorted by unrealized PnL"
+        >
+          <thead>
+            <tr>
+              <th class="stripe-table-trader">Trader</th>
+              <th class="stripe-table-numeric">Side</th>
+              <th class="stripe-table-numeric">Notional</th>
+              <th class="stripe-table-numeric">Entry</th>
+              <th class="stripe-table-numeric">Unrealized PnL</th>
+              <th class="stripe-table-numeric">ROE</th>
+              <th class="stripe-table-numeric">Lev</th>
+              <th class="stripe-table-numeric">Refreshed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each openPositions as p (p.address + ':' + p.entryPxUsd)}
+              <tr>
+                <td class="stripe-table-trader">
+                  <a class="k-trader-link" href="/trader/{p.address}">
+                    <img
+                      src={effigyUrl(p.address)}
+                      alt=""
+                      loading="lazy"
+                      onerror={hideBrokenAvatar}
+                      class="stripe-avatar stripe-avatar-ring"
+                    />
+                    <span>{truncateAddress(p.address)}</span>
+                  </a>
+                </td>
+                <td class="stripe-table-numeric">
+                  <span class="k-side-pill k-side-{p.side}">{p.side}</span>
+                </td>
+                <td class="stripe-table-numeric">{formatPnl(p.notionalUsd)}</td>
+                <td class="stripe-table-numeric">${p.entryPxUsd.toLocaleString('en-US', { maximumFractionDigits: p.entryPxUsd >= 1 ? 2 : 6 })}</td>
+                <td class="stripe-table-numeric {pnlSignClass(p.unrealizedPnlUsd)}">
+                  {formatPnl(p.unrealizedPnlUsd)}
+                </td>
+                <td class="stripe-table-numeric {pnlSignClass(p.returnOnEquity)}">
+                  {(p.returnOnEquity * 100).toFixed(p.returnOnEquity >= 1 ? 0 : 1)}%
+                </td>
+                <td class="stripe-table-numeric">{p.leverage}×</td>
+                <td class="stripe-table-numeric k-open-positions-refreshed">
+                  {#if p.lastRefreshedAtMs !== null}
+                    <span class:is-stale={Date.now() - p.lastRefreshedAtMs > 30 * 60 * 1000}>
+                      {formatRelativeTime(new Date(p.lastRefreshedAtMs))}
+                    </span>
+                  {:else}
+                    —
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
   </section>

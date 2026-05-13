@@ -7,6 +7,7 @@ import {
   RANGE_KEYS,
   parseRange,
   type CandlePoint,
+  type OpenPosition,
   type RangeKey,
   type TopTrader,
   type TraderOpen,
@@ -14,7 +15,7 @@ import {
 
 // Re-export so server-side callers (loaders, API routes) have one import.
 export { RANGE_KEYS, parseRange };
-export type { CandlePoint, RangeKey, TopTrader, TraderOpen };
+export type { CandlePoint, OpenPosition, RangeKey, TopTrader, TraderOpen };
 
 /** Each range maps to a HL candle interval + a lookback window. */
 const RANGE: Record<
@@ -37,12 +38,25 @@ export interface AssetDetail {
    *  the chart as avatar markers. Limited per trader so a hyper-active
    *  scalper doesn't paint the whole canvas. */
   traderOpens: TraderOpen[];
+  /** Currently-open positions on this asset held by tracked wallets, sorted
+   *  by unrealized PnL desc. Source: `leader_cache.positions_json`. */
+  openPositions: OpenPosition[];
 }
 
 function num(s: string | null | undefined): number {
   if (s === null || s === undefined) return NaN;
   const n = Number.parseFloat(s);
   return Number.isFinite(n) ? n : NaN;
+}
+
+/** `db.execute()` doesn't run the ORM's column casters, so a `timestamptz`
+ *  comes back as an ISO string. Some pg drivers occasionally hand us a Date
+ *  anyway — accept both. */
+function parseTimestampMs(input: string | Date | null | undefined): number | null {
+  if (input === null || input === undefined) return null;
+  if (input instanceof Date) return input.getTime();
+  const ms = Date.parse(input);
+  return Number.isFinite(ms) ? ms : null;
 }
 
 /** OHLCV from HL `candleSnapshot`, mapped to numbers. */
@@ -147,6 +161,71 @@ export async function getTraderOpensInRange(
   return buckets.flat();
 }
 
+/** All currently-open positions on `coin` held by wallets in our
+ *  `leader_cache` (= tracked wallets — winners get live WS pushes, the rest
+ *  are REST snapshots, possibly stale; the UI shows a freshness badge per
+ *  row). Sorted by unrealized PnL desc, so the wallet most in-profit on
+ *  this coin right now leads. */
+export async function getOpenPositionsOnAsset(
+  coin: string,
+  limit = 25,
+): Promise<OpenPosition[]> {
+  const rows = await db().execute<{
+    address: string;
+    /** pg returns `timestamptz` as an ISO string here, not a Date (no ORM cast
+     *  on `db.execute`). */
+    last_refreshed_at: string | null;
+    source: string | null;
+    szi: string;
+    entry_px: string;
+    notional: string;
+    unrealized_pnl: string;
+    return_on_equity: string;
+    leverage: string;
+  }>(sql`
+    SELECT
+      lc.address,
+      lc.last_refreshed_at,
+      lc.source,
+      (p.elem -> 'position' ->> 'szi')             AS szi,
+      (p.elem -> 'position' ->> 'entryPx')         AS entry_px,
+      (p.elem -> 'position' ->> 'positionValue')   AS notional,
+      (p.elem -> 'position' ->> 'unrealizedPnl')   AS unrealized_pnl,
+      (p.elem -> 'position' ->> 'returnOnEquity')  AS return_on_equity,
+      (p.elem -> 'position' -> 'leverage' ->> 'value') AS leverage
+    FROM leader_cache lc,
+         LATERAL jsonb_array_elements(lc.positions_json) AS p(elem)
+    WHERE lc.positions_json IS NOT NULL
+      AND (p.elem -> 'position' ->> 'coin') = ${coin}
+    ORDER BY (p.elem -> 'position' ->> 'unrealizedPnl')::numeric DESC
+    LIMIT ${limit}
+  `);
+
+  const out: OpenPosition[] = [];
+  for (const r of rows.rows) {
+    const szi = Number.parseFloat(r.szi);
+    if (!Number.isFinite(szi) || szi === 0) continue;
+    const unrealizedPnlUsd = Number.parseFloat(r.unrealized_pnl);
+    const notionalUsd = Number.parseFloat(r.notional);
+    const entryPx = Number.parseFloat(r.entry_px);
+    const roe = Number.parseFloat(r.return_on_equity);
+    const lev = Number.parseFloat(r.leverage);
+    out.push({
+      address: r.address,
+      side: szi > 0 ? 'long' : 'short',
+      szBase: Math.abs(szi),
+      entryPxUsd: Number.isFinite(entryPx) ? entryPx : 0,
+      notionalUsd: Number.isFinite(notionalUsd) ? notionalUsd : 0,
+      unrealizedPnlUsd: Number.isFinite(unrealizedPnlUsd) ? unrealizedPnlUsd : 0,
+      returnOnEquity: Number.isFinite(roe) ? roe : 0,
+      leverage: Number.isFinite(lev) ? lev : 0,
+      lastRefreshedAtMs: parseTimestampMs(r.last_refreshed_at),
+      source: r.source === 'ws' || r.source === 'rest' ? r.source : null,
+    });
+  }
+  return out;
+}
+
 /** Loader for `/assets/[coin]`. Returns null when the coin isn't in the universe.
  *  Validates the coin against the universe first — calling `candleSnapshot`
  *  for an unknown coin makes HL throw, which would surface as a 500. */
@@ -154,9 +233,10 @@ export async function getAssetDetail(coin: string, range: RangeKey): Promise<Ass
   const assetList = await listAssets();
   const asset = assetList.find((a) => a.coin === coin);
   if (!asset) return null;
-  const [candles, topTraders] = await Promise.all([
+  const [candles, topTraders, openPositions] = await Promise.all([
     getAssetCandles(coin, range),
     getAssetTopTraders(coin, 5),
+    getOpenPositionsOnAsset(coin, 25),
   ]);
   // Use the candle window as the marker window so we don't paint avatars
   // that fall outside the visible chart.
@@ -169,5 +249,5 @@ export async function getAssetDetail(coin: string, range: RangeKey): Promise<Ass
     endMs,
     3,
   );
-  return { asset, range, candles, topTraders, traderOpens };
+  return { asset, range, candles, topTraders, traderOpens, openPositions };
 }
