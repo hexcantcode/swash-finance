@@ -291,12 +291,6 @@ body {
 .stripe-text-accent {
   color: var(--stripe-accent);
 }
-.stripe-text-success {
-  color: var(--stripe-success);
-}
-.stripe-text-danger {
-  color: var(--stripe-danger);
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV SHELL — mobile-first with one breakpoint at 1024px.
@@ -880,23 +874,6 @@ body {
 
 .k-filter-chip.is-active .k-filter-chip-count {
   color: var(--stripe-accent-light);
-}
-
-/* HIP-3 source-dex badge — appears next to the symbol on the assets list
-   and detail header to disambiguate (e.g. xyz:TSLA vs flx:TSLA). */
-.k-dex-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-radius: var(--radius-sm);
-  background: var(--stripe-accent-subtle);
-  color: var(--stripe-accent-light);
-  white-space: nowrap;
-  vertical-align: middle;
 }
 
 /* ── Tabs ────────────────────────────────────────────────── */

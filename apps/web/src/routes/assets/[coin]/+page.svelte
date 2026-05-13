@@ -78,8 +78,7 @@
     if (abs >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
     return '$' + v.toFixed(0);
   }
-  /** Trader-card ROI: decimal in → "+12.5%" / "−5.2%" / "—". Matches the
-   *  formatter used by the home-page Winners cards (`RoiCards.svelte`). */
+  /** Trader-card ROI: decimal in → "+12.5%" / "−5.2%" / "—". */
   function formatRoi(value: number | null): string {
     if (value === null || value === undefined || !Number.isFinite(value)) return '—';
     const pct = value * 100;
