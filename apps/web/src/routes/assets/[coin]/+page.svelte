@@ -28,6 +28,7 @@
   let topTraders = $state<TopTrader[]>(data.topTraders);
   let traderOpens = $state<TraderOpen[]>(data.traderOpens);
   let openPositions = $state<OpenPosition[]>(data.openPositions);
+  let latestOpens = $state<TraderOpen[]>(data.latestOpens);
   // When the URL changes (range tab → goto → loader re-runs), sync the local
   // state from the new server data. The 12s poll mutates `candles` directly
   // between loader runs.
@@ -37,6 +38,7 @@
     topTraders = data.topTraders;
     traderOpens = data.traderOpens;
     openPositions = data.openPositions;
+    latestOpens = data.latestOpens;
   });
   // Range is driven by the URL search param so it survives reloads + back/fwd.
   const range = $derived<RangeKey>(data.range);
@@ -105,6 +107,49 @@
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
     img.style.visibility = 'hidden';
+  }
+
+  /** Long/short split across the currently-open positions on this coin.
+   *  Derived from `openPositions` — no extra query. */
+  const sentiment = $derived.by(() => {
+    let longNotional = 0;
+    let shortNotional = 0;
+    let longTraders = 0;
+    let shortTraders = 0;
+    for (const p of openPositions) {
+      if (p.side === 'long') {
+        longNotional += p.notionalUsd;
+        longTraders += 1;
+      } else {
+        shortNotional += p.notionalUsd;
+        shortTraders += 1;
+      }
+    }
+    const totalNotional = longNotional + shortNotional;
+    const totalTraders = longTraders + shortTraders;
+    return {
+      longNotional,
+      shortNotional,
+      longTraders,
+      shortTraders,
+      longNotionalPct: totalNotional > 0 ? (longNotional / totalNotional) * 100 : 0,
+      shortNotionalPct: totalNotional > 0 ? (shortNotional / totalNotional) * 100 : 0,
+      longTraderPct: totalTraders > 0 ? (longTraders / totalTraders) * 100 : 0,
+      shortTraderPct: totalTraders > 0 ? (shortTraders / totalTraders) * 100 : 0,
+    };
+  });
+
+  function fmtPctInt(v: number): string {
+    return Math.round(v) + '%';
+  }
+  function fmtEntry(v: number): string {
+    if (!Number.isFinite(v) || v === 0) return '—';
+    return '$' + v.toLocaleString('en-US', { maximumFractionDigits: v >= 1 ? 2 : 6 });
+  }
+  function fmtRoe(roe: number): string {
+    const pct = roe * 100;
+    if (Math.abs(pct) >= 100) return pct.toFixed(0) + '%';
+    return pct.toFixed(1) + '%';
   }
 </script>
 
@@ -208,25 +253,75 @@
 
   <section class="k-trader-section">
     <div class="k-section-head">
-      <h2 class="k-section-title">Open positions on {asset.symbol}</h2>
+      <h2 class="k-section-title">Tracked-trader activity on {asset.symbol}</h2>
     </div>
-    {#if openPositions.length === 0}
-      <p class="k-empty">No tracked trader is currently holding {asset.symbol}.</p>
+    {#if openPositions.length === 0 && latestOpens.length === 0}
+      <p class="k-empty">No tracked-trader activity on {asset.symbol} yet.</p>
     {:else}
-      <div class="k-table-wrap">
-        <table
-          class="stripe-table k-open-positions"
-          aria-label="Open {asset.symbol} positions of tracked traders, sorted by unrealized PnL"
-        >
+      {#if openPositions.length > 0}
+        <div class="k-sentiment-stack">
+        <div class="k-sentiment-bar">
+          <div class="k-sentiment-label">Size</div>
+          <div
+            class="k-sentiment-track"
+            role="img"
+            aria-label="{fmtPctInt(sentiment.longNotionalPct)} long, {fmtPctInt(sentiment.shortNotionalPct)} short by notional"
+          >
+            <span class="k-sentiment-fill k-sentiment-long" style:width="{sentiment.longNotionalPct}%"></span>
+            <span class="k-sentiment-fill k-sentiment-short" style:width="{sentiment.shortNotionalPct}%"></span>
+          </div>
+          <div class="k-sentiment-foot">
+            <span class="k-sentiment-foot-left">
+              <span class="k-pnl-positive">{formatPnl(sentiment.longNotional)}</span>
+              <span class="k-sentiment-foot-sub">{fmtPctInt(sentiment.longNotionalPct)} LONG</span>
+            </span>
+            <span class="k-sentiment-foot-right">
+              <span class="k-sentiment-foot-sub">{fmtPctInt(sentiment.shortNotionalPct)} SHORT</span>
+              <span class="k-pnl-negative">{formatPnl(sentiment.shortNotional)}</span>
+            </span>
+          </div>
+        </div>
+        <div class="k-sentiment-bar">
+          <div class="k-sentiment-label">Traders</div>
+          <div
+            class="k-sentiment-track"
+            role="img"
+            aria-label="{sentiment.longTraders} long, {sentiment.shortTraders} short"
+          >
+            <span class="k-sentiment-fill k-sentiment-long" style:width="{sentiment.longTraderPct}%"></span>
+            <span class="k-sentiment-fill k-sentiment-short" style:width="{sentiment.shortTraderPct}%"></span>
+          </div>
+          <div class="k-sentiment-foot">
+            <span class="k-sentiment-foot-left">
+              <span class="k-pnl-positive">{sentiment.longTraders}</span>
+              <span class="k-sentiment-foot-sub">{fmtPctInt(sentiment.longTraderPct)} LONG</span>
+            </span>
+            <span class="k-sentiment-foot-right">
+              <span class="k-sentiment-foot-sub">{fmtPctInt(sentiment.shortTraderPct)} SHORT</span>
+              <span class="k-pnl-negative">{sentiment.shortTraders}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+      {/if}
+
+      <div class="k-positions-grid">
+        <div class="k-positions-col">
+          <h3 class="k-positions-subhead">Open positions <span class="k-positions-count">{openPositions.length}</span></h3>
+          {#if openPositions.length === 0}
+            <p class="k-empty">None of the tracked traders currently hold {asset.symbol}.</p>
+          {:else}
+          <div class="k-table-wrap">
+            <table
+              class="stripe-table"
+              aria-label="Open {asset.symbol} positions of tracked traders, sorted by unrealized PnL"
+            >
           <thead>
             <tr>
               <th class="stripe-table-trader">Trader</th>
-              <th class="stripe-table-numeric">Side</th>
               <th class="stripe-table-numeric">Notional</th>
               <th class="stripe-table-numeric">Entry</th>
-              <th class="stripe-table-numeric">Unrealized PnL</th>
-              <th class="stripe-table-numeric">ROE</th>
-              <th class="stripe-table-numeric">Lev</th>
+              <th class="stripe-table-numeric">Unrealized</th>
               <th class="stripe-table-numeric">Refreshed</th>
             </tr>
           </thead>
@@ -246,17 +341,27 @@
                   </a>
                 </td>
                 <td class="stripe-table-numeric">
-                  <span class="k-side-pill k-side-{p.side}">{p.side}</span>
+                  <span class="k-cell-stack">
+                    <span class="k-cell-primary">
+                      <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}>
+                        {p.side === 'long' ? '↑' : '↓'}
+                      </span>
+                      {formatPnl(p.notionalUsd)}
+                    </span>
+                    <span class="k-cell-sub">{p.leverage}×</span>
+                  </span>
                 </td>
-                <td class="stripe-table-numeric">{formatPnl(p.notionalUsd)}</td>
-                <td class="stripe-table-numeric">${p.entryPxUsd.toLocaleString('en-US', { maximumFractionDigits: p.entryPxUsd >= 1 ? 2 : 6 })}</td>
-                <td class="stripe-table-numeric {pnlSignClass(p.unrealizedPnlUsd)}">
-                  {formatPnl(p.unrealizedPnlUsd)}
+                <td class="stripe-table-numeric">{fmtEntry(p.entryPxUsd)}</td>
+                <td class="stripe-table-numeric">
+                  <span class="k-cell-stack">
+                    <span class="k-cell-primary {pnlSignClass(p.unrealizedPnlUsd)}">
+                      {formatPnl(p.unrealizedPnlUsd)}
+                    </span>
+                    <span class="k-cell-sub {pnlSignClass(p.returnOnEquity)}">
+                      {fmtRoe(p.returnOnEquity)} ROE
+                    </span>
+                  </span>
                 </td>
-                <td class="stripe-table-numeric {pnlSignClass(p.returnOnEquity)}">
-                  {(p.returnOnEquity * 100).toFixed(p.returnOnEquity >= 1 ? 0 : 1)}%
-                </td>
-                <td class="stripe-table-numeric">{p.leverage}×</td>
                 <td class="stripe-table-numeric k-open-positions-refreshed">
                   {#if p.lastRefreshedAtMs !== null}
                     <span class:is-stale={Date.now() - p.lastRefreshedAtMs > 30 * 60 * 1000}>
@@ -270,6 +375,62 @@
             {/each}
           </tbody>
         </table>
+          </div>
+          {/if}
+        </div>
+
+        <div class="k-positions-col">
+          <h3 class="k-positions-subhead">Latest opens <span class="k-positions-count">{latestOpens.length}</span></h3>
+          {#if latestOpens.length === 0}
+            <p class="k-empty">No recent opens on {asset.symbol}.</p>
+          {:else}
+            <div class="k-table-wrap">
+              <table
+                class="stripe-table"
+                aria-label="Most-recent position opens on {asset.symbol} by tracked traders"
+              >
+                <thead>
+                  <tr>
+                    <th class="stripe-table-trader">Trader</th>
+                    <th class="stripe-table-numeric">Side</th>
+                    <th class="stripe-table-numeric">Entry</th>
+                    <th class="stripe-table-numeric">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each latestOpens as o (o.address + ':' + o.blockTimeMs)}
+                    <tr>
+                      <td class="stripe-table-trader">
+                        <a class="k-trader-link" href="/trader/{o.address}">
+                          <img
+                            src={effigyUrl(o.address)}
+                            alt=""
+                            loading="lazy"
+                            onerror={hideBrokenAvatar}
+                            class="stripe-avatar stripe-avatar-ring"
+                          />
+                          <span>{truncateAddress(o.address)}</span>
+                        </a>
+                      </td>
+                      <td class="stripe-table-numeric">
+                        <span
+                          class="k-side-arrow k-side-{o.side === 'B' ? 'long' : 'short'}"
+                          aria-label={o.side === 'B' ? 'opened long' : 'opened short'}
+                        >
+                          {o.side === 'B' ? '↑' : '↓'}
+                        </span>
+                      </td>
+                      <td class="stripe-table-numeric">{fmtEntry(o.pxUsd)}</td>
+                      <td class="stripe-table-numeric k-open-positions-refreshed">
+                        {formatRelativeTime(new Date(o.blockTimeMs))}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
       </div>
     {/if}
   </section>

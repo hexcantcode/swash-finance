@@ -41,6 +41,10 @@ export interface AssetDetail {
   /** Currently-open positions on this asset held by tracked wallets, sorted
    *  by unrealized PnL desc. Source: `leader_cache.positions_json`. */
   openPositions: OpenPosition[];
+  /** N most-recent position-opens on this asset across all tracked wallets,
+   *  sorted by block_time_ms desc. The chart-marker `traderOpens` list is
+   *  per-trader (top 3 each); this is global. */
+  latestOpens: TraderOpen[];
 }
 
 function num(s: string | null | undefined): number {
@@ -226,6 +230,48 @@ export async function getOpenPositionsOnAsset(
   return out;
 }
 
+/** The N most-recent position-opens on `coin` across *all* tracked wallets
+ *  (no per-trader cap). Same "fresh open or sign-flip" detection as
+ *  `getTraderOpensInRange`. Used for the "Latest opens" side-table on the
+ *  asset detail page — answers "who just took a position on this coin?". */
+export async function getLatestOpensOnAsset(coin: string, limit = 10): Promise<TraderOpen[]> {
+  const rows = await db()
+    .select({
+      address: fills.userAddress,
+      blockTimeMs: fills.blockTimeMs,
+      side: fills.side,
+      px: fills.px,
+    })
+    .from(fills)
+    .where(
+      and(
+        eq(fills.coin, coin),
+        sql`${fills.sz} > 0`,
+        sql`(
+          ${fills.startPosition} = 0
+          OR (
+            ${fills.startPosition} <> 0
+            AND sign(
+              ${fills.startPosition}
+              + (case ${fills.side} when 'B' then ${fills.sz} else -${fills.sz} end)
+            ) <> sign(${fills.startPosition})
+            AND ${fills.startPosition}
+              + (case ${fills.side} when 'B' then ${fills.sz} else -${fills.sz} end)
+              <> 0
+          )
+        )`,
+      ),
+    )
+    .orderBy(desc(fills.blockTimeMs))
+    .limit(limit);
+  return rows.map<TraderOpen>((r) => ({
+    address: r.address,
+    blockTimeMs: Number(r.blockTimeMs),
+    side: r.side as 'B' | 'A',
+    pxUsd: Number.parseFloat(r.px),
+  }));
+}
+
 /** Loader for `/assets/[coin]`. Returns null when the coin isn't in the universe.
  *  Validates the coin against the universe first — calling `candleSnapshot`
  *  for an unknown coin makes HL throw, which would surface as a 500. */
@@ -233,10 +279,11 @@ export async function getAssetDetail(coin: string, range: RangeKey): Promise<Ass
   const assetList = await listAssets();
   const asset = assetList.find((a) => a.coin === coin);
   if (!asset) return null;
-  const [candles, topTraders, openPositions] = await Promise.all([
+  const [candles, topTraders, openPositions, latestOpens] = await Promise.all([
     getAssetCandles(coin, range),
     getAssetTopTraders(coin, 5),
     getOpenPositionsOnAsset(coin, 25),
+    getLatestOpensOnAsset(coin, 10),
   ]);
   // Use the candle window as the marker window so we don't paint avatars
   // that fall outside the visible chart.
@@ -249,5 +296,5 @@ export async function getAssetDetail(coin: string, range: RangeKey): Promise<Ass
     endMs,
     3,
   );
-  return { asset, range, candles, topTraders, traderOpens, openPositions };
+  return { asset, range, candles, topTraders, traderOpens, openPositions, latestOpens };
 }
