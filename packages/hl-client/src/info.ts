@@ -4,6 +4,8 @@ import { FileCache } from './cache.js';
 import { paginatedWeight, WEIGHTS } from './weight.js';
 import type {
   AllMidsResponse,
+  CandleSnapshotParameters,
+  CandleSnapshotResponse,
   ClearinghouseStateResponse,
   ExtraAgentsResponse,
   HlClientOptions,
@@ -101,6 +103,17 @@ export class HlInfoClient {
     const data = await this.client.recentTrades({ coin }, opts.signal);
     const weight = paginatedWeight(WEIGHTS.recentTrades, data.length);
     return wrapFresh(data, weight);
+  }
+
+  /** Candlestick history (OHLCV). HL caps the response, so the array may end
+   *  short of `endTime` for shorter intervals — call again with a later
+   *  `startTime` if you need the full window. */
+  async candleSnapshot(
+    params: CandleSnapshotParameters,
+    opts: HlReadOptions = {},
+  ): Promise<HlResult<CandleSnapshotResponse>> {
+    const data = await this.client.candleSnapshot(params, opts.signal);
+    return wrapFresh(data, WEIGHTS.candleSnapshot);
   }
 
   // ───── per-user reads ────────────────────────────────────────────────

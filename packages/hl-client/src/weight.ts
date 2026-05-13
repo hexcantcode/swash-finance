@@ -15,6 +15,7 @@ export const WEIGHTS = {
   userFunding: { base: 20, perItems: 20 },
   userNonFundingLedgerUpdates: { base: 20, perItems: 20 },
   recentTrades: { base: 20, perItems: 20 },
+  candleSnapshot: 20,
   extraAgents: 20,
   orderStatus: 2,
   // Generous fallback when we can't be sure of the actual cost.

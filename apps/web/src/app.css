@@ -24,12 +24,12 @@
   --spacing-20: 80px;
 
   /* Color tokens */
-  --color-bg-deep: #1f1f1f;
-  --color-bg-primary: #252525;
-  --color-bg-secondary: #2a2a2a;
-  --color-bg-tertiary: #303030;
-  --color-bg-elevated: #383838;
-  --color-bg-hover: #404040;
+  --color-bg-deep: #2a2a2a;
+  --color-bg-primary: #333333;
+  --color-bg-secondary: #3a3a3a;
+  --color-bg-tertiary: #454545;
+  --color-bg-elevated: #525252;
+  --color-bg-hover: #5e5e5e;
 
   /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons. */
   --color-accent: #6ADCC5;
@@ -62,12 +62,12 @@
 }
 
 :root {
-  --stripe-bg-deep: #1f1f1f;
-  --stripe-bg-primary: #252525;
-  --stripe-bg-secondary: #2a2a2a;
-  --stripe-bg-tertiary: #303030;
-  --stripe-bg-elevated: #383838;
-  --stripe-bg-hover: #404040;
+  --stripe-bg-deep: #2a2a2a;
+  --stripe-bg-primary: #333333;
+  --stripe-bg-secondary: #3a3a3a;
+  --stripe-bg-tertiary: #454545;
+  --stripe-bg-elevated: #525252;
+  --stripe-bg-hover: #5e5e5e;
 
   /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons. */
   --stripe-accent: #6ADCC5;
@@ -518,6 +518,23 @@ body {
 .tag-neutral {
   background: var(--stripe-bg-elevated);
   color: var(--stripe-text-tertiary);
+}
+
+/* HIP-3 source-dex badge — appears next to the symbol on the assets list
+   and detail header to disambiguate (e.g. xyz:TSLA vs flx:TSLA). */
+.k-dex-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  background: var(--stripe-accent-subtle);
+  color: var(--stripe-accent-light);
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 /* ── Tabs ────────────────────────────────────────────────── */
@@ -1489,6 +1506,43 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Asset detail "Best traders on X" variant of `.k-roi-card`:
+ *   ┌─────────────────────────┐
+ *   │ 🖼  0x5d2…39bb7         │  ← top: avatar + addr (top-right empty)
+ *   │ +$2.98M       +12.5%    │  ← bottom: PnL + ROI
+ *   └─────────────────────────┘
+ */
+.k-asset-trader-card.k-roi-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  width: 220px;
+}
+.k-asset-trader-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.k-asset-trader-card-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.k-asset-trader-card-pnl {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.k-asset-trader-card-roi {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Assets page ─────────────────────────────────────────── */
 /* Coin logo (HL CDN .svg) — used in the mini-tables and the main table. */
 .k-coin-icon {
@@ -1565,6 +1619,169 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Asset detail (/assets/[coin]) ───────────────────────── */
+.k-asset-header {
+  display: grid;
+  grid-template-areas:
+    'back back'
+    'id quote'
+    'meta meta';
+  grid-template-columns: 1fr auto;
+  row-gap: var(--space-3);
+  column-gap: var(--space-4);
+  align-items: center;
+}
+.k-asset-back {
+  grid-area: back;
+  font-size: 12px;
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  width: max-content;
+}
+.k-asset-back:hover {
+  color: var(--stripe-accent);
+}
+.k-asset-id {
+  grid-area: id;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.k-asset-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--stripe-bg-tertiary);
+  flex: 0 0 auto;
+}
+.k-asset-symbol {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--stripe-text-primary);
+}
+.k-asset-leverage {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--stripe-bg-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+}
+.k-asset-quote {
+  grid-area: quote;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.k-asset-price {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--stripe-text-primary);
+}
+.k-asset-change {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.k-asset-change-label {
+  color: var(--stripe-text-tertiary);
+  font-weight: 500;
+}
+.k-asset-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 0.5px solid var(--stripe-border);
+}
+.k-asset-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.k-asset-meta dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-tertiary);
+}
+.k-asset-meta dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-primary);
+}
+
+/* Range tabs above the chart. */
+.k-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.k-range-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-secondary);
+  border: 0.5px solid var(--stripe-border);
+}
+.k-range-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--stripe-text-tertiary);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+.k-range-tab:hover {
+  color: var(--stripe-text-primary);
+}
+.k-range-tab.is-active {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-primary);
+}
+
+/* TradingView lightweight-charts container. The TVChart component manages
+ * its own internal height; we just give it the padded frame. */
+.k-chart {
+  position: relative;
+  width: 100%;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  padding: var(--space-2);
+  overflow: hidden;
+}
+.k-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  font-size: 13px;
+  color: var(--stripe-text-tertiary);
+}
+
 
 /* ── Skip link / a11y ────────────────────────────────────── */
 .skip-link {

@@ -3,6 +3,8 @@
 
 export type {
   AllMidsResponse,
+  CandleSnapshotParameters,
+  CandleSnapshotResponse,
   ClearinghouseStateResponse,
   ExtraAgentsResponse,
   L2BookResponse,
