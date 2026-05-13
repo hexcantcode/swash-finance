@@ -1,9 +1,14 @@
 <script lang="ts">
   import LeaderTable, { type SortKey } from '$lib/components/LeaderTable.svelte';
   import TradeTicker from '$lib/components/TradeTicker.svelte';
-  import RoiCards from '$lib/components/RoiCards.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import {
+    effigyUrl,
+    formatPnl,
+    pnlSignClass,
+    truncateAddress,
+  } from '$lib/utils/format';
   import type { PageData } from './$types';
 
   interface Props {
@@ -24,6 +29,24 @@
     setParam('sort', key);
   }
 
+  function hideBrokenAvatar(e: Event) {
+    const img = e.currentTarget as HTMLImageElement;
+    img.style.visibility = 'hidden';
+  }
+
+  function formatRoi(value: number | null | undefined): string {
+    if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+    const pct = value * 100;
+    const sign = pct > 0 ? '+' : '';
+    if (Math.abs(pct) >= 1000) return `${sign}${(pct / 100).toFixed(1)}x`;
+    if (Math.abs(pct) >= 100) return `${sign}${pct.toFixed(0)}%`;
+    return `${sign}${pct.toFixed(1)}%`;
+  }
+
+  // Top 5 by 7d PnL desc → "Winners". The list comes pre-ranked by
+  // `winnerRank` (= 7d PnL desc) from the loader.
+  const winnerRows = $derived(data.winners.slice(0, 5));
+
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.limit)));
 </script>
 
@@ -37,20 +60,37 @@
   </section>
 
   <section class="k-trader-section">
-    <div class="k-section-head">
-      <h2 class="k-section-title">Winners</h2>
-    </div>
-
-    {#if data.winners.length === 0}
-      <div class="stripe-empty">
-        <div class="stripe-empty-title">no winners yet</div>
-        <p class="stripe-empty-text">
-          Run <code>pnpm leaderboard</code> to fetch HL leaderboard.
-        </p>
+    <div class="k-winners-losers">
+      <div class="k-mini-table">
+        <div class="k-mini-table-head">Winners · 7d</div>
+        {#if winnerRows.length === 0}
+          <div class="k-empty">
+            no top earners yet — run <code>pnpm leaderboard-poll</code>
+          </div>
+        {:else}
+          {#each winnerRows as t (t.address)}
+            <a class="k-mini-table-row" href="/trader/{t.address}">
+              <img
+                src={effigyUrl(t.address)}
+                alt=""
+                loading="lazy"
+                onerror={hideBrokenAvatar}
+                class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
+              />
+              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
+              <span class="k-mini-table-price {pnlSignClass(t.pnl_7d_usd)}">
+                {formatPnl(t.pnl_7d_usd)}
+              </span>
+              <span class="k-mini-table-chg {pnlSignClass(t.roi_7d)}">{formatRoi(t.roi_7d)}</span>
+            </a>
+          {/each}
+        {/if}
       </div>
-    {:else}
-      <RoiCards rows={data.winners} />
-    {/if}
+      <div class="k-mini-table">
+        <div class="k-mini-table-head">Losers · 7d</div>
+        <div class="k-empty">biggest drawdowns — coming soon</div>
+      </div>
+    </div>
   </section>
 
   <section class="k-trader-section">

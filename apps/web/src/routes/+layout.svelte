@@ -13,9 +13,7 @@
   let searchInput = $state($page.url.searchParams.get('search') ?? '');
   let searchExpanded = $state(($page.url.searchParams.get('search') ?? '') !== '');
   let searchInputEl: HTMLInputElement | undefined;
-  let searchFormEl: HTMLFormElement | undefined;
 
-  // Keep the box in sync with the URL after navigation; keep it expanded if there's a value.
   $effect(() => {
     searchInput = $page.url.searchParams.get('search') ?? '';
     if (searchInput) searchExpanded = true;
@@ -27,14 +25,14 @@
     searchInputEl?.focus();
   }
 
-  function submitSearch(e: Event) {
-    e.preventDefault();
+  function runSearch() {
     const q = searchInput.trim();
-    if (!searchExpanded) {
-      openSearch();
-      return;
-    }
     goto(q ? `/?search=${encodeURIComponent(q)}` : '/');
+  }
+
+  function onToggleClick() {
+    if (searchExpanded) runSearch();
+    else openSearch();
   }
 
   function onSearchBlur() {
@@ -46,6 +44,9 @@
       searchInput = '';
       searchExpanded = false;
       searchInputEl?.blur();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      runSearch();
     }
   }
 
@@ -92,26 +93,12 @@
       </a>
     </nav>
     <div class="k-topnav-right">
-      <form
-        bind:this={searchFormEl}
+      <div
         class="k-topnav-search-form"
         class:is-expanded={searchExpanded}
         class:is-collapsed={!searchExpanded}
         role="search"
-        onsubmit={submitSearch}
       >
-        <button
-          type={searchExpanded ? 'submit' : 'button'}
-          class="k-topnav-search-toggle"
-          aria-label={searchExpanded ? 'Search' : 'Open search'}
-          aria-expanded={searchExpanded}
-          onclick={searchExpanded ? undefined : openSearch}
-        >
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="m10.5 10.5 3 3" stroke-linecap="round" />
-          </svg>
-        </button>
         <input
           bind:this={searchInputEl}
           bind:value={searchInput}
@@ -123,7 +110,19 @@
           onblur={onSearchBlur}
           onkeydown={onSearchKeydown}
         />
-      </form>
+        <button
+          type="button"
+          class="k-topnav-search-toggle"
+          aria-label={searchExpanded ? 'Search' : 'Open search'}
+          aria-expanded={searchExpanded}
+          onclick={onToggleClick}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+        </button>
+      </div>
       <button type="button" class="k-connect-wallet" onclick={connectWallet}>
         Connect Wallet
       </button>

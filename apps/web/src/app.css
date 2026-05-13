@@ -314,13 +314,14 @@ body {
 .k-topnav-search-form {
   display: flex;
   align-items: center;
+  height: 36px;
   background: var(--stripe-bg-secondary);
-  border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 0.5px var(--stripe-border);
   overflow: hidden;
   transition:
     width 180ms ease,
-    border-color 120ms ease;
+    box-shadow 120ms ease;
 }
 
 .k-topnav-search-form.is-collapsed {
@@ -332,12 +333,13 @@ body {
 }
 
 .k-topnav-search-form:focus-within {
-  border-color: var(--stripe-border-focus);
+  box-shadow: inset 0 0 0 0.5px var(--stripe-border-focus);
 }
 
 .k-topnav-search-toggle {
   flex: 0 0 36px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -363,19 +365,29 @@ body {
 .k-topnav-search-input {
   flex: 1 1 auto;
   min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 0 12px 0 0;
-  height: 32px;
+  padding: 0 0 0 14px;
+  height: 36px;
   font-family: var(--font-mono);
   font-size: 12px;
+  line-height: 36px;
   color: var(--stripe-text-primary);
   transition: opacity 120ms ease;
 }
 
 .k-topnav-search-input::placeholder {
-  color: var(--stripe-text-muted);
+  color: var(--stripe-text-tertiary);
+  opacity: 1;
+}
+
+.k-topnav-search-input::-webkit-search-cancel-button,
+.k-topnav-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
 }
 
 .k-topnav-search-form.is-collapsed .k-topnav-search-input {
@@ -393,23 +405,26 @@ body {
   align-items: center;
   height: 32px;
   padding: 0 14px;
-  background: var(--stripe-accent);
-  color: #000;
+  background: var(--stripe-bg-secondary);
+  color: var(--stripe-accent);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  border: 0;
+  border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
   transition:
     background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
     transform var(--transition-fast);
 }
 
 .k-connect-wallet:hover {
-  background: var(--stripe-accent-light);
+  color: var(--stripe-accent-light);
+  border-color: var(--stripe-border-focus);
 }
 
 .k-connect-wallet:active {
@@ -1764,6 +1779,16 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--stripe-text-primary);
+}
+
+/* Trader address inside a mini-table row (home page Winners). Sits in the
+   same slot as `.k-coin-sym` and inherits flex/truncate, but uses the mono
+   wallet-address treatment. */
+.k-mini-table-addr {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.01em;
 }
 .k-mini-table-price {
   flex: 0 0 auto;
