@@ -10,3 +10,6 @@ export * from './curves.js';
 export * from './eligibility.js';
 export * from './copyability.js';
 export * from './leverage.js';
+export * from './gate.js';
+export * from './score.js';
+export * from './weekly.js';
