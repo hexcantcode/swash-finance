@@ -338,14 +338,9 @@ body {
 }
 
 .k-mobile-header-brand img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: block;
-  /* The source PNG has padding around the mark; scale the rendered image
-     past its box so the logo reads as a tighter glyph. The bounding box
-     stays at 36×36 for layout, but the visible content paints ~45×45. */
-  transform: scale(1.25);
-  transform-origin: center;
 }
 
 .k-mobile-header-right {
@@ -384,13 +379,9 @@ body {
 }
 
 .k-sidenav-brand img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: block;
-  /* See `.k-mobile-header-brand img` — same zoom-in treatment so the
-     logo glyph reads larger than the source PNG's padded bounds. */
-  transform: scale(1.25);
-  transform-origin: center;
 }
 
 .k-sidenav-items {
