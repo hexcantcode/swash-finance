@@ -137,13 +137,85 @@ interface SingleAddressResult {
   weightCost: number;
 }
 
+/**
+ * HL caps each `userFillsByTime` response at ~2000 rows. For high-frequency
+ * traders (Loracle / Fasanara: hundreds of fills per day), one call covers
+ * only a few days of the 90-day window. Walk the window forward in time,
+ * advancing `startTime` past the last row of each page, until we get back
+ * an empty page or hit `MAX_PAGES` (safety stop — 50 × 2000 = 100k fills).
+ */
+const FILLS_PAGE_LIMIT = 50;
+
+async function pageUserFillsByTime<T extends { time: number }>(
+  fetcher: (startMs: number) => Promise<{ data: T[]; weightCost: number }>,
+  startMs: number,
+  endMs: number,
+): Promise<{ data: T[]; weightCost: number; pages: number }> {
+  let cursor = startMs;
+  let weightCost = 0;
+  let pages = 0;
+  const all: T[] = [];
+  const seen = new Set<number>();
+  while (pages < FILLS_PAGE_LIMIT) {
+    const resp = await fetcher(cursor);
+    weightCost += resp.weightCost;
+    pages += 1;
+    if (resp.data.length === 0) break;
+    let advanced = false;
+    let maxTime = cursor;
+    for (const row of resp.data) {
+      // The same `time` value can appear on adjacent pages — dedupe by the
+      // fill's natural key when we know it (`tid` for fills); here we just
+      // keep both and let the DB ON CONFLICT DO NOTHING handle it.
+      all.push(row);
+      if (row.time > maxTime) {
+        maxTime = row.time;
+        advanced = true;
+      }
+      seen.add(row.time);
+    }
+    // If the page filled to the cap and we haven't reached `endMs`, walk
+    // forward by 1ms past the latest fill. If `time` didn't advance (every
+    // row was on the same ms — very unlikely), bail to avoid infinite loop.
+    if (!advanced || resp.data.length < 100) break;
+    cursor = maxTime + 1;
+    if (cursor >= endMs) break;
+  }
+  return { data: all, weightCost, pages };
+}
+
 async function ingestSingleAddress(address: string): Promise<SingleAddressResult> {
   const since = Date.now() - NINETY_DAYS_MS;
-  const [fillsResp, fundingsResp, ledgerResp] = await Promise.all([
-    hl().userFillsByTime(address, since),
-    hl().userFunding(address, since),
-    hl().userNonFundingLedgerUpdates(address, since),
+  const nowMs = Date.now();
+  const [fillsPaged, fundingsPaged, ledgerPaged] = await Promise.all([
+    pageUserFillsByTime(
+      async (start) => {
+        const r = await hl().userFillsByTime(address, start);
+        return { data: r.data, weightCost: r.weightCost };
+      },
+      since,
+      nowMs,
+    ),
+    pageUserFillsByTime(
+      async (start) => {
+        const r = await hl().userFunding(address, start);
+        return { data: r.data, weightCost: r.weightCost };
+      },
+      since,
+      nowMs,
+    ),
+    pageUserFillsByTime(
+      async (start) => {
+        const r = await hl().userNonFundingLedgerUpdates(address, start);
+        return { data: r.data, weightCost: r.weightCost };
+      },
+      since,
+      nowMs,
+    ),
   ]);
+  const fillsResp = { data: fillsPaged.data, weightCost: fillsPaged.weightCost };
+  const fundingsResp = { data: fundingsPaged.data, weightCost: fundingsPaged.weightCost };
+  const ledgerResp = { data: ledgerPaged.data, weightCost: ledgerPaged.weightCost };
 
   const weightCost = fillsResp.weightCost + fundingsResp.weightCost + ledgerResp.weightCost;
   const now = new Date();
