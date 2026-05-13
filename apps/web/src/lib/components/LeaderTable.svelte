@@ -2,7 +2,7 @@
   import type { LeaderCard } from '$lib/server/queries/leaders';
   import ScoreBars from './ScoreBars.svelte';
   import {
-    compositeScoreClass,
+    scoreClass,
     effigyUrl,
     formatPnl,
     formatTradesPerWeek,
@@ -18,12 +18,12 @@
     onSortChange?: (key: SortKey) => void;
   }
 
-  export type SortKey = 'composite_score' | 'pnl' | 'equity' | 'frequency';
+  export type SortKey = 'score' | 'pnl' | 'equity' | 'frequency';
 
   let {
     rows = [],
     serverSorted = false,
-    sort = 'composite_score',
+    sort = 'score',
     onSortChange,
   }: Props = $props();
 
@@ -54,8 +54,8 @@
 
   function getSortValue(row: LeaderCard, key: SortKey): number | string | null {
     switch (key) {
-      case 'composite_score':
-        return row.composite_score;
+      case 'score':
+        return row.score;
       case 'pnl':
         return row.metrics.total_pnl_usd;
       case 'equity':
@@ -122,14 +122,14 @@
             Equity<span class="stripe-th-sort-indicator">{indicator('equity')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('composite_score')}>
+        <th class="stripe-table-numeric" aria-sort={ariaSort('score')}>
           <button
             type="button"
             class="k-th-sort-button"
-            class:is-active={activeSort === 'composite_score'}
-            onclick={() => setSort('composite_score')}
+            class:is-active={activeSort === 'score'}
+            onclick={() => setSort('score')}
           >
-            Score<span class="stripe-th-sort-indicator">{indicator('composite_score')}</span>
+            Score<span class="stripe-th-sort-indicator">{indicator('score')}</span>
           </button>
         </th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
@@ -166,8 +166,8 @@
           <td class="stripe-table-numeric">{formatUsd(row.account_value)}</td>
           <td class="stripe-table-numeric">
             <span class="k-score-cell">
-              <span class={compositeScoreClass(row.composite_score)}>{row.composite_score ?? '—'}</span>
-              <ScoreBars score={row.composite_score} />
+              <span class={scoreClass(row.score)}>{row.score ?? '—'}</span>
+              <ScoreBars score={row.score} />
             </span>
           </td>
           <td class="stripe-table-numeric">{formatTradesPerWeek(row.metrics.trades_per_week)}</td>

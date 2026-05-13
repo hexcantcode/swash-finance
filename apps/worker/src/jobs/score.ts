@@ -32,7 +32,6 @@ import {
   profitFactor,
   recoveryTimeDays,
   toDailyReturns,
-  trackRecordMultiplier,
   weeklyProfitableRatio,
   winRate,
 } from '@copytrade/scoring';
@@ -60,7 +59,7 @@ const MIN_VOLUME_USD = 10_000;
  *   1. Pick candidates: ≥10 fills, last seen within 180 days, is_agent=false.
  *   2. For each candidate, query fills/fundings/ledger across master + agents.
  *   3. Build daily series → metrics → tags → composite.
- *   4. Upsert into `scores` and `wallet_tags`; update wallets.composite_score.
+ *   4. Upsert into `scores` and `wallet_tags`; update wallets.score.
  *
  * Determinism: same inputs ⇒ same outputs (no random sampling).
  */
@@ -177,20 +176,19 @@ async function scoreSingleWallet(args: {
   const returns = toDailyReturns(series, initialDeposit);
   const perTradePnl = fillsRows.map((f) => Number.parseFloat(f.closedPnl) - Number.parseFloat(f.fee));
 
-  // Track-record span (calendar days between first and last event). Drives the
-  // track-record multiplier applied to Sharpe/Sortino in the composite basket.
+  // Track-record span — display only (the score itself reads the 90d
+  // weekly-consistency ratio, not this).
   const daysOfData =
     series.firstEventMs !== null && series.lastEventMs !== null
       ? (series.lastEventMs - series.firstEventMs) / MS_DAY
       : 0;
-  const mult = trackRecordMultiplier(daysOfData);
 
-  // Risk metrics. PSR consumes the *daily* (un-annualized) Sharpe; the
-  // annualized Sharpe is kept only for the `scores.sharpe` display column.
+  // Risk / quality stats — all kept as display columns on `scores.*`. PSR
+  // consumes the *daily* (un-annualized) Sharpe; the annualized Sharpe is
+  // for the `scores.sharpe` display column.
   const sharpe = annualizedSharpe(returns);
   const dSharpe = dailySharpe(returns);
   const sortino = annualizedSortino(returns);
-  const sortinoDaily = sortino !== null ? sortino / Math.sqrt(365) : null;
   const maxDd = maxDrawdownPct(returns);
   const recovery = recoveryTimeDays(returns);
   const pf = profitFactor(perTradePnl);
@@ -357,7 +355,7 @@ async function scoreSingleWallet(args: {
     rolling30dSharpe: numToStr(rolling30dSharpe),
     rolling7dSharpe: numToStr(rolling7dSharpe),
     decayFlag,
-    compositeScore: scoreValue,
+    score: scoreValue,
     updatedAt: now,
   };
 
@@ -385,7 +383,7 @@ async function scoreSingleWallet(args: {
   await db()
     .update(wallets)
     .set({
-      compositeScore: scoreValue,
+      score: scoreValue,
       primaryTag: profileTag,
       ingestState: 'scored',
       curated: nowCurated,

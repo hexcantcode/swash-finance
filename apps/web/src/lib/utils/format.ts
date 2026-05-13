@@ -110,7 +110,7 @@ export function effigyUrl(address: string): string {
   return `https://api.dicebear.com/9.x/identicon/svg?seed=${address.toLowerCase()}`;
 }
 
-export function compositeScoreClass(score: number | null | undefined): string {
+export function scoreClass(score: number | null | undefined): string {
   if (score === null || score === undefined) return 'k-score-weak';
   if (score >= 70) return 'k-score-strong';
   if (score >= 40) return 'k-score-mid';

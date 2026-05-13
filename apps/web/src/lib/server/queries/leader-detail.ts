@@ -24,11 +24,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export interface LeaderDetail {
   address: string;
-  /** composite = round(quality × copyability) — the stored score. */
-  composite_score: number | null;
-  /** Copyability factor C ∈ [0,1], recomputed on the fly (null when no scoring row).
-   *  The hard-zero rules for bot-pattern / no-capital-base aren't replayed here —
-   *  if the worker hard-zeroed it, `composite_score` is already 0. */
+  /** Score v2: 0.4·profit + 0.3·consistency + 0.3·risk for gate-passers; null
+   *  when the wallet failed the gate. See docs/plans/2026-05-13-score-v2-design.md. */
+  score: number | null;
+  /** @deprecated Old copyability factor; no longer surfaced. */
   copyability: number | null;
   /** Per-factor copyability breakdown for display. */
   copyability_breakdown:
@@ -161,10 +160,10 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   const live_source =
     cacheRow?.source === 'ws' || cacheRow?.source === 'rest' ? cacheRow.source : null;
 
-  // Copyability C ∈ [0,1], recomputed from the analyzed/live tiers (same inputs
-  // the scoring run used, minus the bot / capital-base hard-zero checks — those
-  // would already have zeroed `compositeScore`). See
-  // docs/plans/2026-05-12-copyability-aware-scoring-design.md.
+  // Legacy copyability recompute — kept for backwards compatibility with the
+  // trader page's old "copyability breakdown" panel. Score v2 doesn't read
+  // this; the page can hide the panel and rely on the `score` plus failed-gate
+  // list. See docs/plans/2026-05-13-score-v2-design.md.
   const recordFirstMs = score?.firstTradeAt?.getTime() ?? null;
   const recordLastMs = score?.lastTradeAt?.getTime() ?? null;
   const recordSpanDays =
@@ -273,7 +272,7 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
 
   return {
     address: masterAddress,
-    composite_score: walletRow.compositeScore,
+    score: walletRow.score,
     copyability: copyability?.value ?? null,
     copyability_breakdown: copyability
       ? {

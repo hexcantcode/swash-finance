@@ -5,7 +5,7 @@ import { db } from '../db.js';
 export interface WeeklyLeaderRow {
   address: string;
   primary_tag: string | null;
-  composite_score: number | null;
+  score: number | null;
   win_rate: number | null;
   sharpe: number | null;
   sortino: number | null;
@@ -38,7 +38,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     .select({
       address: wallets.address,
       primary_tag: wallets.primaryTag,
-      composite_score: wallets.compositeScore,
+      score: wallets.score,
       winner_rank: wallets.winnerRank,
       win_rate: scores.winRate,
       sharpe: scores.sharpe,
@@ -58,7 +58,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
   return rows.map((r) => ({
     address: r.address,
     primary_tag: r.primary_tag,
-    composite_score: r.composite_score,
+    score: r.score,
     winner_rank: r.winner_rank,
     win_rate: numOrNull(r.win_rate),
     sharpe: numOrNull(r.sharpe),

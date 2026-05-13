@@ -5,7 +5,7 @@ import { db } from '../db.js';
 
 export interface LeaderCard {
   address: string;
-  composite_score: number | null;
+  score: number | null;
   /** Current account equity (USD) — `wallets.accountValue`. */
   account_value: number | null;
   /** The "Profile" archetype (`wallets.primary_tag`) — alpha / veteran /
@@ -37,7 +37,7 @@ export interface LeaderCard {
    * 7d ROI passing the noise filter (also the live-WS subscription set). */
   winner: boolean;
   /** 1..10 position by HL 7d ROI when `winner`; null otherwise. Display order of
-   * the winners section is by `composite_score`, not this. */
+   * the winners section is by `score`, not this. */
   winner_rank: number | null;
   /**
    * Last-traded time as of the last scoring run (`scores.lastTradeAt`) — the
@@ -59,7 +59,7 @@ export interface BrowseFilters {
   curatedOnly?: boolean | undefined;
   /**
    * When true, restrict to the winner set (`wallets.winner`). The home-page
-   * winners strip passes `winnersOnly: true` with `sort: 'composite_score'` —
+   * winners strip passes `winnersOnly: true` with `sort: 'score'` —
    * that's the HL-7d-ROI-top-10 set, displayed ranked by our composite.
    */
   winnersOnly?: boolean | undefined;
@@ -72,7 +72,7 @@ export interface BrowseResult {
 
 export async function listLeaders(args: {
   filters: BrowseFilters;
-  sort: 'composite_score' | 'pnl' | 'equity' | 'frequency';
+  sort: 'score' | 'pnl' | 'equity' | 'frequency';
   page: number;
   limit: number;
 }): Promise<BrowseResult> {
@@ -81,13 +81,13 @@ export async function listLeaders(args: {
 
   const baseFilters = [
     eq(wallets.isAgent, false),
-    isNotNull(wallets.compositeScore),
+    isNotNull(wallets.score),
     // Listing floor: only wallets with real skin in the game (≥ $25K equity).
     sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
   ];
 
   if (filters.minScore !== undefined) {
-    baseFilters.push(gte(wallets.compositeScore, filters.minScore));
+    baseFilters.push(gte(wallets.score, filters.minScore));
   }
 
   if (filters.curatedOnly) {
@@ -128,12 +128,12 @@ export async function listLeaders(args: {
         ? wallets.accountValue
         : sort === 'frequency'
           ? scores.tradesPerDayAvg
-          : wallets.compositeScore;
+          : wallets.score;
 
   const rows = await db()
     .select({
       address: wallets.address,
-      composite_score: wallets.compositeScore,
+      score: wallets.score,
       primary_tag: wallets.primaryTag,
       curated: wallets.curated,
       winner: wallets.winner,
@@ -188,7 +188,7 @@ export async function listLeaders(args: {
 
   const leaders: LeaderCard[] = rows.map((r) => ({
     address: r.address,
-    composite_score: r.composite_score,
+    score: r.score,
     account_value: numOrNull(r.account_value),
     primary_tag: r.primary_tag,
     secondary_tags: secondaryByAddress.get(r.address) ?? [],

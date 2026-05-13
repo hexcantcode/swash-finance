@@ -8,7 +8,7 @@ const QuerySchema = z.object({
   heat: z.string().optional(),
   search: z.string().optional(),
   min: z.coerce.number().optional(),
-  sort: z.enum(['composite_score', 'pnl', 'equity', 'frequency']).optional(),
+  sort: z.enum(['score', 'pnl', 'equity', 'frequency']).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ url }) => {
   };
   const result = await listLeaders({
     filters,
-    sort: q.sort ?? 'composite_score',
+    sort: q.sort ?? 'score',
     page: q.page,
     limit: q.limit,
   });

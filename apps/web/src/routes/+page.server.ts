@@ -4,7 +4,7 @@ import { listRecentTrades } from '$lib/server/queries/recent-trades';
 import { listTopEarners7d } from '$lib/server/queries/weekly-leaders';
 import type { PageServerLoad } from './$types';
 
-const ALLOWED_SORTS = ['composite_score', 'pnl', 'equity', 'frequency'] as const;
+const ALLOWED_SORTS = ['score', 'pnl', 'equity', 'frequency'] as const;
 type Sort = (typeof ALLOWED_SORTS)[number];
 
 const QuerySchema = z.object({
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ url }) => {
     search: params.search,
   };
 
-  const sort: Sort = params.sort ?? 'composite_score';
+  const sort: Sort = params.sort ?? 'score';
   const page = params.page ?? 1;
   const limit = params.limit ?? 25;
 

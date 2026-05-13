@@ -38,7 +38,7 @@ export const wallets = pgTable(
     totalVolumeUsd: numeric('total_volume_usd', { precision: 30, scale: 8 }).notNull().default('0'),
     accountValue: numeric('account_value', { precision: 30, scale: 8 }),
 
-    compositeScore: integer('composite_score'),
+    score: integer('score'),
     primaryTag: text('primary_tag'),
 
     // HL leaderboard snapshot — populated by `leaderboard-ingest` job.
@@ -73,7 +73,7 @@ export const wallets = pgTable(
   (t) => [
     check('wallets_address_format', sql`${t.address} ~ ${ADDR_RE_SQL}`),
     index('idx_wallets_master').on(t.masterAddress).where(sql`${t.masterAddress} is not null`),
-    index('idx_wallets_score').on(t.compositeScore.desc()).where(sql`${t.compositeScore} is not null`),
+    index('idx_wallets_score').on(t.score.desc()).where(sql`${t.score} is not null`),
     index('idx_wallets_last_seen').on(t.lastSeenAt.desc()),
     index('idx_wallets_primary_tag').on(t.primaryTag).where(sql`${t.primaryTag} is not null`),
     index('idx_wallets_hl_roi_7d').on(t.hlRoi7d.desc()).where(sql`${t.hlRoi7d} is not null`),
@@ -192,7 +192,7 @@ export const scores = pgTable('scores', {
   rolling7dSharpe: numeric('rolling_7d_sharpe', { precision: 10, scale: 4 }),
   decayFlag: text('decay_flag'),
 
-  compositeScore: integer('composite_score').notNull(),
+  score: integer('score'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

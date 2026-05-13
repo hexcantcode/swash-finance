@@ -1132,7 +1132,7 @@ body {
 .stripe-avatar {
   border-radius: 50%;
   object-fit: cover;
-  background: var(--stripe-bg-tertiary);
+  background: #000;
   flex-shrink: 0;
 }
 
@@ -1639,7 +1639,7 @@ body {
   height: 18px;
   border-radius: 50%;
   border: 1px solid var(--stripe-border);
-  background: var(--stripe-bg-tertiary);
+  background: #000;
   flex-shrink: 0;
 }
 

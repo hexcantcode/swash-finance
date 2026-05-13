@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const rows = await db()
     .select({ address: wallets.address })
     .from(wallets)
-    .where(and(isNotNull(wallets.compositeScore), isNull(wallets.accountValue)));
+    .where(and(isNotNull(wallets.score), isNull(wallets.accountValue)));
   log.info({ count: rows.length }, 'backfill-account-value.start');
   let ok = 0, fail = 0;
   for (const r of rows) {

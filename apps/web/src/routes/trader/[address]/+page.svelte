@@ -163,9 +163,9 @@
         </p>
       </div>
       <div class="k-trader-composite">
-        <p class="k-stat-label">Composite</p>
+        <p class="k-stat-label">Score</p>
         <p class="k-trader-composite-value">
-          {data.leader.composite_score ?? '—'}
+          {data.leader.score ?? '—'}
           <span class="k-trader-composite-of">/ 100</span>
         </p>
         <button onclick={refresh} disabled={refreshing} class="btn-poly k-trader-refresh">
