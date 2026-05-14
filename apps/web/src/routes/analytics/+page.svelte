@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import {
     effigyUrl,
@@ -10,6 +11,14 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // Sentiment cards poll a lightweight endpoint so the long/short bars
+  // update without a page reload. The underlying `leader_cache.positions_json`
+  // is refreshed by the worker every 60 s (REST `leader-cache-poll`) plus
+  // sub-second for the hot subset (ws-live-subscriber), so a 20 s poll
+  // surfaces those updates with at most a third of a refresh cycle of lag.
+  let categoryBreakdown = $state(data.categoryBreakdown);
+  const SENTIMENT_POLL_MS = 20_000;
 
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
@@ -61,7 +70,7 @@
     return { state: 'ex-bear', label: 'Extremely bearish' };
   }
   const sentimentCards = $derived(
-    data.categoryBreakdown.map((cb) => {
+    categoryBreakdown.map((cb) => {
       const totalNot = cb.long.notionalUsd + cb.short.notionalUsd;
       const totalTr = cb.long.traders + cb.short.traders;
       const longNotPct = totalNot > 0 ? (cb.long.notionalUsd / totalNot) * 100 : 50;
@@ -88,6 +97,31 @@
       };
     }),
   );
+
+  onMount(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch('/api/analytics/sentiment');
+        if (!r.ok) return;
+        const j = (await r.json()) as {
+          ok: boolean;
+          categoryBreakdown: typeof data.categoryBreakdown;
+        };
+        if (j?.ok && Array.isArray(j.categoryBreakdown)) {
+          categoryBreakdown = j.categoryBreakdown;
+        }
+      } catch {
+        /* ignore transient poll failures; next tick will retry */
+      }
+    };
+    const id = setInterval(tick, SENTIMENT_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  });
 </script>
 
 <svelte:head><title>Analytics — Swash</title></svelte:head>
