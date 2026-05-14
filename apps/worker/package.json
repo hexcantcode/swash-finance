@@ -15,6 +15,7 @@
     "refresh-queue": "tsx src/cli.ts refresh-queue",
     "leaderboard-poll": "tsx src/cli.ts leaderboard-poll",
     "ws-live": "tsx src/cli.ts ws-live",
+    "leader-cache-poll": "tsx src/cli.ts leader-cache-poll",
     "refresh-leader": "tsx src/cli.ts refresh-leader",
     "calibrate": "tsx src/scripts/calibrate-curves.ts"
   },

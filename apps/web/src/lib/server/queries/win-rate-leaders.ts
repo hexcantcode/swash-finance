@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, isNotNull, sql } from 'drizzle-orm';
-import { scores, wallets } from '@copytrade/db';
+import { fills, scores, wallets } from '@copytrade/db';
 import {
   isMarketMakerPattern,
   MIN_ACCOUNT_VALUE_USD,
@@ -13,7 +13,15 @@ export interface WinRateLeaderRow {
   win_rate: number | null;
   /** Position open→flat cycles — `scores.total_round_trips`. */
   total_round_trips: number;
+  /**
+   * Most-recent closed round trips for this trader (newest last), capped at
+   * `LAST_CLOSED_LIMIT` entries. Each entry's sign drives a green/red pill
+   * in the Win Rate panel — `pnlUsd > 0` = win, `< 0` = loss.
+   */
+  last_closed: Array<{ closeTimeMs: number; pnlUsd: number }>;
 }
+
+const LAST_CLOSED_LIMIT = 5;
 
 /**
  * Top N traders by win rate, drawn from the same population as the leaderboard
@@ -68,9 +76,10 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
     .orderBy(desc(scores.winRate))
     .limit(limit * 10);
 
-  const result: WinRateLeaderRow[] = [];
+  // First pass: drop MM-shaped wallets. We still over-fetch by 10× so the
+  // post-filter has plenty of candidates left.
+  const passMM: Array<Omit<WinRateLeaderRow, 'last_closed'>> = [];
   for (const r of candidates) {
-    if (result.length >= limit) break;
     const isMM = isMarketMakerPattern({
       makerShare: numOrNull(r.maker_share),
       avgHoldSeconds: r.avg_hold_seconds,
@@ -78,11 +87,30 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
       totalFills: r.total_fills ?? null,
     });
     if (isMM) continue;
-    result.push({
+    passMM.push({
       address: r.address,
       win_rate: numOrNull(r.win_rate),
       total_round_trips: r.total_round_trips ?? 0,
     });
+  }
+
+  // Second pass: fetch recent closing-fills for every MM-passing candidate
+  // in parallel, then drop wallets that have nothing in the `fills` table to
+  // pill — surfacing a wallet with five grey pills isn't useful. Wallets
+  // can pass the scoring win-rate gate via historic fills that are no
+  // longer in the live `fills` table (purged, ingested via aggregates,
+  // etc.) — those would render empty pills, so we skip them and let the
+  // next-best candidate take the slot.
+  const lastClosedByAddr = await getRecentClosingFills(
+    passMM.map((r) => r.address),
+    LAST_CLOSED_LIMIT,
+  );
+  const result: WinRateLeaderRow[] = [];
+  for (const r of passMM) {
+    if (result.length >= limit) break;
+    const lastClosed = lastClosedByAddr.get(r.address) ?? [];
+    if (lastClosed.length === 0) continue;
+    result.push({ ...r, last_closed: lastClosed });
   }
   return result;
 }
@@ -91,4 +119,55 @@ function numOrNull(value: string | null): number | null {
   if (value === null) return null;
   const n = Number.parseFloat(value);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Most-recent N closing fills per trader. We use the per-fill `closed_pnl`
+ * (signed PnL booked at the moment of that fill — already provided by HL,
+ * we don't recompute) and treat each non-zero closing as one pill: green
+ * when positive, red when negative.
+ *
+ * This is intentionally not a strict round-trip replay (cf. the multi-coin
+ * position-tracking version in `asset-detail.ts`). The replay misses traders
+ * who haven't returned to flat inside any reasonable fill window — common
+ * for big-account rollers — and would leave their Last 5 panel empty even
+ * though they've booked plenty of partial closes. Per-fill closings are
+ * cheaper (one indexed SQL, no replay), always populated when any close
+ * exists, and match the visual UX intent: a quick recent-results strip.
+ *
+ * Trade-off: a single round trip that closes across multiple fills counts
+ * as multiple pills. For the "are they hot or cold lately" read this is
+ * actually informative; for an exact round-trip count, use the leader
+ * detail page.
+ */
+async function getRecentClosingFills(
+  addresses: string[],
+  limitPer: number,
+): Promise<Map<string, Array<{ closeTimeMs: number; pnlUsd: number }>>> {
+  const map = new Map<string, Array<{ closeTimeMs: number; pnlUsd: number }>>();
+  if (addresses.length === 0) return map;
+  const conn = db();
+  await Promise.all(
+    addresses.map(async (addr) => {
+      const rows = await conn
+        .select({
+          blockTimeMs: fills.blockTimeMs,
+          closedPnl: fills.closedPnl,
+        })
+        .from(fills)
+        .where(and(eq(fills.userAddress, addr), sql`${fills.closedPnl} <> 0`))
+        .orderBy(desc(fills.blockTimeMs))
+        .limit(limitPer);
+      // Pulled newest-first from SQL; reverse to oldest-first so the UI
+      // can render newest on the right edge.
+      const tail = rows
+        .map((r) => ({
+          closeTimeMs: Number(r.blockTimeMs),
+          pnlUsd: Number.parseFloat(r.closedPnl),
+        }))
+        .reverse();
+      map.set(addr, tail);
+    }),
+  );
+  return map;
 }

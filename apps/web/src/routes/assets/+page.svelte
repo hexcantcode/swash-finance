@@ -202,7 +202,11 @@
   <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Top gainers · 24h</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Top gainers · 24h</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Price</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">24h</span>
+        </div>
         {#each winners as a (a.coin)}
           {@const f = rowFlashes[a.coin]}
           <a
@@ -227,7 +231,11 @@
         {/each}
       </div>
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Top losers · 24h</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Top losers · 24h</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Price</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">24h</span>
+        </div>
         {#each losers as a (a.coin)}
           {@const f = rowFlashes[a.coin]}
           <a

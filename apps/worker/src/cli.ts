@@ -1,4 +1,5 @@
 import { runBootstrap } from './jobs/bootstrap.js';
+import { runLeaderCachePoll } from './jobs/leader-cache-poll.js';
 import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
@@ -18,6 +19,8 @@ const COMMANDS = {
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
   'ws-live':
     'Long-running per-user WS subscriber for curated wallets (live cache + history). --reconcile=<seconds>.',
+  'leader-cache-poll':
+    'Long-running REST poller: refreshes leader_cache positions for top-250 tracked wallets every --poll=<seconds> (default 60).',
   'refresh-queue': 'Process the next batch of wallets in discovery_queue.',
   score: 'Recompute scores for every active master wallet (or one with --address).',
   'refresh-leader': 'Fetch fresh fills/agents for a single address (--address required).',
@@ -89,6 +92,13 @@ async function main(): Promise<void> {
         ? Number.parseInt(flags['reconcile'], 10)
         : undefined;
       await runWsLiveSubscriber(reconcileSeconds !== undefined ? { reconcileSeconds } : {});
+      break;
+    }
+    case 'leader-cache-poll': {
+      const pollSeconds = flags['poll']
+        ? Number.parseInt(flags['poll'], 10)
+        : undefined;
+      await runLeaderCachePoll(pollSeconds !== undefined ? { pollSeconds } : {});
       break;
     }
     case 'refresh-queue':

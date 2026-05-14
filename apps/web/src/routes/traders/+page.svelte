@@ -1,6 +1,7 @@
 <script lang="ts">
   import LeaderTable, { type SortKey } from '$lib/components/LeaderTable.svelte';
   import TradeTicker from '$lib/components/TradeTicker.svelte';
+  import WinLossPills from '$lib/components/WinLossPills.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import {
@@ -67,7 +68,11 @@
   <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Winners · 7d</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Winners · 7d</span>
+          <span class="k-mini-table-head-label k-mini-table-price">7d PnL</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">ROI</span>
+        </div>
         {#if winnerRows.length === 0}
           <div class="k-empty">
             no top earners yet — run <code>pnpm leaderboard-poll</code>
@@ -92,7 +97,11 @@
         {/if}
       </div>
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Win Rate</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Win Rate</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Rate</span>
+          <span class="k-mini-table-head-label k-mini-table-chg k-mini-table-pills">Last 5</span>
+        </div>
         {#if winRateRows.length === 0}
           <div class="k-empty">no scored traders yet</div>
         {:else}
@@ -107,7 +116,9 @@
               />
               <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
               <span class="k-mini-table-price k-pnl-positive">{formatPct(t.win_rate, 0)}</span>
-              <span class="k-mini-table-chg">{t.total_round_trips} rt</span>
+              <span class="k-mini-table-chg k-mini-table-pills">
+                <WinLossPills results={t.last_closed} />
+              </span>
             </a>
           {/each}
         {/if}
