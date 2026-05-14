@@ -196,7 +196,7 @@ export async function runWsLiveSubscriber(
     while (!stopping) {
       if (hip3DexNames.length > 0) {
         try {
-          await runHip3PollOnce(shards, hip3DexNames, () => stopping);
+          await runHip3PollOnce(hip3DexNames, () => stopping);
         } catch (err) {
           log.warn({ err: errMsg(err) }, 'ws-live.hip3_poll_failed');
         }
@@ -588,26 +588,43 @@ async function handleUserLedger(data: UserNonFundingLedgerUpdatesEvent): Promise
 // ── HIP-3 polling ──────────────────────────────────────────────────────────
 
 /**
- * One HIP-3 poll pass. Walks the **HIP-3 cohort** — tracked wallets currently
- * subscribed on a shard AND with at least one `coin LIKE '%:%'` fill in the
- * last `HIP3_COHORT_LOOKBACK_DAYS` days — and for each (address, hip3 dex)
- * pair calls `clearinghouseState` on that dex, then merges into
- * `leader_cache.positions_json` preserving everything from other dexes /
- * main. Coin names returned by HL may or may not include the `dex:` prefix
- * depending on the API; we defensively normalize to `dex:SYMBOL` so the
- * downstream queries that key on `coin LIKE '%:%'` always see prefixed names.
+ * One HIP-3 poll pass. Walks the **HIP-3 cohort** — wallets in the canonical
+ * tracked set (same listing-floor query the home-page leaderboard and the
+ * REST `leader-cache-poll` companion use, single source of truth) AND with
+ * at least one `coin LIKE '%:%'` fill in the last `HIP3_COHORT_LOOKBACK_DAYS`
+ * days — and for each (address, hip3 dex) pair calls `clearinghouseState`
+ * on that dex, then merges into `leader_cache.positions_json` preserving
+ * everything from other dexes / main. Coin names returned by HL may or may
+ * not include the `dex:` prefix depending on the API; we defensively
+ * normalize to `dex:SYMBOL` so the downstream queries that key on
+ * `coin LIKE '%:%'` always see prefixed names.
  */
 async function runHip3PollOnce(
-  shards: Shard[],
   hip3DexNames: string[],
   isStopping: () => boolean,
 ): Promise<void> {
-  const subscribedAddresses = new Set<string>();
-  for (const s of shards) for (const a of s.users.keys()) subscribedAddresses.add(a);
-  if (subscribedAddresses.size === 0) return;
+  // Canonical tracked set — must match `ws-live-subscriber.reconcileOnce` +
+  // `leader-cache-poll.pollOnce`. Drawing from the DB (not WS shard state)
+  // means a wallet that briefly drops off a shard during reconcile still
+  // gets HIP-3 polled, and the loop starts producing data before the WS
+  // pool is fully filled.
+  const trackedRows = await db()
+    .select({ address: wallets.address })
+    .from(wallets)
+    .where(
+      and(
+        eq(wallets.isAgent, false),
+        isNotNull(wallets.hlPnl7dUsd),
+        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
+      ),
+    )
+    .orderBy(desc(wallets.hlPnl7dUsd))
+    .limit(TRACKED_LIMIT);
+  const trackedAddresses = trackedRows.map((r) => normalizeAddress(r.address));
+  if (trackedAddresses.length === 0) return;
 
-  // Cohort = subscribed ∩ recent-HIP-3-fill. Index by user_address means this
-  // scan is cheap even with millions of fills.
+  // Cohort = tracked ∩ recent-HIP-3-fill. `fills` is indexed by user_address
+  // so this scan stays cheap even with millions of rows.
   const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
   const cohortRows = await db()
     .selectDistinct({ address: fills.userAddress })
@@ -616,12 +633,12 @@ async function runHip3PollOnce(
       and(
         sql`${fills.coin} like '%:%'`,
         sql`${fills.blockTimeMs} >= ${cutoffMs}`,
-        inArray(fills.userAddress, Array.from(subscribedAddresses)),
+        inArray(fills.userAddress, trackedAddresses),
       ),
     );
   const cohort = cohortRows.map((r) => r.address);
   if (cohort.length === 0) {
-    log.info({ subscribed: subscribedAddresses.size }, 'ws-live.hip3_poll_no_cohort');
+    log.info({ tracked: trackedAddresses.length }, 'ws-live.hip3_poll_no_cohort');
     return;
   }
 
