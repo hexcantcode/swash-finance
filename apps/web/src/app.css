@@ -2098,15 +2098,15 @@ body {
   flex: 0 0 14px;
 }
 
-/* Win Rate panel's "Last 5" column — flex-align the inline SVG to the
-   right edge of the cell so it lines up with the column-header label.
-   Applied to both the head label and the data cell so the text and the
-   pills strip share the same right alignment. */
+/* Win Rate panel's "Last 5" column — center the inline SVG within the
+   cell so it aligns the same way `.k-mini-table-chg`'s text (e.g. the
+   ROI column on Winners) does. Applied to both the colhead label and
+   the data cell so the header text and pills strip line up vertically. */
 .k-mini-table-chg.k-mini-table-pills {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  text-align: right;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Split mini-table row (analytics: Latest trades, Winning Trades) — the
@@ -2122,40 +2122,73 @@ body {
   align-items: center;
   gap: var(--space-2);
 }
-/* Asset cell takes the slack the trader cell used to. Left-align the
- * cluster inside the cell, but reserve `padding-left` so it sits clearly
- * inside its own column instead of jamming up against the trader avatar.
- * Every row's ↑/↓ stacks at the same x (= the cell's left edge plus its
- * padding) — a clean vertical column. */
+/* Asset cell takes the slack the trader cell used to. The inner content
+ * (arrow + icon + coin name) sits inside a `.k-trade-content` wrapper of
+ * fixed min-width centered in the cell — every row's ↑/↓ stacks at the
+ * same x, with the cluster reading as a centered column whose contents
+ * are left-aligned within. The notional / value sits in the dedicated
+ * `.k-mini-table-val` column to the right. */
 .k-mini-table-row--split .k-mini-table-seg-asset {
   flex: 1;
   min-width: 0;
-  justify-content: flex-start;
-  padding-left: var(--space-6);
+  justify-content: center;
+  padding-left: 0;
 }
-/* Analytics two-row head: a `.k-mini-table-head` (title line) followed by
- * `.k-mini-table-colhead--split` (column labels). The colhead row shares
- * the same flex template as the data rows so the column labels line up
- * directly above their data columns (the title's width no longer pushes
- * the column-label start to the right). */
-.k-mini-table-colhead {
-  display: flex;
+/* Analytics merged head — panel title on the left + the right-edge label
+ * (`Time` / `Profit`) for the trailing column. The middle `Trade` /
+ * `Position` label was dropped (the data column reads as a column on its
+ * own); the default `.k-mini-table-head-title { flex: 1 }` pushes the
+ * trailing label all the way right, no `--split` override needed. */
+/* Shared content wrapper for the `Trade` / `Position` column on both the
+ * header row and every data row. The fixed min-width is what unifies the
+ * column: rows whose content fits inside `200px` all render with a
+ * `200px` wrapper, the cell centers it, and `justify-content: flex-start`
+ * left-aligns each row's content to the wrapper's left edge — so the
+ * arrows / icons / labels stack at one x across rows AND the header
+ * label sits above that same x. Rows whose content exceeds `200px`
+ * extend the wrapper, breaking the column alignment for that row only
+ * — fine in practice since the widest real entries (`FARTCOIN $708.1K`
+ * style) fit inside the budget. */
+.k-trade-content {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--stripe-text-muted);
-  border-bottom: 0.5px solid var(--stripe-border);
+  gap: 6px;
+  min-width: 120px;
+  justify-content: flex-start;
+  white-space: nowrap;
 }
-.k-mini-table-colhead-spacer {
-  flex-shrink: 0;
+
+/* Dedicated `Size` / `Value` column on the split mini-tables (analytics:
+ * Latest trades, Winning Trades). Right-aligned numeric cell sitting
+ * between the asset and the trailing `Time` / `Profit` column. Shared
+ * class for both header label and data cell so they align vertically. */
+.k-mini-table-val {
+  flex: 0 0 auto;
+  min-width: 76px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
 }
-.k-mini-table-colhead--split .k-mini-table-colhead-label.k-mini-table-price {
-  flex: 1;
-  padding-left: var(--space-6);
+/* Fillcount chip in the `.k-mini-table-val` cell sits to the LEFT of the
+ * dollar amount, so margin reverses (was `margin-left` on the default
+ * `.k-mini-table-fillcount`). */
+.k-mini-table-val .k-mini-table-fillcount {
+  margin-left: 0;
+  margin-right: 4px;
+}
+/* Direction-tinted variants — uses the same `success` / `danger` tokens
+ * as the side-arrow so a buy fills count reads as green and a sell as
+ * red. Soft `color-mix` background keeps the chip from overpowering the
+ * row; matches the sentiment-bias chip tinting elsewhere on /analytics. */
+.k-mini-table-fillcount--long {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
+}
+.k-mini-table-fillcount--short {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
 }
 .k-mini-table-seg-trader:hover .k-mini-table-addr,
 .k-mini-table-seg-asset:hover {

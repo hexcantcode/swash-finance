@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { flip } from 'svelte/animate';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import {
     effigyUrl,
@@ -19,6 +20,15 @@
   // surfaces those updates with at most a third of a refresh cycle of lag.
   let categoryBreakdown = $state(data.categoryBreakdown);
   const SENTIMENT_POLL_MS = 20_000;
+
+  // Latest-trades panel polls a separate endpoint at a faster cadence (10 s)
+  // because the underlying `fills` table grows on every WS-pushed fill —
+  // bursts can land a new trade every few seconds during active hours, so
+  // a slower poll would miss the live feel. The `animate:flip` directive on
+  // each row makes existing rows slide down when a new trade pushes in
+  // rather than the table snapping to its new state.
+  let latestFills = $state(data.latestFills);
+  const LATEST_TRADES_POLL_MS = 10_000;
 
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
@@ -100,7 +110,7 @@
 
   onMount(() => {
     let cancelled = false;
-    const tick = async () => {
+    const tickSentiment = async () => {
       if (cancelled) return;
       try {
         const r = await fetch('/api/analytics/sentiment');
@@ -116,10 +126,28 @@
         /* ignore transient poll failures; next tick will retry */
       }
     };
-    const id = setInterval(tick, SENTIMENT_POLL_MS);
+    const tickLatestTrades = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch('/api/analytics/latest-trades');
+        if (!r.ok) return;
+        const j = (await r.json()) as {
+          ok: boolean;
+          latestFills: typeof data.latestFills;
+        };
+        if (j?.ok && Array.isArray(j.latestFills)) {
+          latestFills = j.latestFills;
+        }
+      } catch {
+        /* ignore transient poll failures; next tick will retry */
+      }
+    };
+    const sentimentId = setInterval(tickSentiment, SENTIMENT_POLL_MS);
+    const latestTradesId = setInterval(tickLatestTrades, LATEST_TRADES_POLL_MS);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      clearInterval(sentimentId);
+      clearInterval(latestTradesId);
     };
   });
 </script>
@@ -201,16 +229,16 @@
   <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head k-mini-table-head-row">
-          <span class="k-mini-table-head-title">Latest trades · {data.latestFills.length}</span>
-          <span class="k-mini-table-head-label k-mini-table-price">Trade</span>
+        <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
+          <span class="k-mini-table-head-title">Latest trades</span>
+          <span class="k-mini-table-head-label k-mini-table-val">Size</span>
           <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
         </div>
-        {#if data.latestFills.length === 0}
+        {#if latestFills.length === 0}
           <div class="k-empty">no recent trades from tracked wallets</div>
         {:else}
-          {#each data.latestFills as f (f.key)}
-            <div class="k-mini-table-row k-mini-table-row--split">
+          {#each latestFills as f (f.key)}
+            <div class="k-mini-table-row k-mini-table-row--split" animate:flip={{ duration: 400 }}>
               <a
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{f.address}"
@@ -230,23 +258,31 @@
                 href="/assets/{f.coin}"
                 title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
               >
-                <span
-                  class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
-                  aria-label={f.side === 'B' ? 'buy' : 'sell'}
-                >{f.side === 'B' ? '↑' : '↓'}</span>
-                <img
-                  src={coinIconUrl(f.coin)}
-                  alt=""
-                  loading="lazy"
-                  onerror={hideBrokenAvatar}
-                  class="k-coin-icon"
-                  class:is-white-bg={coinNeedsWhiteBg(f.coin)}
-                />
-                {coinDisplayName(f.coin)}  {formatPnl(f.notionalUsd)}
-                {#if f.fillCount > 1}
-                  <span class="k-mini-table-fillcount" aria-label="{f.fillCount} fills">{f.fillCount}×</span>
-                {/if}
+                <span class="k-trade-content">
+                  <span
+                    class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
+                    aria-label={f.side === 'B' ? 'buy' : 'sell'}
+                  >{f.side === 'B' ? '↑' : '↓'}</span>
+                  <img
+                    src={coinIconUrl(f.coin)}
+                    alt=""
+                    loading="lazy"
+                    onerror={hideBrokenAvatar}
+                    class="k-coin-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(f.coin)}
+                  />
+                  {coinDisplayName(f.coin)}
+                </span>
               </a>
+              <span class="k-mini-table-val">
+                {#if f.fillCount > 1}
+                  <span
+                    class="k-mini-table-fillcount k-mini-table-fillcount--{f.side === 'B' ? 'long' : 'short'}"
+                    aria-label="{f.fillCount} fills"
+                  >{f.fillCount}×</span>
+                {/if}
+                {formatPnl(f.notionalUsd)}
+              </span>
               <span class="k-mini-table-chg k-mini-table-time">
                 {formatRelativeTime(new Date(f.blockTimeMs))}
               </span>
@@ -256,9 +292,9 @@
       </div>
 
       <div class="k-mini-table">
-        <div class="k-mini-table-head k-mini-table-head-row">
+        <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
           <span class="k-mini-table-head-title">Winning Trades</span>
-          <span class="k-mini-table-head-label k-mini-table-price">Position</span>
+          <span class="k-mini-table-head-label k-mini-table-val">Value</span>
           <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
         </div>
         {#if data.topOpenPositions.length === 0}
@@ -285,18 +321,23 @@
                 href="/assets/{p.coin}"
                 title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · profit {formatPnl(p.unrealizedPnlUsd)}"
               >
-                <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
-                  >{p.side === 'long' ? '↑' : '↓'}</span>
-                <img
-                  src={coinIconUrl(p.coin)}
-                  alt=""
-                  loading="lazy"
-                  onerror={hideBrokenAvatar}
-                  class="k-coin-icon"
-                  class:is-white-bg={coinNeedsWhiteBg(p.coin)}
-                />
-                {coinDisplayName(p.coin)}  {formatPnl(p.notionalUsd)}
+                <span class="k-trade-content">
+                  <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
+                    >{p.side === 'long' ? '↑' : '↓'}</span>
+                  <img
+                    src={coinIconUrl(p.coin)}
+                    alt=""
+                    loading="lazy"
+                    onerror={hideBrokenAvatar}
+                    class="k-coin-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(p.coin)}
+                  />
+                  {coinDisplayName(p.coin)}
+                </span>
               </a>
+              <span class="k-mini-table-val">
+                {formatPnl(p.notionalUsd)}
+              </span>
               <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
                 {formatPnl(p.unrealizedPnlUsd)}
                 <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
@@ -356,7 +397,7 @@
                   <a
                     class="k-matrix-traderrow"
                     href="/trader/{t.address}"
-                    title="Trader {truncateAddress(t.address)}{t.score !== null ? ' · score ' + t.score : ''}"
+                    title="Trader {truncateAddress(t.address)}"
                     aria-label="Trader {truncateAddress(t.address)}"
                   >
                     <img
@@ -366,9 +407,6 @@
                       onerror={hideBrokenAvatar}
                       class="k-matrix-traderavatar"
                     />
-                    {#if t.score !== null}
-                      <span class="k-matrix-traderscore">{t.score}</span>
-                    {/if}
                   </a>
                 </th>
                 {#each data.matrix.coins as c (c.coin)}
