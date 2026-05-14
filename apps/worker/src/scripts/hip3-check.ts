@@ -43,6 +43,23 @@ async function main() {
   `);
   console.log('tracked-set leader_cache freshness:', trackedRefresh.rows[0]);
 
+  // 4) HIP-3 positions currently in leader_cache.positions_json
+  const hip3InCache = await db().execute(sql`
+    select lc.address, p->'position'->>'coin' as coin, p->'position'->>'szi' as szi, p->'position'->>'unrealizedPnl' as upnl
+    from leader_cache lc, jsonb_array_elements(coalesce(lc.positions_json, '[]'::jsonb)) p
+    where p->'position'->>'coin' like '%:%'
+    limit 50
+  `);
+  console.log('HIP-3 positions in leader_cache:', hip3InCache.rows.length);
+  for (const r of hip3InCache.rows.slice(0, 10)) console.log('  ', r);
+
+  // 5) Top open positions across all leader_cache (sanity check for analytics top-list)
+  const totalPositions = await db().execute(sql`
+    select sum(jsonb_array_length(coalesce(lc.positions_json, '[]'::jsonb))) as total_positions
+    from leader_cache lc
+  `);
+  console.log('leader_cache total open positions:', totalPositions.rows[0]);
+
   await closeDb();
 }
 main().catch((e) => { console.error(e); process.exit(1); });

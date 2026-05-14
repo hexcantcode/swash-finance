@@ -181,6 +181,7 @@
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{f.address}"
                 title="View trader {truncateAddress(f.address)}"
+                aria-label="View trader {truncateAddress(f.address)}"
               >
                 <img
                   src={effigyUrl(f.address)}
@@ -189,7 +190,6 @@
                   onerror={hideBrokenAvatar}
                   class="k-coin-icon"
                 />
-                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(f.address)}</span>
               </a>
               <a
                 class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
@@ -223,9 +223,9 @@
 
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head-row">
-          <span class="k-mini-table-head-title">Top open positions · by uPnL</span>
+          <span class="k-mini-table-head-title">Winning Trades</span>
           <span class="k-mini-table-head-label k-mini-table-price">Position</span>
-          <span class="k-mini-table-head-label k-mini-table-chg">uPnL</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
         </div>
         {#if data.topOpenPositions.length === 0}
           <div class="k-empty">no open positions across tracked traders right now</div>
@@ -236,6 +236,7 @@
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{p.address}"
                 title="View trader {truncateAddress(p.address)}"
+                aria-label="View trader {truncateAddress(p.address)}"
               >
                 <img
                   src={effigyUrl(p.address)}
@@ -244,12 +245,11 @@
                   onerror={hideBrokenAvatar}
                   class="k-coin-icon"
                 />
-                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
               </a>
               <a
                 class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
                 href="/assets/{p.coin}"
-                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · uPnL {formatPnl(p.unrealizedPnlUsd)}"
+                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · profit {formatPnl(p.unrealizedPnlUsd)}"
               >
                 <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
                   >{p.side === 'long' ? '↑' : '↓'}</span>
@@ -319,7 +319,12 @@
             {#each data.matrix.traders as t (t.address)}
               <tr>
                 <th class="k-matrix-rowhead">
-                  <a class="k-matrix-traderrow" href="/trader/{t.address}">
+                  <a
+                    class="k-matrix-traderrow"
+                    href="/trader/{t.address}"
+                    title="Trader {truncateAddress(t.address)}{t.score !== null ? ' · score ' + t.score : ''}"
+                    aria-label="Trader {truncateAddress(t.address)}"
+                  >
                     <img
                       src={effigyUrl(t.address)}
                       alt=""
@@ -327,7 +332,6 @@
                       onerror={hideBrokenAvatar}
                       class="k-matrix-traderavatar"
                     />
-                    <span class="k-matrix-traderaddr">{truncateAddress(t.address)}</span>
                     {#if t.score !== null}
                       <span class="k-matrix-traderscore">{t.score}</span>
                     {/if}
