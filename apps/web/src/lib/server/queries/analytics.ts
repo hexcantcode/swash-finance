@@ -166,6 +166,14 @@ export async function getLatestTrades(
     }
   }
 
+  // Resolve HL spot `@N` pair IDs to friendly base-token names (`@107` →
+  // `HYPE`, `@234` → `UBTC`, …) before returning. Done LAST so the leverage
+  // enrichment above keys correctly against `leader_cache.positions_json`,
+  // which stores the raw `@N` from HL. resolveCoins is a no-op (and skips
+  // the spotMeta fetch) when the batch has no `@`-prefixed coins.
+  const resolved = await resolveCoins(trades.map((t) => t.coin));
+  for (let i = 0; i < trades.length; i++) trades[i]!.coin = resolved[i]!;
+
   return trades;
 }
 
@@ -522,6 +530,14 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
       p.realizedPnlUsd = realByKey.get(`${p.address}|${p.coin}`) ?? 0;
     }
   }
+
+  // Resolve HL spot `@N` pair IDs to friendly base-token names before
+  // returning (same step `getLatestTrades` runs at its tail). Done LAST so
+  // the realized-PnL join above keys correctly against `fills.coin`, which
+  // stores the raw `@N`.
+  const resolved = await resolveCoins(out.map((p) => p.coin));
+  for (let i = 0; i < out.length; i++) out[i]!.coin = resolved[i]!;
+
   return out;
 }
 
