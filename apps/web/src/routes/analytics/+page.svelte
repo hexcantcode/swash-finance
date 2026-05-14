@@ -217,9 +217,8 @@
               </span>
               <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
                 {formatPnl(p.unrealizedPnlUsd)}
-                <span class="k-mini-table-sub {pnlSignClass(p.returnOnEquity)}">
-                  {fmtRoe(p.returnOnEquity)}
-                </span>
+                <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
+                  >{fmtRoe(p.returnOnEquity)}</span>
               </span>
             </a>
           {/each}
