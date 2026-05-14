@@ -2290,6 +2290,18 @@ tr.k-row-flash-down > td {
   letter-spacing: 0;
 }
 
+/* Small secondary line stacked under the primary value in a `.k-mini-table-chg`
+ * cell (e.g. "+$2.17M / 439% ROE" on the analytics top-open-positions panel).
+ * `.k-mini-table-chg` is `display: inline-flex` by spec so we just turn the
+ * sub element into a block-level addition stacked beneath. */
+.k-mini-table-chg .k-mini-table-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
 /* Side glyph (↑ / ↓) shared by the chart-marker rings, the positions cells
  * here, and the latest-opens cells. */
 .k-side-arrow {
@@ -2318,11 +2330,11 @@ tr.k-row-flash-down > td {
 }
 
 /* ── Analytics · Position matrix ─────────────────────────── */
-/* 25-row × ~18-col grid: tracked traders down the side, coin icons
- * across the top. Each cell is a small tinted square — green for long,
- * red for short, opacity scaled by `--k-cell-opacity` (set inline by the
- * page from `pct_of_book`). Empty cells get a very faint default tint
- * so the grid stays legible. Hover surfaces a `title` tooltip. */
+/* 25-row × N-col grid: tracked traders down the side, coin icons across
+ * the top (ranked by HL 24h volume, filtered to coins held by ≥ 1
+ * tracked trader so no fully-empty columns). Each cell is a 32×28
+ * tinted square — green long / red short, opacity from `pct_of_book`.
+ * Empty cells keep a very faint grey so the grid reads as a grid. */
 .k-matrix-wrap {
   overflow-x: auto;
   border: 0.5px solid var(--stripe-border);
@@ -2332,22 +2344,22 @@ tr.k-row-flash-down > td {
 }
 .k-matrix {
   border-collapse: separate;
-  border-spacing: 3px;
+  border-spacing: 4px;
   font-variant-numeric: tabular-nums;
 }
 .k-matrix-rowhead {
   background: transparent;
   font-weight: 500;
   text-align: left;
-  padding: 4px 8px 4px 0;
-  min-width: 170px;
+  padding: 6px 12px 6px 0;
+  min-width: 200px;
 }
 .k-matrix-traderlink {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--stripe-text-secondary);
   text-decoration: none;
 }
@@ -2355,40 +2367,43 @@ tr.k-row-flash-down > td {
   color: var(--stripe-accent);
 }
 .k-matrix-traderavatar {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   flex: 0 0 auto;
 }
 .k-matrix-traderscore {
   margin-left: auto;
-  padding-left: 6px;
-  font-size: 10px;
+  padding-left: 8px;
+  font-size: 11px;
   color: var(--stripe-text-tertiary);
 }
 .k-matrix-colhead {
-  width: 22px;
-  height: 22px;
-  padding: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0 0 4px 0;
   background: transparent;
+  text-align: center;
+  vertical-align: bottom;
 }
 .k-matrix-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   display: block;
   margin: 0 auto;
   border-radius: 50%;
   background: var(--stripe-bg-tertiary);
+  object-fit: cover;
 }
 .k-matrix-icon.is-white-bg {
   background: rgba(255, 255, 255, 0.92);
   padding: 1px;
 }
 .k-matrix-cell {
-  width: 22px;
-  height: 20px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.03);
+  width: 32px;
+  height: 28px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
   cursor: default;
 }
 .k-cell-long {

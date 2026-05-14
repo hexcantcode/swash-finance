@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { fills, leaderCache, wallets } from '@copytrade/db';
 import { db } from '../db.js';
+import { listAssets } from './assets.js';
 
 /**
  * Server queries powering `/analytics` — three panels:
@@ -14,6 +15,11 @@ import { db } from '../db.js';
 // ── Latest trades ──────────────────────────────────────────────────────
 
 export interface LatestFill {
+  /** HL's per-fill primary key. Unique even when two fills share `blockTimeMs`
+   *  (one trader filling a multi-leg order in the same ms — common for bots);
+   *  used as the `{#each}` key in the client so Svelte 5 hydration doesn't
+   *  collide and tear the tree down. */
+  tid: number;
   address: string;
   blockTimeMs: number;
   coin: string;
@@ -29,6 +35,7 @@ export interface LatestFill {
 export async function getLatestFills(limit = 10): Promise<LatestFill[]> {
   const rows = await db()
     .select({
+      tid: fills.tid,
       address: fills.userAddress,
       blockTimeMs: fills.blockTimeMs,
       coin: fills.coin,
@@ -50,6 +57,7 @@ export async function getLatestFills(limit = 10): Promise<LatestFill[]> {
     .limit(limit);
 
   return rows.map((r) => ({
+    tid: Number(r.tid),
     address: r.address,
     blockTimeMs: Number(r.blockTimeMs),
     coin: r.coin,
@@ -74,6 +82,8 @@ export interface MatrixCoin {
   holders: number;
   /** signed net of long − short notional in USD across the matrix traders */
   netNotionalUsd: number;
+  /** HL's 24h notional volume on the perp — drives column ordering. */
+  volume24hUsd: number | null;
 }
 
 export interface MatrixCell {
@@ -105,29 +115,42 @@ export interface PositionMatrix {
 export async function getPositionMatrix(opts: {
   tradersLimit?: number;
   coinsLimit?: number;
+  /** Minimum number of matrix traders that must hold a coin for it to make the
+   *  cut. `1` (default) is the user-chosen "intersection" mode: rank coins by
+   *  HL 24h volume, but drop coins nobody in the cohort actually holds. Set
+   *  `>= 2` to require overlap, or pull volume-only by re-shaping the call. */
   coinMinHolders?: number;
 } = {}): Promise<PositionMatrix> {
   const tradersLimit = opts.tradersLimit ?? 25;
   const coinsLimit = opts.coinsLimit ?? 18;
-  const coinMinHolders = opts.coinMinHolders ?? 2;
+  const coinMinHolders = opts.coinMinHolders ?? 1;
 
-  // 1. Pick the matrix's trader set — score-ranked, gate-passers only.
-  const traderRows = await db()
-    .select({
-      address: wallets.address,
-      score: wallets.score,
-      accountValue: wallets.accountValue,
-    })
-    .from(wallets)
-    .where(
-      and(
-        isNotNull(wallets.score),
-        eq(wallets.isAgent, false),
-        sql`${wallets.accountValue} is not null`,
-      ),
-    )
-    .orderBy(desc(wallets.score))
-    .limit(tradersLimit);
+  // 1. Pick the matrix's trader set (score-ranked, gate-passers) + the live
+  //    HL asset universe (for the volume-based column ranking). Fetched in
+  //    parallel — the asset list isn't cheap (one `metaAndAssetCtxs` call).
+  const [traderRows, assetList] = await Promise.all([
+    db()
+      .select({
+        address: wallets.address,
+        score: wallets.score,
+        accountValue: wallets.accountValue,
+      })
+      .from(wallets)
+      .where(
+        and(
+          isNotNull(wallets.score),
+          eq(wallets.isAgent, false),
+          sql`${wallets.accountValue} is not null`,
+        ),
+      )
+      .orderBy(desc(wallets.score))
+      .limit(tradersLimit),
+    listAssets(),
+  ]);
+  const volumeByCoin = new Map<string, number>();
+  for (const a of assetList) {
+    if (a.volume24h !== null) volumeByCoin.set(a.coin, a.volume24h);
+  }
 
   const traders: MatrixTrader[] = traderRows.map((r) => ({
     address: r.address,
@@ -201,15 +224,25 @@ export async function getPositionMatrix(opts: {
     coinAgg.set(r.coin, agg);
   }
 
-  // 4. Pick the coin universe: most-held first, ties by absolute net-notional.
+  // 4. Pick the coin universe — "intersection mode" per the user's call:
+  //    rank by HL 24h notional volume desc, but filter to coins at least
+  //    `coinMinHolders` matrix traders actually hold (default 1, i.e. any
+  //    coin held by anyone). Result: the volume-headline names (BTC / ETH
+  //    / SOL …) are at the left of the matrix, but no fully-empty columns.
   const coins: MatrixCoin[] = [...coinAgg.entries()]
     .filter(([, v]) => v.holders.size >= coinMinHolders)
     .map(([coin, v]) => ({
       coin,
       holders: v.holders.size,
       netNotionalUsd: v.netNotional,
+      volume24hUsd: volumeByCoin.get(coin) ?? null,
     }))
     .sort((a, b) => {
+      // Volume desc — coins with no volume data fall to the back.
+      const av = a.volume24hUsd ?? -1;
+      const bv = b.volume24hUsd ?? -1;
+      if (av !== bv) return bv - av;
+      // Tie-break: more holders, then bigger absolute net notional.
       const dh = b.holders - a.holders;
       if (dh !== 0) return dh;
       return Math.abs(b.netNotionalUsd) - Math.abs(a.netNotionalUsd);
