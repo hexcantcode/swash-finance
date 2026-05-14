@@ -1,6 +1,7 @@
 import { inArray, sql } from 'drizzle-orm';
 import { fills } from '@copytrade/db';
 import { db } from '../db.js';
+import { resolveCoins } from '../spot-aliases';
 
 /**
  * For each input address, the coin they "trade best" — defined as the coin
@@ -12,6 +13,15 @@ import { db } from '../db.js';
  * Win-rate semantics match `scores.winRate` (per-fill, not per-round-trip)
  * — same definition used by the Win Rate top-5 ranking, so the Alfa column
  * stays consistent with the rest of the analytics page.
+ *
+ * **Coin name normalization.** HL stores some coin names in raw-index form:
+ *   - `@N` — main-dex spot pair (e.g. `@107` = `HYPE/USDC`). We resolve
+ *     these via `resolveCoins()` to the base token symbol (`HYPE`).
+ *   - `#N` — HIP-3 spot pair on a builder dex (e.g. `#250`). HL doesn't
+ *     expose these names in any public meta endpoint, so we filter them
+ *     out as ALFA candidates entirely — surfacing `#250` to a user
+ *     reading the leaderboard adds no signal. The trader's next-best
+ *     coin takes the slot instead.
  *
  * Returns a `Map<address, coin>`. Addresses that have no coin clearing the
  * `minTrades` floor are absent from the map; callers should treat that as
@@ -45,6 +55,10 @@ export async function listBestAssetsByWinRate(
   type Best = { coin: string; winRate: number; samples: number };
   const bestByAddress = new Map<string, Best>();
   for (const r of rows) {
+    // Skip HIP-3 spot pair indices (`#250`, `#0`, …) — HL doesn't expose
+    // their friendly names anywhere, so we'd render an opaque `#N` to the
+    // user. The trader's next-best coin clearing `minTrades` wins the slot.
+    if (r.coin.startsWith('#')) continue;
     const wins = Number.parseInt(r.wins, 10);
     const samples = Number.parseInt(r.samples, 10);
     if (!Number.isFinite(samples) || samples < minTrades) continue;
@@ -58,6 +72,14 @@ export async function listBestAssetsByWinRate(
       bestByAddress.set(r.address, { coin: r.coin, winRate, samples });
     }
   }
-  for (const [addr, best] of bestByAddress) result.set(addr, best.coin);
+  // Resolve `@N` → friendly base-token names in one batched spotMeta lookup
+  // (the resolver caches + skips the HL fetch when no `@`-prefixed coins
+  // are present).
+  const addrs = Array.from(bestByAddress.keys());
+  const raws = addrs.map((a) => bestByAddress.get(a)!.coin);
+  const resolved = await resolveCoins(raws);
+  for (let i = 0; i < addrs.length; i++) {
+    result.set(addrs[i]!, resolved[i]!);
+  }
   return result;
 }
