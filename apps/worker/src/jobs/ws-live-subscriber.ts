@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type {
   UserFillsEvent,
@@ -20,6 +20,10 @@ import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { normalizeAddress } from '@copytrade/shared';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
+import {
+  preserveHip3OnMainWrite,
+  replaceDexOnHip3Write,
+} from '../lib/leader-cache-merge.js';
 import { log } from '../log.js';
 
 /**
@@ -108,9 +112,9 @@ const MAX_MISSED_CYCLES = 2;
  * HIP-3 polling cadence. HL's `webData2` push only carries main-dex positions
  * — HIP-3 builder dexes (`xyz`, `cash`, …) require a per-dex REST poll. We
  * run this loop in parallel with the WS reconcile/event handlers, hitting
- * only the **HIP-3 cohort** (tracked wallets that have at least one HIP-3
- * fill in the recent window) so we don't burn API weight on crypto-only
- * traders.
+ * only the **HIP-3 cohort** (tracked wallets with HIP-3 fills in the recent
+ * window OR currently holding any HIP-3 position) so we don't burn API
+ * weight on crypto-only traders.
  */
 const HIP3_POLL_SECONDS = 300;
 /** Recency window for the HIP-3 cohort filter — a wallet enters the cohort
@@ -120,6 +124,10 @@ const HIP3_COHORT_LOOKBACK_DAYS = 14;
  *  N(cohort) × N(dexes) calls per cycle; 100 ms keeps total weight to
  *  ~120/min even at the worst case. */
 const HIP3_PER_CALL_DELAY_MS = 100;
+/** How long the cached HIP-3 dex list stays valid before we re-fetch
+ *  `info.perpDexs()`. 6h means a newly-listed HL builder dex lands inside
+ *  a single trading session without needing a worker restart. */
+const HIP3_DEX_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 interface UserSubs {
   webData2: { unsubscribe(): Promise<void> };
@@ -178,22 +186,46 @@ export async function runWsLiveSubscriber(
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // Resolve the HIP-3 dex list once at startup. The set rarely changes — if
-  // HL adds a new dex mid-process we'll pick it up on the next worker restart.
-  // Failure here doesn't block the WS loop; we just skip HIP-3 polling.
-  const hip3DexNames: string[] = await hl()
-    .perpDexs()
-    .then((r) => r.data.flatMap((d) => (d && d.name ? [d.name] : [])))
-    .catch((err) => {
+  // HIP-3 dex list — cached for `HIP3_DEX_CACHE_TTL_MS`. Refreshed lazily
+  // at the start of each poll cycle so a newly-listed builder dex shows up
+  // within one TTL without a worker restart. Failure here doesn't block the
+  // WS loop; the cycle just skips HIP-3 polling and tries again.
+  const hip3DexCache: { names: string[]; fetchedAt: number } = {
+    names: [],
+    fetchedAt: 0,
+  };
+  const ensureHip3DexNames = async (): Promise<string[]> => {
+    if (
+      hip3DexCache.names.length > 0 &&
+      Date.now() - hip3DexCache.fetchedAt < HIP3_DEX_CACHE_TTL_MS
+    ) {
+      return hip3DexCache.names;
+    }
+    try {
+      const resp = await hl().perpDexs();
+      const fresh = resp.data.flatMap((d) => (d && d.name ? [d.name] : []));
+      const prev = hip3DexCache.names;
+      hip3DexCache.names = fresh;
+      hip3DexCache.fetchedAt = Date.now();
+      const added = fresh.filter((d) => !prev.includes(d));
+      const removed = prev.filter((d) => !fresh.includes(d));
+      log.info({ hip3Dexes: fresh, added, removed }, 'ws-live.hip3_dexes_refreshed');
+    } catch (err) {
       log.warn({ err: errMsg(err) }, 'ws-live.hip3_dexes_fetch_failed');
-      return [] as string[];
-    });
-  log.info({ hip3Dexes: hip3DexNames }, 'ws-live.hip3_dexes_resolved');
+    }
+    return hip3DexCache.names;
+  };
 
   // HIP-3 polling loop — runs in parallel with reconcile. A failure inside
   // shouldn't kill the WS work; everything is caught at the cycle level.
+  // Cadence model matches `leader-cache-poll`: sleep = max(0, interval -
+  // elapsed) so cadence stays anchored to interval boundaries instead of
+  // drifting later on slow cycles. A cycle that runs longer than the
+  // interval logs a warning and starts the next cycle immediately.
   const hip3Loop = (async () => {
     while (!stopping) {
+      const cycleStart = Date.now();
+      const hip3DexNames = await ensureHip3DexNames();
       if (hip3DexNames.length > 0) {
         try {
           await runHip3PollOnce(hip3DexNames, () => stopping);
@@ -201,7 +233,13 @@ export async function runWsLiveSubscriber(
           log.warn({ err: errMsg(err) }, 'ws-live.hip3_poll_failed');
         }
       }
-      await sleep(HIP3_POLL_SECONDS * 1000);
+      const elapsedMs = Date.now() - cycleStart;
+      const intervalMs = HIP3_POLL_SECONDS * 1000;
+      const sleepMs = Math.max(0, intervalMs - elapsedMs);
+      if (sleepMs === 0 && elapsedMs > intervalMs) {
+        log.warn({ elapsedMs, intervalMs }, 'ws-live.hip3_poll_cycle_overran');
+      }
+      if (!stopping && sleepMs > 0) await sleep(sleepMs);
     }
   })();
 
@@ -426,18 +464,10 @@ async function handleWebData2(rawAddress: string, data: WebData2Event): Promise<
         accountValue: sql`excluded.account_value`,
         marginUsed: sql`excluded.margin_used`,
         leverage: sql`excluded.leverage`,
-        // Merge: keep existing HIP-3 entries (coin contains `:`), append the
-        // new main-dex positions from the push. coalesce → '[]' covers a
-        // freshly-inserted row with no prior HIP-3 data.
-        positionsJson: sql`(
-          coalesce(
-            (select jsonb_agg(elem)
-             from jsonb_array_elements(${leaderCache.positionsJson}) as elem
-             where (elem -> 'position' ->> 'coin') like '%:%'),
-            '[]'::jsonb
-          )
-          || excluded.positions_json
-        )`,
+        // Preserve any HIP-3 entries written by the per-dex poller — see
+        // `preserveHip3OnMainWrite()`. Shared merge contract; the REST
+        // `leader-cache-poll` writer uses the same helper.
+        positionsJson: preserveHip3OnMainWrite(),
         source: sql`excluded.source`,
         lastRefreshedAt: sql`excluded.last_refreshed_at`,
         lastRefreshSource: sql`excluded.last_refresh_source`,
@@ -608,37 +638,41 @@ async function runHip3PollOnce(
   // means a wallet that briefly drops off a shard during reconcile still
   // gets HIP-3 polled, and the loop starts producing data before the WS
   // pool is fully filled.
-  const trackedRows = await db()
-    .select({ address: wallets.address })
-    .from(wallets)
-    .where(
-      and(
-        eq(wallets.isAgent, false),
-        isNotNull(wallets.hlPnl7dUsd),
-        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
-      ),
-    )
-    .orderBy(desc(wallets.hlPnl7dUsd))
-    .limit(TRACKED_LIMIT);
-  const trackedAddresses = trackedRows.map((r) => normalizeAddress(r.address));
-  if (trackedAddresses.length === 0) return;
-
-  // Cohort = tracked ∩ recent-HIP-3-fill. `fills` is indexed by user_address
-  // so this scan stays cheap even with millions of rows.
+  //
+  // Cohort = tracked ∩ (recent-HIP-3-fill ∪ current-HIP-3-holder). The
+  // holder branch covers stale wallets that haven't traded HIP-3 in the
+  // lookback window but still hold an open position — without it, those
+  // positions would never refresh and could go stale or fall out of sync
+  // when the trader closes via fills we didn't observe.
   const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-  const cohortRows = await db()
-    .selectDistinct({ address: fills.userAddress })
-    .from(fills)
-    .where(
-      and(
-        sql`${fills.coin} like '%:%'`,
-        sql`${fills.blockTimeMs} >= ${cutoffMs}`,
-        inArray(fills.userAddress, trackedAddresses),
-      ),
-    );
-  const cohort = cohortRows.map((r) => r.address);
+  const cohortResp = await db().execute<{ address: string }>(sql`
+    with tracked as (
+      select address
+      from ${wallets}
+      where ${wallets.isAgent} = false
+        and ${wallets.hlPnl7dUsd} is not null
+        and ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}
+      order by ${wallets.hlPnl7dUsd} desc nulls last
+      limit ${TRACKED_LIMIT}
+    )
+    select t.address
+    from tracked t
+    where exists (
+      select 1 from ${fills} f
+      where f.user_address = t.address
+        and f.coin like '%:%'
+        and f.block_time_ms >= ${cutoffMs}
+    )
+    or exists (
+      select 1 from ${leaderCache} lc,
+           lateral jsonb_array_elements(lc.positions_json) as p(elem)
+      where lc.address = t.address
+        and (p.elem -> 'position' ->> 'coin') like '%:%'
+    )
+  `);
+  const cohort = cohortResp.rows.map((r) => normalizeAddress(r.address));
   if (cohort.length === 0) {
-    log.info({ tracked: trackedAddresses.length }, 'ws-live.hip3_poll_no_cohort');
+    log.info({}, 'ws-live.hip3_poll_no_cohort');
     return;
   }
 
@@ -682,7 +716,6 @@ async function pollHip3ForAddress(address: string, dexName: string): Promise<num
       coin: ap.position.coin.includes(':') ? ap.position.coin : `${dexName}:${ap.position.coin}`,
     },
   }));
-  const dexPrefixPattern = `${dexName}:%`;
 
   await db()
     .insert(leaderCache)
@@ -694,17 +727,9 @@ async function pollHip3ForAddress(address: string, dexName: string): Promise<num
     .onConflictDoUpdate({
       target: leaderCache.address,
       set: {
-        // Merge: drop existing entries belonging to THIS dex, append the
-        // freshly-fetched array. Other dexes / main-dex positions survive.
-        positionsJson: sql`(
-          coalesce(
-            (select jsonb_agg(elem)
-             from jsonb_array_elements(${leaderCache.positionsJson}) as elem
-             where (elem -> 'position' ->> 'coin') not like ${dexPrefixPattern}),
-            '[]'::jsonb
-          )
-          || excluded.positions_json
-        )`,
+        // Drop existing entries for this dex, append the fresh array. See
+        // `replaceDexOnHip3Write()`; other dexes / main-dex survive.
+        positionsJson: replaceDexOnHip3Write(dexName),
         // Don't bump source / last_refresh_source — those track the main-dex
         // freshness (owned by the WS handler). Don't touch account_value /
         // margin_used / leverage either — those are main-dex summary numbers.
