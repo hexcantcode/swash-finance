@@ -147,8 +147,12 @@
         {#if data.latestFills.length === 0}
           <div class="k-empty">no recent trades from tracked wallets</div>
         {:else}
-          {#each data.latestFills as f (f.tid)}
-            <a class="k-mini-table-row" href="/trader/{f.address}">
+          {#each data.latestFills as f (f.key)}
+            <a
+              class="k-mini-table-row"
+              href="/trader/{f.address}"
+              title="{truncateAddress(f.address)} {f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
+            >
               <img
                 src={effigyUrl(f.address)}
                 alt=""
@@ -170,7 +174,10 @@
                   class="k-coin-icon"
                   class:is-white-bg={coinNeedsWhiteBg(f.coin)}
                 />
-                {coinDisplayName(f.coin)}  {formatPnl(f.szBase * f.pxUsd)}
+                {coinDisplayName(f.coin)}  {formatPnl(f.notionalUsd)}
+                {#if f.fillCount > 1}
+                  <span class="k-mini-table-fillcount" aria-label="{f.fillCount} fills">{f.fillCount}×</span>
+                {/if}
               </span>
               <span class="k-mini-table-chg k-mini-table-time">
                 {formatRelativeTime(new Date(f.blockTimeMs))}
@@ -234,42 +241,20 @@
     {#if data.matrix.traders.length === 0 || data.matrix.coins.length === 0}
       <p class="k-empty">No tracked traders are currently holding overlapping positions.</p>
     {:else}
-      <!-- Transposed: coin rows down the left (full label + icon), trader
-           columns across the top (just the avatar, hover for address +
-           score). The cell lookup key is still `${address}|${coin}` — same
-           data, swapped axes. -->
+      <!-- Trader rows down the left (small avatar + truncated address + score
+           badge), coin columns across the top (icon only, volume-ranked).
+           Cell key: `${address}|${coin}`. -->
       <div class="k-matrix-wrap">
         <table class="k-matrix">
           <thead>
             <tr>
               <th class="k-matrix-rowhead"></th>
-              {#each data.matrix.traders as t (t.address)}
+              {#each data.matrix.coins as c (c.coin)}
                 <th
                   class="k-matrix-colhead"
-                  title="{truncateAddress(t.address)}{t.score !== null ? ' · score ' + t.score : ''}"
+                  title="{coinDisplayName(c.coin)} · {c.holders} {c.holders === 1 ? 'holder' : 'holders'} · net {formatPnl(c.netNotionalUsd)}"
                 >
-                  <a
-                    class="k-matrix-traderchip"
-                    href="/trader/{t.address}"
-                    aria-label="Open {truncateAddress(t.address)}"
-                  >
-                    <img
-                      src={effigyUrl(t.address)}
-                      alt=""
-                      loading="lazy"
-                      onerror={hideBrokenAvatar}
-                      class="k-matrix-traderavatar"
-                    />
-                  </a>
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.matrix.coins as c (c.coin)}
-              <tr>
-                <th class="k-matrix-rowhead">
-                  <a class="k-matrix-coinrow" href="/assets/{c.coin}">
+                  <a class="k-matrix-coinchip" href="/assets/{c.coin}" aria-label={coinDisplayName(c.coin)}>
                     <img
                       src={coinIconUrl(c.coin)}
                       alt=""
@@ -278,11 +263,30 @@
                       class="k-matrix-icon"
                       class:is-white-bg={coinNeedsWhiteBg(c.coin)}
                     />
-                    <span class="k-matrix-coinlabel">{coinDisplayName(c.coin)}</span>
-                    <span class="k-matrix-coinholders">{c.holders}</span>
                   </a>
                 </th>
-                {#each data.matrix.traders as t (t.address)}
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.matrix.traders as t (t.address)}
+              <tr>
+                <th class="k-matrix-rowhead">
+                  <a class="k-matrix-traderrow" href="/trader/{t.address}">
+                    <img
+                      src={effigyUrl(t.address)}
+                      alt=""
+                      loading="lazy"
+                      onerror={hideBrokenAvatar}
+                      class="k-matrix-traderavatar"
+                    />
+                    <span class="k-matrix-traderaddr">{truncateAddress(t.address)}</span>
+                    {#if t.score !== null}
+                      <span class="k-matrix-traderscore">{t.score}</span>
+                    {/if}
+                  </a>
+                </th>
+                {#each data.matrix.coins as c (c.coin)}
                   {@const cell = data.matrix.cells[`${t.address}|${c.coin}`]}
                   <td
                     class="k-matrix-cell"

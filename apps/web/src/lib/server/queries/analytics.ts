@@ -17,58 +17,80 @@ import { listAllAssetsRaw } from './assets.js';
 
 // ── Latest trades ──────────────────────────────────────────────────────
 
-export interface LatestFill {
-  /** HL's per-fill primary key. Unique even when two fills share `blockTimeMs`
-   *  (one trader filling a multi-leg order in the same ms — common for bots);
-   *  used as the `{#each}` key in the client so Svelte 5 hydration doesn't
-   *  collide and tear the tree down. */
-  tid: number;
+/**
+ * One *trade* — a single user order, even when HL split it into many fills
+ * because it matched multiple counterparties. We group by `(user_address,
+ * coin, side, oid)` so the panel shows one row per intent, not per market
+ * impact. When `oid` is null (rare — pre-HL-v2 ingest), each fill becomes
+ * its own singleton group keyed by `tid`.
+ */
+export interface LatestTrade {
+  /** Stable `{#each}` key. `oid` when set, else `tid:NNN` for null-oid fills. */
+  key: string;
   address: string;
-  blockTimeMs: number;
   coin: string;
   side: 'B' | 'A';
+  /** How many fills made up this trade. 1 for true singletons. */
+  fillCount: number;
+  /** Total base size summed across the fills. */
   szBase: number;
-  pxUsd: number;
-  /** signed: positive on `B` (buy), negative on `A` (sell). Useful for the closing-trade colour. */
-  closedPnlUsd: number;
+  /** VWAP across the fills (`Σ(sz·px) / Σ(sz)`). */
+  vwapUsd: number;
+  /** Total USD notional (`Σ sz·px`). */
+  notionalUsd: number;
+  /** ms timestamp of the *latest* fill in the group — drives recency sort. */
+  blockTimeMs: number;
 }
 
-/** Most-recent fills across tracked wallets (any wallet with a leader_cache row).
- *  Sorted by `block_time_ms desc`, limited so the panel stays scannable. */
-export async function getLatestFills(limit = 10): Promise<LatestFill[]> {
-  const rows = await db()
-    .select({
-      tid: fills.tid,
-      address: fills.userAddress,
-      blockTimeMs: fills.blockTimeMs,
-      coin: fills.coin,
-      side: fills.side,
-      sz: fills.sz,
-      px: fills.px,
-      closedPnl: fills.closedPnl,
-    })
-    .from(fills)
-    .where(
-      // Only wallets we actually surface. `leader_cache` is the tracked set
-      // (winners write via WS; the rest via on-demand REST snapshots).
-      inArray(
-        fills.userAddress,
-        db().select({ address: leaderCache.address }).from(leaderCache),
-      ),
-    )
-    .orderBy(desc(fills.blockTimeMs))
-    .limit(limit);
+/** Most-recent *trades* across tracked wallets (any wallet with a
+ *  leader_cache row). Groups fills by `(user_address, coin, side, oid)` so a
+ *  market order that hit 10 counterparties shows as one row, not ten. */
+export async function getLatestTrades(limit = 10): Promise<LatestTrade[]> {
+  const rows = await db().execute<{
+    address: string;
+    coin: string;
+    side: 'B' | 'A';
+    group_key: string;
+    total_sz: string;
+    total_notional: string;
+    latest_ms: string | number;
+    fill_count: string | number;
+  }>(sql`
+    SELECT
+      f.user_address                              AS address,
+      f.coin,
+      f.side,
+      -- When oid is set we group all fills of that order together; for
+      -- null-oid rows fall back to the per-fill tid so each becomes
+      -- a singleton group instead of all collapsing into one.
+      COALESCE(f.oid::text, 'tid:' || f.tid::text) AS group_key,
+      SUM(f.sz::numeric)                          AS total_sz,
+      SUM(f.sz::numeric * f.px::numeric)          AS total_notional,
+      MAX(f.block_time_ms)                        AS latest_ms,
+      COUNT(*)                                    AS fill_count
+    FROM fills f
+    WHERE f.user_address IN (SELECT address FROM leader_cache)
+    GROUP BY f.user_address, f.coin, f.side,
+             COALESCE(f.oid::text, 'tid:' || f.tid::text)
+    ORDER BY MAX(f.block_time_ms) DESC
+    LIMIT ${limit}
+  `);
 
-  return rows.map((r) => ({
-    tid: Number(r.tid),
-    address: r.address,
-    blockTimeMs: Number(r.blockTimeMs),
-    coin: r.coin,
-    side: r.side as 'B' | 'A',
-    szBase: Number.parseFloat(r.sz),
-    pxUsd: Number.parseFloat(r.px),
-    closedPnlUsd: Number.parseFloat(r.closedPnl),
-  }));
+  return rows.rows.map((r) => {
+    const szBase = Number.parseFloat(r.total_sz);
+    const notionalUsd = Number.parseFloat(r.total_notional);
+    return {
+      key: `${r.address}|${r.group_key}`,
+      address: r.address,
+      coin: r.coin,
+      side: r.side as 'B' | 'A',
+      fillCount: Number(r.fill_count),
+      szBase,
+      notionalUsd,
+      vwapUsd: szBase > 0 ? notionalUsd / szBase : 0,
+      blockTimeMs: Number(r.latest_ms),
+    };
+  });
 }
 
 // ── Position matrix ────────────────────────────────────────────────────
@@ -235,30 +257,28 @@ export async function getPositionMatrix(opts: {
     coinAgg.set(r.coin, agg);
   }
 
-  // 4. Pick the coin universe — "intersection mode" per the user's call:
-  //    rank by HL 24h notional volume desc, but filter to coins at least
-  //    `coinMinHolders` matrix traders actually hold (default 1, i.e. any
-  //    coin held by anyone). Result: the volume-headline names (BTC / ETH
-  //    / SOL …) are at the left of the matrix, but no fully-empty columns.
-  const coins: MatrixCoin[] = [...coinAgg.entries()]
-    .filter(([, v]) => v.holders.size >= coinMinHolders)
-    .map(([coin, v]) => ({
-      coin,
-      holders: v.holders.size,
-      netNotionalUsd: v.netNotional,
-      volume24hUsd: volumeByCoin.get(coin) ?? null,
-    }))
-    .sort((a, b) => {
-      // Volume desc — coins with no volume data fall to the back.
-      const av = a.volume24hUsd ?? -1;
-      const bv = b.volume24hUsd ?? -1;
-      if (av !== bv) return bv - av;
-      // Tie-break: more holders, then bigger absolute net notional.
-      const dh = b.holders - a.holders;
-      if (dh !== 0) return dh;
-      return Math.abs(b.netNotionalUsd) - Math.abs(a.netNotionalUsd);
-    })
-    .slice(0, coinsLimit);
+  // 4. Pick the coin universe — pure HL 24h-volume rank from the *full*
+  //    universe (main dex + every HIP-3 builder dex). HIP-3 markets
+  //    (`cash:TSLA`, `xyz:MSTR`, …) show up at their natural volume rank
+  //    even when no tracked trader currently holds them — empty cells
+  //    that fill in the moment someone takes a position. The
+  //    `coinMinHolders` knob is retained but ignored in this default
+  //    path; callers wanting "intersection mode" can pass a custom
+  //    sort post-hoc.
+  void coinMinHolders;
+  const coins: MatrixCoin[] = assetList
+    .filter((a) => a.volume24h !== null && a.volume24h > 0)
+    .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0))
+    .slice(0, coinsLimit)
+    .map((a) => {
+      const agg = coinAgg.get(a.coin);
+      return {
+        coin: a.coin,
+        holders: agg?.holders.size ?? 0,
+        netNotionalUsd: agg?.netNotional ?? 0,
+        volume24hUsd: a.volume24h,
+      };
+    });
 
   return { traders, coins, cells };
 }
