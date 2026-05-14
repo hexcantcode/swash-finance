@@ -59,7 +59,7 @@ export const COIN_WHITE_BG_SYMBOLS: ReadonlySet<string> = new Set([
 export const COIN_LOGO_OVERRIDES: ReadonlySet<string> = new Set([
   'NATGAS', 'URNM', 'WHEAT', 'KWEB', 'BIRD', 'CAR',
   'BMNR', 'TENCENT', 'XIAOMI', 'EBAY', 'GAS',
-  'USENERGY', 'SEMI', 'MSFT', 'COPPER', 'SMSN',
+  'USENERGY', 'SEMI', 'MSFT', 'COPPER', 'SMSN', 'INTC',
 ]);
 
 /**
