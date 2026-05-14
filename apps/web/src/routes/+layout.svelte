@@ -7,7 +7,9 @@
   let { children } = $props();
 
   const path = $derived($page.url.pathname);
-  const tradersActive = $derived(path === '/' || path.startsWith('/trader'));
+  // `/traders` (plural) = leaderboard; `/trader/<address>` (singular) = profile.
+  // `path.startsWith('/trader')` catches both.
+  const tradersActive = $derived(path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
   const analyticsActive = $derived(path.startsWith('/analytics'));
 
@@ -35,8 +37,10 @@
   }
 
   function runSearch() {
+    // Search is the leaderboard's address filter, so it always targets
+    // `/traders`. Empty query strips back to the bare leaderboard page.
     const q = searchInput.trim();
-    goto(q ? `/?search=${encodeURIComponent(q)}` : '/');
+    goto(q ? `/traders?search=${encodeURIComponent(q)}` : '/traders');
   }
 
   function onToggleClick() {
@@ -161,7 +165,7 @@
       </li>
       <li>
         <a
-          href="/"
+          href="/traders"
           class="k-sidenav-item"
           class:is-active={tradersActive}
           aria-current={tradersActive ? 'page' : undefined}
@@ -204,7 +208,7 @@
 
       <div class="k-site-footer-col">
         <h3 class="k-site-footer-col-title">Product</h3>
-        <a href="/" class="k-site-footer-link">Leaderboard</a>
+        <a href="/traders" class="k-site-footer-link">Leaderboard</a>
         <a href="/assets" class="k-site-footer-link">Assets</a>
       </div>
 
@@ -233,7 +237,7 @@
         <span class="k-bottomnav-label">Assets</span>
       </a>
       <a
-        href="/"
+        href="/traders"
         class="k-bottomnav-item"
         class:is-active={tradersActive}
         aria-current={tradersActive ? 'page' : undefined}

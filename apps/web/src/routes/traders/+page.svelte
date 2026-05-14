@@ -107,7 +107,7 @@
               />
               <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
               <span class="k-mini-table-price k-pnl-positive">{formatPct(t.win_rate, 0)}</span>
-              <span class="k-mini-table-chg">{t.total_trades} tr</span>
+              <span class="k-mini-table-chg">{t.total_round_trips} rt</span>
             </a>
           {/each}
         {/if}
