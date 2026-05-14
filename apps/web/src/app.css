@@ -2046,19 +2046,6 @@ body {
   height: 16px;
   flex: 0 0 16px;
 }
-/* "6×" chip on aggregated multi-fill trades — small dim badge next to the
- * notional, only visible when fillCount > 1 (i.e. HL split one order into
- * many counterparty matches). */
-.k-mini-table-fillcount {
-  margin-left: 4px;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--stripe-text-tertiary);
-  background: var(--stripe-bg-tertiary);
-  border-radius: var(--radius-sm);
-}
 .k-mini-table-chg {
   flex: 0 0 auto;
   min-width: 80px;
@@ -2170,25 +2157,6 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--stripe-text-secondary);
   white-space: nowrap;
-}
-/* Fillcount chip in the `.k-mini-table-val` cell sits to the LEFT of the
- * dollar amount, so margin reverses (was `margin-left` on the default
- * `.k-mini-table-fillcount`). */
-.k-mini-table-val .k-mini-table-fillcount {
-  margin-left: 0;
-  margin-right: 4px;
-}
-/* Direction-tinted variants — uses the same `success` / `danger` tokens
- * as the side-arrow so a buy fills count reads as green and a sell as
- * red. Soft `color-mix` background keeps the chip from overpowering the
- * row; matches the sentiment-bias chip tinting elsewhere on /analytics. */
-.k-mini-table-fillcount--long {
-  color: var(--stripe-success);
-  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
-}
-.k-mini-table-fillcount--short {
-  color: var(--stripe-danger);
-  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
 }
 .k-mini-table-seg-trader:hover .k-mini-table-addr,
 .k-mini-table-seg-asset:hover {
@@ -2585,15 +2553,38 @@ tr.k-row-flash-down > td {
   line-height: 1;
 }
 
-/* Leverage tag sitting just before the side arrow in `.k-trade-content`
- * (Latest trades + Winning Trades). Plain text on purpose — not a pill —
- * to keep the row from looking busy. Tertiary color so it reads as
- * secondary context to the headline asset name. */
-.k-lev-tag {
-  font-size: 11px;
-  font-weight: 500;
+/* `Leverage` column for the analytics split mini-tables — right of the
+ * asset cell, left of `Size`/`Value`. Same right-aligned numeric column
+ * shape as `.k-mini-table-val`. */
+.k-mini-table-lev {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--stripe-text-tertiary);
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+
+/* Directional leverage pill — green for long/buy, red for short/sell.
+ * Soft `color-mix` tint, same family as the sentiment-bias chip. */
+.k-lev-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+.k-lev-pill--long {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
+}
+.k-lev-pill--short {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
 }
 .k-side-arrow.k-side-long {
   color: var(--stripe-success);

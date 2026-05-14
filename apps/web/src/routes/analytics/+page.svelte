@@ -40,6 +40,15 @@
   let topOpenPositions = $state(data.topOpenPositions);
   const TOP_POSITIONS_POLL_MS = 20_000;
 
+  // Position matrix — heaviest of the live panels (touches HL
+  // `metaAndAssetCtxs` weight 20 + JSONB unpack of 25 traders'
+  // positions_json). 60 s cadence keeps the combined HL draw with
+  // leader-cache-poll under HL's 1200 weight/min/IP budget. Underlying
+  // JSONB also only refreshes at ≤ 60 s (leader-cache-poll cycle), so
+  // faster polling wouldn't surface fresher data.
+  let matrix = $state(data.matrix);
+  const MATRIX_POLL_MS = 60_000;
+
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
     img.style.visibility = 'hidden';
@@ -168,14 +177,34 @@
         /* ignore transient poll failures; next tick will retry */
       }
     };
+    const tickMatrix = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch('/api/analytics/position-matrix');
+        if (!r.ok) return;
+        const j = (await r.json()) as { ok: boolean; matrix: typeof data.matrix };
+        if (
+          j?.ok &&
+          j.matrix &&
+          Array.isArray(j.matrix.traders) &&
+          Array.isArray(j.matrix.coins)
+        ) {
+          matrix = j.matrix;
+        }
+      } catch {
+        /* ignore transient poll failures; next tick will retry */
+      }
+    };
     const sentimentId = setInterval(tickSentiment, SENTIMENT_POLL_MS);
     const latestTradesId = setInterval(tickLatestTrades, LATEST_TRADES_POLL_MS);
     const topPositionsId = setInterval(tickTopOpenPositions, TOP_POSITIONS_POLL_MS);
+    const matrixId = setInterval(tickMatrix, MATRIX_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(sentimentId);
       clearInterval(latestTradesId);
       clearInterval(topPositionsId);
+      clearInterval(matrixId);
     };
   });
 </script>
@@ -259,6 +288,7 @@
       <div class="k-mini-table" role="list">
         <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
           <span class="k-mini-table-head-title">Latest trades</span>
+          <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
           <span class="k-mini-table-head-label k-mini-table-val">Size</span>
           <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
         </div>
@@ -287,9 +317,6 @@
                 title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
               >
                 <span class="k-trade-content">
-                  {#if f.leverage !== null}
-                    <span class="k-lev-tag">{formatLeverage(f.leverage)}</span>
-                  {/if}
                   <span
                     class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
                     aria-label={f.side === 'B' ? 'buy' : 'sell'}
@@ -305,13 +332,13 @@
                   {coinDisplayName(f.coin)}
                 </span>
               </a>
+              <span class="k-mini-table-lev">
+                {#if f.leverage !== null}
+                  <span class="k-lev-pill k-lev-pill--{f.side === 'B' ? 'long' : 'short'}"
+                    >{formatLeverage(f.leverage)}</span>
+                {:else}—{/if}
+              </span>
               <span class="k-mini-table-val">
-                {#if f.fillCount > 1}
-                  <span
-                    class="k-mini-table-fillcount k-mini-table-fillcount--{f.side === 'B' ? 'long' : 'short'}"
-                    aria-label="{f.fillCount} fills"
-                  >{f.fillCount}×</span>
-                {/if}
                 {formatPnl(f.notionalUsd)}
               </span>
               <span class="k-mini-table-chg k-mini-table-time">
@@ -325,6 +352,7 @@
       <div class="k-mini-table" role="list">
         <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
           <span class="k-mini-table-head-title">Winning Trades</span>
+          <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
           <span class="k-mini-table-head-label k-mini-table-val">Value</span>
           <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
         </div>
@@ -354,12 +382,9 @@
               <a
                 class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
                 href="/assets/{p.coin}"
-                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · profit {formatPnl(p.unrealizedPnlUsd)}"
+                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · realized {formatPnl(p.realizedPnlUsd)} · uPnL {formatPnl(p.unrealizedPnlUsd)}"
               >
                 <span class="k-trade-content">
-                  {#if p.leverage > 0}
-                    <span class="k-lev-tag">{formatLeverage(p.leverage)}</span>
-                  {/if}
                   <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
                     >{p.side === 'long' ? '↑' : '↓'}</span>
                   <img
@@ -373,13 +398,19 @@
                   {coinDisplayName(p.coin)}
                 </span>
               </a>
+              <span class="k-mini-table-lev">
+                {#if p.leverage > 0}
+                  <span class="k-lev-pill k-lev-pill--{p.side}"
+                    >{formatLeverage(p.leverage)}</span>
+                {:else}—{/if}
+              </span>
               <span class="k-mini-table-val">
                 {formatPnl(p.notionalUsd)}
               </span>
-              <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
+              <span class="k-mini-table-chg {pnlSignClass(p.realizedPnlUsd)}">
                 <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
                   >{fmtRoe(p.returnOnEquity)}</span>
-                {formatPnl(p.unrealizedPnlUsd)}
+                {formatPnl(p.realizedPnlUsd)}
               </span>
             </div>
           {/each}
@@ -394,11 +425,11 @@
       <h2 class="k-section-title">
         Position matrix
         <span class="k-section-sub">
-          {data.matrix.coins.length} coins (by 24h volume) × {data.matrix.traders.length} tracked traders
+          {matrix.coins.length} coins (by 24h volume) × {matrix.traders.length} tracked traders
         </span>
       </h2>
     </div>
-    {#if data.matrix.traders.length === 0 || data.matrix.coins.length === 0}
+    {#if matrix.traders.length === 0 || matrix.coins.length === 0}
       <p class="k-empty">No tracked traders are currently holding overlapping positions.</p>
     {:else}
       <!-- Trader rows down the left (small avatar + truncated address + score
@@ -409,7 +440,7 @@
           <thead>
             <tr>
               <th class="k-matrix-rowhead"></th>
-              {#each data.matrix.coins as c (c.coin)}
+              {#each matrix.coins as c (c.coin)}
                 <th
                   class="k-matrix-colhead"
                   title="{coinDisplayName(c.coin)} · {c.holders} {c.holders === 1 ? 'holder' : 'holders'} · net {formatPnl(c.netNotionalUsd)}"
@@ -429,7 +460,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each data.matrix.traders as t (t.address)}
+            {#each matrix.traders as t (t.address)}
               <tr>
                 <th class="k-matrix-rowhead">
                   <a
@@ -447,8 +478,8 @@
                     />
                   </a>
                 </th>
-                {#each data.matrix.coins as c (c.coin)}
-                  {@const cell = data.matrix.cells[`${t.address}|${c.coin}`]}
+                {#each matrix.coins as c (c.coin)}
+                  {@const cell = matrix.cells[`${t.address}|${c.coin}`]}
                   <td
                     class="k-matrix-cell"
                     class:k-cell-long={cell?.side === 'long'}

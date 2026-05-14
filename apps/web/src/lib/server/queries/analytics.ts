@@ -371,6 +371,12 @@ export interface TopOpenPosition {
   returnOnEquity: number;
   leverage: number;
   lastRefreshedAtMs: number | null;
+  /** Cumulative realized PnL on this (address, coin) — `Σ (closedPnl − fee)`
+   *  across every fill in the history. Zero when the trader has no closed
+   *  fills on this coin yet (purely-open position). Ranking still uses
+   *  `unrealizedPnlUsd`; this is the "what they've actually booked"
+   *  display value in the Profit column. */
+  realizedPnlUsd: number;
 }
 
 /** Top `limit` currently-open positions globally, sorted by `unrealized_pnl desc`.
@@ -423,7 +429,44 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
           ? r.last_refreshed_at.getTime()
           : Date.parse(r.last_refreshed_at)
         : null,
+      realizedPnlUsd: 0,
     });
+  }
+
+  // Enrich with cumulative realized PnL per (address, coin) — `Σ (closedPnl
+  // − fee)` from `fills`. Same semantic as `scores.winRate` / score path
+  // (closedPnl net of fee = booked PnL on the closing leg). Single query
+  // bounded by the panel's address+coin set so it's cheap regardless of
+  // total fill volume.
+  if (out.length > 0) {
+    const addresses = Array.from(new Set(out.map((p) => p.address)));
+    const coins = Array.from(new Set(out.map((p) => p.coin)));
+    const addrList = sql.join(
+      addresses.map((a) => sql`${a}`),
+      sql`, `,
+    );
+    const coinList = sql.join(
+      coins.map((c) => sql`${c}`),
+      sql`, `,
+    );
+    const realRows = await db().execute<{ address: string; coin: string; realized: string }>(sql`
+      SELECT
+        f.user_address                                   AS address,
+        f.coin,
+        SUM(f.closed_pnl::numeric - f.fee::numeric)      AS realized
+      FROM fills f
+      WHERE f.user_address IN (${addrList})
+        AND f.coin IN (${coinList})
+      GROUP BY f.user_address, f.coin
+    `);
+    const realByKey = new Map<string, number>();
+    for (const r of realRows.rows) {
+      const v = Number.parseFloat(r.realized);
+      if (Number.isFinite(v)) realByKey.set(`${r.address}|${r.coin}`, v);
+    }
+    for (const p of out) {
+      p.realizedPnlUsd = realByKey.get(`${p.address}|${p.coin}`) ?? 0;
+    }
   }
   return out;
 }
