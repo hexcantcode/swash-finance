@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import { scores, walletTags, wallets } from '@copytrade/db';
 import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
+import { listBestAssetsByWinRate } from './best-asset.js';
 
 export interface LeaderCard {
   address: string;
@@ -24,11 +25,17 @@ export interface LeaderCard {
     win_rate: number | null;
     total_trades: number;
     avg_hold_seconds: number | null;
-    /** Weekly trade average = `scores.tradesPerDayAvg × 7` — the "Frequency"
-     *  column. Null when the wallet has no scoring row / no active days yet. */
-    trades_per_week: number | null;
+    /** Monthly trade average = `scores.tradesPerDayAvg × 30` — the
+     *  "Frequency" column. Null when the wallet has no scoring row / no
+     *  active days yet. */
+    trades_per_month: number | null;
   };
   primary_asset: string | null;
+  /** "Alfa" — coin this trader has the highest fill-level win rate on with
+   *  ≥ 5 trades on that coin. Null when no coin clears the sample floor.
+   *  Distinct from `primary_asset` (most-traded by volume): same trader can
+   *  have BTC as primary_asset and SOL as alfa_coin. */
+  alfa_coin: string | null;
   /** True iff this wallet is in the curated "best traders" set (passed the
    * eligibility gate AND composite >= 70, with ~65 hysteresis). `/browse` shows
    * everything; pass `curatedOnly: true` to restrict. */
@@ -168,23 +175,27 @@ export async function listLeaders(args: {
   // Look up secondary tags in a single query for the fetched leaders.
   const addresses = rows.map((r) => r.address);
   const secondaryByAddress = new Map<string, string[]>();
-  if (addresses.length > 0) {
-    const tagRows = await db()
-      .select({
-        address: walletTags.address,
-        tagType: walletTags.tagType,
-        tagValue: walletTags.tagValue,
-      })
-      .from(walletTags)
-      .where(inArray(walletTags.address, addresses));
-    for (const t of tagRows) {
-      const arr = secondaryByAddress.get(t.address) ?? [];
-      // `profile` is surfaced via `primary_tag`; everything else (heat/size) is
-      // a "<type>:<value>" secondary tag.
-      if (t.tagType !== 'profile') arr.push(`${t.tagType}:${t.tagValue}`);
-      secondaryByAddress.set(t.address, arr);
-    }
-  }
+  const [, alfaByAddress] = await Promise.all([
+    (async () => {
+      if (addresses.length === 0) return;
+      const tagRows = await db()
+        .select({
+          address: walletTags.address,
+          tagType: walletTags.tagType,
+          tagValue: walletTags.tagValue,
+        })
+        .from(walletTags)
+        .where(inArray(walletTags.address, addresses));
+      for (const t of tagRows) {
+        const arr = secondaryByAddress.get(t.address) ?? [];
+        // `profile` is surfaced via `primary_tag`; everything else (heat/size) is
+        // a "<type>:<value>" secondary tag.
+        if (t.tagType !== 'profile') arr.push(`${t.tagType}:${t.tagValue}`);
+        secondaryByAddress.set(t.address, arr);
+      }
+    })(),
+    listBestAssetsByWinRate(addresses),
+  ]);
 
   const leaders: LeaderCard[] = rows.map((r) => ({
     address: r.address,
@@ -203,9 +214,10 @@ export async function listLeaders(args: {
       win_rate: numOrNull(r.win_rate),
       total_trades: r.total_trades ?? 0,
       avg_hold_seconds: r.avg_hold_seconds,
-      trades_per_week: tradesPerWeek(numOrNull(r.trades_per_day_avg)),
+      trades_per_month: tradesPerMonth(numOrNull(r.trades_per_day_avg)),
     },
     primary_asset: r.primary_asset,
+    alfa_coin: alfaByAddress.get(r.address) ?? null,
     curated: r.curated,
     winner: r.winner,
     winner_rank: r.winner_rank,
@@ -224,11 +236,11 @@ function roiFromEquity(netPnlUsd: number | null, accountValueUsd: number | null)
   return netPnlUsd / accountValueUsd;
 }
 
-/** Weekly trade average from the per-active-day rate. The canonical cadence
- *  quantity is `scores.tradesPerDayAvg`; the weekly figure is a pure ×7. */
-function tradesPerWeek(tradesPerDayAvg: number | null): number | null {
+/** Monthly trade average from the per-active-day rate. The canonical cadence
+ *  quantity is `scores.tradesPerDayAvg`; the monthly figure is a pure ×30. */
+function tradesPerMonth(tradesPerDayAvg: number | null): number | null {
   if (tradesPerDayAvg === null) return null;
-  return tradesPerDayAvg * 7;
+  return tradesPerDayAvg * 30;
 }
 
 function numOrNull(value: string | null): number | null {

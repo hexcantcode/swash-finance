@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { LeaderCard } from '$lib/server/queries/leaders';
+  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import ScoreBars from './ScoreBars.svelte';
   import {
     scoreClass,
     effigyUrl,
     formatPnl,
-    formatTradesPerWeek,
+    formatTradesPerMonth,
     formatUsd,
     pnlSignClass,
     truncateAddress,
@@ -61,7 +62,7 @@
       case 'equity':
         return row.account_value;
       case 'frequency':
-        return row.metrics.trades_per_week;
+        return row.metrics.trades_per_month;
     }
   }
 
@@ -102,6 +103,7 @@
     <thead>
       <tr>
         <th class="stripe-table-trader">Trader</th>
+        <th class="stripe-table-alfa" title="Coin this trader has the best fill-level win rate on (min 5 trades).">Alfa</th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
           <button
             type="button"
@@ -138,7 +140,7 @@
             class="k-th-sort-button"
             class:is-active={activeSort === 'frequency'}
             onclick={() => setSort('frequency')}
-            title="Weekly trade average"
+            title="Monthly trade average"
           >
             Frequency<span class="stripe-th-sort-indicator">{indicator('frequency')}</span>
           </button>
@@ -160,6 +162,23 @@
               <span>{truncateAddress(row.address)}</span>
             </a>
           </td>
+          <td class="stripe-table-alfa">
+            {#if row.alfa_coin}
+              <span class="k-alfa-cell">
+                <img
+                  src={coinIconUrl(row.alfa_coin)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                  class:is-white-bg={coinNeedsWhiteBg(row.alfa_coin)}
+                />
+                {coinDisplayName(row.alfa_coin)}
+              </span>
+            {:else}
+              —
+            {/if}
+          </td>
           <td class="stripe-table-numeric {pnlSignClass(row.metrics.total_pnl_usd)}">
             {formatPnl(row.metrics.total_pnl_usd)}
           </td>
@@ -170,7 +189,7 @@
               <ScoreBars score={row.score} />
             </span>
           </td>
-          <td class="stripe-table-numeric">{formatTradesPerWeek(row.metrics.trades_per_week)}</td>
+          <td class="stripe-table-numeric">{formatTradesPerMonth(row.metrics.trades_per_month)}</td>
         </tr>
       {/each}
       {#each Array(ghostCount) as _, i (`ghost-${i}`)}
@@ -181,6 +200,7 @@
               <span>—</span>
             </span>
           </td>
+          <td class="stripe-table-alfa">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>

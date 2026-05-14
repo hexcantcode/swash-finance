@@ -1001,6 +1001,30 @@ body {
   padding-left: var(--space-5) !important;
 }
 
+/* "Alfa" leaderboard column — coin the trader has the best win rate on. Compact
+ * mono cell sitting between Trader and PnL; matches the mini-table treatment. */
+.stripe-table-alfa {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+/* Inner wrapper carries the inline flex so the icon + label stay aligned;
+ * the `<td>` itself can't be flex without changing table layout. */
+.k-alfa-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.k-alfa-cell .k-coin-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
 .k-trader-link {
   display: inline-flex;
   align-items: center;
@@ -2044,6 +2068,36 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* "Alfa" column — the coin a trader has the best win rate on. Slim fixed
+ * column shared by the Winners and Win Rate mini-tables. Right of the
+ * address, left of the numeric cells. Same alignment treatment for both
+ * the colhead label and the data cell so they line up vertically. */
+.k-mini-table-alfa {
+  flex: 0 0 auto;
+  min-width: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Pin the inline coin icon to a small size inside the Alfa cell — the
+ * default `.k-mini-table-row .k-coin-icon` rule sizes it at 20×20 (matches
+ * the leading avatar / row icon), which is too big for the secondary cell.
+ * Same approach as `.k-mini-table-price .k-coin-icon`. */
+.k-mini-table-alfa .k-coin-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
 /* Win Rate panel's "Last 5" column — flex-align the inline SVG to the
    right edge of the cell so it lines up with the column-header label.
    Applied to both the head label and the data cell so the text and the
@@ -2055,7 +2109,7 @@ body {
   text-align: right;
 }
 
-/* Split mini-table row (analytics: Latest trades, Top open positions) — the
+/* Split mini-table row (analytics: Latest trades, Winning Trades) — the
  * row is a non-link wrapper with two `<a>` segments inside, so the trader
  * half navigates to /trader/<addr> and the asset half to /assets/<coin>. */
 .k-mini-table-seg {
@@ -2063,11 +2117,45 @@ body {
   color: inherit;
 }
 .k-mini-table-seg-trader {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* Asset cell takes the slack the trader cell used to. Left-align the
+ * cluster inside the cell, but reserve `padding-left` so it sits clearly
+ * inside its own column instead of jamming up against the trader avatar.
+ * Every row's ↑/↓ stacks at the same x (= the cell's left edge plus its
+ * padding) — a clean vertical column. */
+.k-mini-table-row--split .k-mini-table-seg-asset {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  padding-left: var(--space-6);
+}
+/* Analytics two-row head: a `.k-mini-table-head` (title line) followed by
+ * `.k-mini-table-colhead--split` (column labels). The colhead row shares
+ * the same flex template as the data rows so the column labels line up
+ * directly above their data columns (the title's width no longer pushes
+ * the column-label start to the right). */
+.k-mini-table-colhead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-muted);
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+.k-mini-table-colhead-spacer {
+  flex-shrink: 0;
+}
+.k-mini-table-colhead--split .k-mini-table-colhead-label.k-mini-table-price {
+  flex: 1;
+  padding-left: var(--space-6);
 }
 .k-mini-table-seg-trader:hover .k-mini-table-addr,
 .k-mini-table-seg-asset:hover {
@@ -2271,6 +2359,9 @@ body {
 .k-sentiment-fill {
   display: block;
   height: 100%;
+  /* Smooth animation when the poll-driven $state update shifts the long/short
+   * split. Without this the bars snap on every refresh; with it they slide. */
+  transition: width 600ms ease-out;
 }
 .k-sentiment-long {
   background: var(--stripe-success);
@@ -2495,15 +2586,15 @@ tr.k-row-flash-down > td {
   border-spacing: 4px;
   font-variant-numeric: tabular-nums;
 }
-/* Traders down the left (avatar + small address + score), coins across the
- * top as small icon chips. Volume-ranked from the full HL universe (main +
- * HIP-3), so columns can be sparse — that's the point. */
+/* Traders down the left (avatar only — score chip removed for visual room),
+ * coins across the top as small icon chips. Volume-ranked from the full HL
+ * universe (main + HIP-3), so columns can be sparse — that's the point. */
 .k-matrix-rowhead {
   background: transparent;
   font-weight: 500;
   text-align: left;
-  padding: 6px 12px 6px 0;
-  min-width: 180px;
+  padding: 6px 8px 6px 0;
+  width: 32px;
 }
 /* Trader row (left rowhead). Small avatar + truncated address + optional score. */
 .k-matrix-traderrow {

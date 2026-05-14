@@ -67,14 +67,14 @@ export function formatNumber(
   });
 }
 
-/** Weekly trade average → "12 / wk", "0.4 / wk", "—". Compact: integer at ≥10,
+/** Monthly trade average → "12 / mo", "0.4 / mo", "—". Compact: integer at ≥10,
  *  one decimal below. */
-export function formatTradesPerWeek(value: number | null | undefined): string {
+export function formatTradesPerMonth(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value) || value < 0) return '—';
-  if (value === 0) return '0 / wk';
-  if (value >= 1000) return `${Math.round(value / 1000)}k / wk`;
-  if (value >= 10) return `${Math.round(value)} / wk`;
-  return `${value.toFixed(1)} / wk`;
+  if (value === 0) return '0 / mo';
+  if (value >= 1000) return `${Math.round(value / 1000)}k / mo`;
+  if (value >= 10) return `${Math.round(value)} / mo`;
+  return `${value.toFixed(1)} / mo`;
 }
 
 export function formatDuration(seconds: number | null | undefined): string {

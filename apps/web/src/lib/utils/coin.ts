@@ -18,6 +18,13 @@
 export function coinIconUrl(coin: string): string {
   const sym = bareSymbol(coin);
   if (COIN_LOGO_OVERRIDES.has(sym)) return `/icons/${sym}.png`;
+  // Logo alias: HL's CDN doesn't host a logo for some symbols (e.g. `cash:WTI`,
+  // `xyz:WTI` both 404), but does host an equivalent listing of the same
+  // commodity (e.g. `xyz:CL` — HL's other crude-oil ticker). The alias map is
+  // keyed by bare symbol so every dex prefix of that symbol picks up the same
+  // working logo.
+  const aliasedCoin = COIN_LOGO_ALIASES.get(sym);
+  if (aliasedCoin !== undefined) return `/coins/${aliasedCoin}.svg`;
   let bare = coin.replace(/-?PERP$/i, '');
   if (!bare.includes(':') && /^k[A-Z]/.test(bare)) bare = bare.slice(1);
   return `/coins/${bare}.svg`;
@@ -61,6 +68,22 @@ export const COIN_LOGO_OVERRIDES: ReadonlySet<string> = new Set([
   'NATGAS', 'URNM', 'WHEAT', 'KWEB', 'BIRD', 'CAR',
   'BMNR', 'TENCENT', 'XIAOMI', 'EBAY', 'GAS',
   'USENERGY', 'SEMI', 'MSFT', 'COPPER', 'SMSN', 'INTC',
+]);
+
+/**
+ * Logo aliases for symbols HL's CDN doesn't host — keyed by bare symbol, value
+ * is the fully-qualified coin string to fetch the logo for instead. Used when
+ * the same commodity exists under multiple tickers and only one is hosted.
+ *
+ * Pattern: a `bare:SYMBOL` that 404s on HL's CDN is aliased to a working
+ * variant of the same commodity. Bare-symbol key means every dex prefix
+ * (`cash:WTI`, `xyz:WTI`, …) picks up the same alias without per-prefix
+ * entries.
+ */
+export const COIN_LOGO_ALIASES: ReadonlyMap<string, string> = new Map([
+  // WTI crude oil → use HL's other crude listing (`xyz:CL`) which the CDN does
+  // host. Same commodity, both barrel logos look identical on HL.
+  ['WTI', 'xyz:CL'],
 ]);
 
 /**

@@ -1,6 +1,7 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { scores, wallets } from '@copytrade/db';
 import { db } from '../db.js';
+import { listBestAssetsByWinRate } from './best-asset.js';
 
 export interface WeeklyLeaderRow {
   address: string;
@@ -16,6 +17,9 @@ export interface WeeklyLeaderRow {
   volume_7d_usd: number | null;
   account_value_usd: number | null;
   last_active_at: string | null;
+  /** "Alfa" — coin this trader has the highest fill-level win rate on with
+   *  ≥ 5 trades on that coin. Null when no coin clears the sample floor. */
+  alfa_coin: string | null;
 }
 
 /**
@@ -55,6 +59,8 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     .orderBy(asc(wallets.winnerRank))
     .limit(limit);
 
+  const alfaByAddress = await listBestAssetsByWinRate(rows.map((r) => r.address));
+
   return rows.map((r) => ({
     address: r.address,
     primary_tag: r.primary_tag,
@@ -68,6 +74,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     volume_7d_usd: numOrNull(r.volume_7d_usd),
     account_value_usd: numOrNull(r.account_value_usd),
     last_active_at: r.last_active_at?.toISOString() ?? null,
+    alfa_coin: alfaByAddress.get(r.address) ?? null,
   }));
 }
 

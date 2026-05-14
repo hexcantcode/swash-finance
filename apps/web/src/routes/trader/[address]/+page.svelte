@@ -7,7 +7,7 @@
     formatPct,
     formatPnl,
     formatRelativeTime,
-    formatTradesPerWeek,
+    formatTradesPerMonth,
     formatUsd,
     pnlSignClass,
     shortAddress,
@@ -213,10 +213,10 @@
       </div>
       <div class="k-trader-stat">
         <span class="k-trader-stat-label">Frequency</span>
-        <span class="k-trader-stat-value" title="Weekly trade average">
-          {formatTradesPerWeek(
+        <span class="k-trader-stat-value" title="Monthly trade average">
+          {formatTradesPerMonth(
             data.leader.scoring?.trades_per_day_avg != null
-              ? data.leader.scoring.trades_per_day_avg * 7
+              ? data.leader.scoring.trades_per_day_avg * 30
               : null,
           )}
         </span>

@@ -4,6 +4,7 @@
   import WinLossPills from '$lib/components/WinLossPills.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import {
     effigyUrl,
     formatPct,
@@ -70,6 +71,7 @@
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head-row">
           <span class="k-mini-table-head-title">Winners · 7d</span>
+          <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
           <span class="k-mini-table-head-label k-mini-table-price">7d PnL</span>
           <span class="k-mini-table-head-label k-mini-table-chg">ROI</span>
         </div>
@@ -88,6 +90,21 @@
                 class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
               />
               <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
+              <span class="k-mini-table-alfa">
+                {#if t.alfa_coin}
+                  <img
+                    src={coinIconUrl(t.alfa_coin)}
+                    alt=""
+                    loading="lazy"
+                    onerror={hideBrokenAvatar}
+                    class="k-coin-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(t.alfa_coin)}
+                  />
+                  {coinDisplayName(t.alfa_coin)}
+                {:else}
+                  —
+                {/if}
+              </span>
               <span class="k-mini-table-price {pnlSignClass(t.pnl_7d_usd)}">
                 {formatPnl(t.pnl_7d_usd)}
               </span>
@@ -99,6 +116,7 @@
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head-row">
           <span class="k-mini-table-head-title">Win Rate</span>
+          <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
           <span class="k-mini-table-head-label k-mini-table-price">Rate</span>
           <span class="k-mini-table-head-label k-mini-table-chg k-mini-table-pills">Last 5</span>
         </div>
@@ -115,6 +133,21 @@
                 class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
               />
               <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
+              <span class="k-mini-table-alfa">
+                {#if t.alfa_coin}
+                  <img
+                    src={coinIconUrl(t.alfa_coin)}
+                    alt=""
+                    loading="lazy"
+                    onerror={hideBrokenAvatar}
+                    class="k-coin-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(t.alfa_coin)}
+                  />
+                  {coinDisplayName(t.alfa_coin)}
+                {:else}
+                  —
+                {/if}
+              </span>
               <span class="k-mini-table-price k-pnl-positive">{formatPct(t.win_rate, 0)}</span>
               <span class="k-mini-table-chg k-mini-table-pills">
                 <WinLossPills results={t.last_closed} />

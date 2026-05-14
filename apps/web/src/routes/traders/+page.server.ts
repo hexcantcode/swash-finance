@@ -54,6 +54,7 @@ export const load: PageServerLoad = async ({ url }) => {
       address: r.address,
       pnl_7d_usd: r.pnl_7d_usd,
       roi_7d: r.roi_7d,
+      alfa_coin: r.alfa_coin,
     }));
 
   return {

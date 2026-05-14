@@ -6,6 +6,7 @@ import {
   MIN_ROUND_TRIPS,
 } from '@copytrade/scoring';
 import { db } from '../db.js';
+import { listBestAssetsByWinRate } from './best-asset.js';
 
 export interface WinRateLeaderRow {
   address: string;
@@ -19,6 +20,9 @@ export interface WinRateLeaderRow {
    * in the Win Rate panel — `pnlUsd > 0` = win, `< 0` = loss.
    */
   last_closed: Array<{ closeTimeMs: number; pnlUsd: number }>;
+  /** "Alfa" — coin this trader has the highest fill-level win rate on with
+   *  ≥ 5 trades on that coin. Null when no coin clears the sample floor. */
+  alfa_coin: string | null;
 }
 
 const LAST_CLOSED_LIMIT = 5;
@@ -78,7 +82,7 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
 
   // First pass: drop MM-shaped wallets. We still over-fetch by 10× so the
   // post-filter has plenty of candidates left.
-  const passMM: Array<Omit<WinRateLeaderRow, 'last_closed'>> = [];
+  const passMM: Array<Omit<WinRateLeaderRow, 'last_closed' | 'alfa_coin'>> = [];
   for (const r of candidates) {
     const isMM = isMarketMakerPattern({
       makerShare: numOrNull(r.maker_share),
@@ -101,16 +105,21 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
   // longer in the live `fills` table (purged, ingested via aggregates,
   // etc.) — those would render empty pills, so we skip them and let the
   // next-best candidate take the slot.
-  const lastClosedByAddr = await getRecentClosingFills(
-    passMM.map((r) => r.address),
-    LAST_CLOSED_LIMIT,
-  );
+  const passingAddresses = passMM.map((r) => r.address);
+  const [lastClosedByAddr, alfaByAddress] = await Promise.all([
+    getRecentClosingFills(passingAddresses, LAST_CLOSED_LIMIT),
+    listBestAssetsByWinRate(passingAddresses),
+  ]);
   const result: WinRateLeaderRow[] = [];
   for (const r of passMM) {
     if (result.length >= limit) break;
     const lastClosed = lastClosedByAddr.get(r.address) ?? [];
     if (lastClosed.length === 0) continue;
-    result.push({ ...r, last_closed: lastClosed });
+    result.push({
+      ...r,
+      last_closed: lastClosed,
+      alfa_coin: alfaByAddress.get(r.address) ?? null,
+    });
   }
   return result;
 }
