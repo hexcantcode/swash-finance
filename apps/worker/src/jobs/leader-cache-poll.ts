@@ -5,6 +5,7 @@ import { normalizeAddress } from '@copytrade/shared';
 import type { ClearinghouseStateResponse } from '@copytrade/hl-client';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
+import { preserveHip3OnMainWrite } from '../lib/leader-cache-merge.js';
 import { log } from '../log.js';
 
 /**
@@ -157,13 +158,14 @@ async function pollOnce(isStopping: () => boolean): Promise<void> {
 /**
  * Upsert `leader_cache` from a `clearinghouseState` REST response.
  *
- * Mirrors `ws-live-subscriber.handleWebData2`'s upsert exactly (same columns,
- * same HIP-3-preserving `positions_json` merge), but with
- * `source = 'rest_poll'` so downstream consumers can distinguish the writer.
- * The merge SQL keeps existing HIP-3 entries (coin contains `:`) and appends
- * the new main-dex array from this call — important because the user is
- * separately polling HIP-3 dexes via `ws-live-subscriber`'s perpDexs loop,
- * and that data must not be clobbered.
+ * Mirrors `ws-live-subscriber.handleWebData2`'s upsert (same columns, same
+ * `positions_json` merge contract from `../lib/leader-cache-merge.ts`), but
+ * with `source = 'rest_poll'` so downstream consumers can distinguish the
+ * writer. The shared `preserveHip3OnMainWrite()` merge keeps existing HIP-3
+ * entries (coin contains `:`, owned by `ws-live-subscriber`'s perpDexs
+ * poller) and appends this call's main-dex array — so the three writers
+ * (WS push, REST main poll, HIP-3 dex poll) compose without clobbering
+ * each other's slice.
  */
 async function upsertLeaderCacheFromClearinghouse(
   address: string,
@@ -198,17 +200,7 @@ async function upsertLeaderCacheFromClearinghouse(
         accountValue: sql`excluded.account_value`,
         marginUsed: sql`excluded.margin_used`,
         leverage: sql`excluded.leverage`,
-        // Same merge as ws-live-subscriber.handleWebData2: preserve existing
-        // HIP-3 entries (coin contains ":"), append new main-dex array.
-        positionsJson: sql`(
-          coalesce(
-            (select jsonb_agg(elem)
-             from jsonb_array_elements(${leaderCache.positionsJson}) as elem
-             where (elem -> 'position' ->> 'coin') like '%:%'),
-            '[]'::jsonb
-          )
-          || excluded.positions_json
-        )`,
+        positionsJson: preserveHip3OnMainWrite(),
         source: sql`excluded.source`,
         lastRefreshedAt: sql`excluded.last_refreshed_at`,
         lastRefreshSource: sql`excluded.last_refresh_source`,
