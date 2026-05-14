@@ -9,7 +9,6 @@
     formatTradesPerMonth,
     formatUsd,
     pnlSignClass,
-    truncateAddress,
   } from '$lib/utils/format';
 
   interface Props {
@@ -103,6 +102,7 @@
     <thead>
       <tr>
         <th class="stripe-table-trader">Trader</th>
+        <th class="stripe-table-holdings" title="Top 3 currently-open positions by notional. `+N` indicates additional positions.">Holdings</th>
         <th class="stripe-table-alfa" title="Coin this trader has the best fill-level win rate on (min 5 trades).">Alfa</th>
         <th class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
           <button
@@ -159,8 +159,31 @@
                 onerror={hideBrokenAvatar}
                 class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
               />
-              <span>{truncateAddress(row.address)}</span>
             </a>
+          </td>
+          <td class="stripe-table-holdings">
+            {#if row.holdings.top.length === 0}
+              —
+            {:else}
+              <span class="k-holdings-cell">
+                {#each row.holdings.top as h (h.coin)}
+                  <img
+                    src={coinIconUrl(h.coin)}
+                    alt=""
+                    loading="lazy"
+                    onerror={hideBrokenAvatar}
+                    class="k-coin-icon k-holdings-icon"
+                    class:is-white-bg={coinNeedsWhiteBg(h.coin)}
+                    class:is-long={h.side === 'long'}
+                    class:is-short={h.side === 'short'}
+                  />
+                {/each}
+                {#if row.holdings.total > row.holdings.top.length}
+                  <span class="k-holdings-more"
+                    >+{row.holdings.total - row.holdings.top.length}</span>
+                {/if}
+              </span>
+            {/if}
           </td>
           <td class="stripe-table-alfa">
             {#if row.alfa_coin}
@@ -197,9 +220,9 @@
           <td class="stripe-table-trader">
             <span class="k-trader-link">
               <span class="stripe-avatar stripe-avatar-sm k-avatar-ghost"></span>
-              <span>—</span>
             </span>
           </td>
+          <td class="stripe-table-holdings">—</td>
           <td class="stripe-table-alfa">—</td>
           <td class="stripe-table-numeric">—</td>
           <td class="stripe-table-numeric">—</td>

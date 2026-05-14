@@ -3,6 +3,7 @@ import { scores, walletTags, wallets } from '@copytrade/db';
 import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
+import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
 
 export interface LeaderCard {
   address: string;
@@ -36,6 +37,10 @@ export interface LeaderCard {
    *  Distinct from `primary_asset` (most-traded by volume): same trader can
    *  have BTC as primary_asset and SOL as alfa_coin. */
   alfa_coin: string | null;
+  /** Currently-open positions snapshot — top 3 by notional + total count.
+   *  Drives the Holdings column. Empty top + total=0 when the wallet has
+   *  no open positions in `leader_cache`. */
+  holdings: HoldingsByAddress;
   /** True iff this wallet is in the curated "best traders" set (passed the
    * eligibility gate AND composite >= 70, with ~65 hysteresis). `/browse` shows
    * everything; pass `curatedOnly: true` to restrict. */
@@ -175,7 +180,7 @@ export async function listLeaders(args: {
   // Look up secondary tags in a single query for the fetched leaders.
   const addresses = rows.map((r) => r.address);
   const secondaryByAddress = new Map<string, string[]>();
-  const [, alfaByAddress] = await Promise.all([
+  const [, alfaByAddress, holdingsByAddress] = await Promise.all([
     (async () => {
       if (addresses.length === 0) return;
       const tagRows = await db()
@@ -195,6 +200,7 @@ export async function listLeaders(args: {
       }
     })(),
     listBestAssetsByWinRate(addresses),
+    listHoldingsByAddress(addresses),
   ]);
 
   const leaders: LeaderCard[] = rows.map((r) => ({
@@ -218,6 +224,7 @@ export async function listLeaders(args: {
     },
     primary_asset: r.primary_asset,
     alfa_coin: alfaByAddress.get(r.address) ?? null,
+    holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
     curated: r.curated,
     winner: r.winner,
     winner_rank: r.winner_rank,

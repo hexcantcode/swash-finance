@@ -36,7 +36,6 @@
               onerror={hideBrokenAvatar}
               class="k-ticker-avatar"
             />
-            <span class="k-ticker-addr">{truncateAddress(t.address)}</span>
             <span class="k-ticker-side {t.side === 'B' ? 'buy' : 'sell'}">
               {t.side === 'B' ? '↗' : '↘'}
             </span>

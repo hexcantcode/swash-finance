@@ -10,7 +10,6 @@
     formatPct,
     formatPnl,
     pnlSignClass,
-    truncateAddress,
   } from '$lib/utils/format';
   import type { PageData } from './$types';
 
@@ -69,11 +68,15 @@
   <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head k-mini-table-head-row">
-          <span class="k-mini-table-head-title">Winners · 7d</span>
-          <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
-          <span class="k-mini-table-head-label k-mini-table-price">7d PnL</span>
-          <span class="k-mini-table-head-label k-mini-table-chg">ROI</span>
+        <div class="k-mini-table-head k-mini-table-head--stacked">
+          <div class="k-mini-table-head-title-line">Winners · 7d</div>
+          <div class="k-mini-table-head-colheads">
+            <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
+            <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
+            <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
+            <span class="k-mini-table-head-label k-mini-table-price">7d PnL</span>
+            <span class="k-mini-table-head-label k-mini-table-chg">ROI</span>
+          </div>
         </div>
         {#if winnerRows.length === 0}
           <div class="k-empty">
@@ -89,7 +92,28 @@
                 onerror={hideBrokenAvatar}
                 class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
               />
-              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
+              <span class="k-mini-table-holdings">
+                {#if t.holdings.top.length === 0}
+                  <span class="k-mini-table-holdings-empty">—</span>
+                {:else}
+                  {#each t.holdings.top as h (h.coin)}
+                    <img
+                      src={coinIconUrl(h.coin)}
+                      alt=""
+                      loading="lazy"
+                      onerror={hideBrokenAvatar}
+                      class="k-coin-icon k-mini-table-holdings-icon"
+                      class:is-white-bg={coinNeedsWhiteBg(h.coin)}
+                      class:is-long={h.side === 'long'}
+                      class:is-short={h.side === 'short'}
+                    />
+                  {/each}
+                  {#if t.holdings.total > t.holdings.top.length}
+                    <span class="k-mini-table-holdings-more"
+                      >+{t.holdings.total - t.holdings.top.length}</span>
+                  {/if}
+                {/if}
+              </span>
               <span class="k-mini-table-alfa">
                 {#if t.alfa_coin}
                   <img
@@ -114,11 +138,15 @@
         {/if}
       </div>
       <div class="k-mini-table">
-        <div class="k-mini-table-head k-mini-table-head-row">
-          <span class="k-mini-table-head-title">Win Rate</span>
-          <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
-          <span class="k-mini-table-head-label k-mini-table-price">Rate</span>
-          <span class="k-mini-table-head-label k-mini-table-chg k-mini-table-pills">Last 5</span>
+        <div class="k-mini-table-head k-mini-table-head--stacked">
+          <div class="k-mini-table-head-title-line">Win Rate</div>
+          <div class="k-mini-table-head-colheads">
+            <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
+            <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
+            <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
+            <span class="k-mini-table-head-label k-mini-table-price">Rate</span>
+            <span class="k-mini-table-head-label k-mini-table-chg k-mini-table-pills">Last 5</span>
+          </div>
         </div>
         {#if winRateRows.length === 0}
           <div class="k-empty">no scored traders yet</div>
@@ -132,7 +160,28 @@
                 onerror={hideBrokenAvatar}
                 class="stripe-avatar stripe-avatar-sm stripe-avatar-ring"
               />
-              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(t.address)}</span>
+              <span class="k-mini-table-holdings">
+                {#if t.holdings.top.length === 0}
+                  <span class="k-mini-table-holdings-empty">—</span>
+                {:else}
+                  {#each t.holdings.top as h (h.coin)}
+                    <img
+                      src={coinIconUrl(h.coin)}
+                      alt=""
+                      loading="lazy"
+                      onerror={hideBrokenAvatar}
+                      class="k-coin-icon k-mini-table-holdings-icon"
+                      class:is-white-bg={coinNeedsWhiteBg(h.coin)}
+                      class:is-long={h.side === 'long'}
+                      class:is-short={h.side === 'short'}
+                    />
+                  {/each}
+                  {#if t.holdings.total > t.holdings.top.length}
+                    <span class="k-mini-table-holdings-more"
+                      >+{t.holdings.total - t.holdings.top.length}</span>
+                  {/if}
+                {/if}
+              </span>
               <span class="k-mini-table-alfa">
                 {#if t.alfa_coin}
                   <img

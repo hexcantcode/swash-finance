@@ -990,7 +990,7 @@ body {
 }
 
 .stripe-table-numeric {
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1001,10 +1001,52 @@ body {
   padding-left: var(--space-5) !important;
 }
 
+/* "Holdings" leaderboard column — top 3 currently-open position icons,
+ * with a `+N` chip for any overflow. Sits between Trader (avatar only)
+ * and Alfa. Left-aligned inside the cell so the icons stack against the
+ * Trader column without an awkward gap. */
+.stripe-table-holdings {
+  text-align: left;
+  white-space: nowrap;
+}
+.k-holdings-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.k-holdings-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-holdings-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-holdings-icon.is-short {
+  border-color: var(--stripe-danger);
+}
+.k-holdings-more {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-tertiary);
+  margin-left: 2px;
+}
+
+/* Alfa columns hidden site-wide — reversible toggle. Drop this block to
+ * re-show. Server queries still enrich `alfa_coin`; only the rendering
+ * is suppressed, so re-enabling is a CSS-only change. */
+.stripe-table-alfa,
+.k-mini-table-alfa {
+  display: none !important;
+}
+
 /* "Alfa" leaderboard column — coin the trader has the best win rate on. Compact
  * mono cell sitting between Trader and PnL; matches the mini-table treatment. */
 .stripe-table-alfa {
-  text-align: center;
+  text-align: left;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
@@ -2011,6 +2053,53 @@ body {
   text-transform: uppercase;
   color: var(--stripe-text-muted);
 }
+
+/* Two-row head — panel title above a separate col-head row that mirrors
+ * the data row's flex layout exactly (avatar spacer + Holdings/Alfa/…
+ * cells using the same column classes as the data). Column labels sit
+ * directly above their data, which a single-row head can't deliver since
+ * the title takes up the avatar slot's space but is much wider than the
+ * 20px avatar. */
+.k-mini-table-head--stacked {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.k-mini-table-head-title-line {
+  padding: var(--space-2) var(--space-3) 4px;
+  color: var(--stripe-text-secondary);
+}
+.k-mini-table-head-colheads {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3) 6px;
+}
+.k-mini-table-head-colheads .k-mini-table-head-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-muted);
+}
+.k-mini-table-head-avatar-spacer {
+  width: 20px;
+  flex: 0 0 20px;
+}
+/* Data rows + the col-head sub-row share an identical grid template.
+ * Avatar pinned to col 1 (left); a 1fr spacer in col 2 pushes the rest
+ * of the columns (holdings / price / chg) flush to the right side of
+ * the row. Explicit `grid-column` placement keeps cells in their slot
+ * regardless of which siblings are hidden (currently
+ * `.k-mini-table-alfa` is `display: none` and its auto-column
+ * collapses to 0). Content WITHIN each non-avatar column is
+ * center-aligned by the per-cell rules further down (the column class
+ * is shared between the col-head label and the data cell, so headers
+ * and data center-align consistently). */
+/* Base data row — default flex layout used by analytics's `--split` rows
+ * (Latest trades, Winning Trades). The /traders leader mini-tables
+ * override this with a grid layout via the `:not(--split)` selector
+ * further down. */
 .k-mini-table-row {
   display: flex;
   align-items: center;
@@ -2019,6 +2108,43 @@ body {
   text-decoration: none;
   border-bottom: 0.5px solid var(--stripe-border);
   transition: background-color var(--transition-fast);
+}
+
+/* /traders leader mini-tables (Winners, Win Rate) only — fixed-grid
+ * layout shared between the col-head sub-row and every data row so the
+ * `HOLDINGS` / `7D PNL` / `ROI` labels stack pixel-perfect above their
+ * data. Avatar pinned to col 1; a 1fr spacer in col 2 pushes the rest of
+ * the columns flush to the right side of the row. Explicit `grid-column`
+ * placement keeps cells stable when siblings hide (currently
+ * `.k-mini-table-alfa` is `display: none` and its auto-column collapses
+ * to 0). Analytics's `--split` rows keep the flex base above. */
+.k-mini-table-row:not(.k-mini-table-row--split),
+.k-mini-table-head-colheads {
+  display: grid;
+  grid-template-columns: 20px 1fr 96px auto 80px 96px;
+  align-items: center;
+  column-gap: var(--space-3);
+  gap: 0;
+}
+.k-mini-table-row:not(.k-mini-table-row--split) > .stripe-avatar,
+.k-mini-table-head-avatar-spacer {
+  grid-column: 1;
+}
+.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-holdings,
+.k-mini-table-head-colheads .k-mini-table-holdings {
+  grid-column: 3;
+}
+.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-alfa,
+.k-mini-table-head-colheads .k-mini-table-alfa {
+  grid-column: 4;
+}
+.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-price,
+.k-mini-table-head-colheads .k-mini-table-price {
+  grid-column: 5;
+}
+.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-chg,
+.k-mini-table-head-colheads .k-mini-table-chg {
+  grid-column: 6;
 }
 
 /* Lock the leading icon to 20×20 in mini-table rows so the Winners (trader
@@ -2059,7 +2185,7 @@ body {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
   min-width: 80px;
   font-size: 12px;
@@ -2078,10 +2204,53 @@ body {
 .k-mini-table-chg {
   flex: 0 0 auto;
   min-width: 80px;
-  text-align: right;
+  text-align: center;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* "Holdings" column — top 3 currently-open positions by notional + a `+N`
+ * chip for any overflow. Shrink-to-content so it sits compactly on the
+ * left next to the trader avatar (rather than stretching across the row).
+ * `min-width` ≈ three 14px icons + gap + `+NN` chip — keeps short-list
+ * traders' cells from collapsing too narrow so the column reads as a
+ * consistent column. Shared by both Winners and Win Rate mini-tables. */
+.k-mini-table-holdings {
+  flex: 0 0 auto;
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+/* Holdings icon — 14px to match Alfa, with a directional inner ring.
+ * Green for long, red for short. `box-sizing: border-box` keeps the
+ * visual size at 14px regardless of the border so icons stack at a
+ * consistent stride; the border eats 1.5px of the image content. */
+.k-mini-table-holdings-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-mini-table-holdings-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-mini-table-holdings-icon.is-short {
+  border-color: var(--stripe-danger);
+}
+.k-mini-table-holdings-more {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-tertiary);
+  margin-left: 2px;
+}
+.k-mini-table-holdings-empty {
+  color: var(--stripe-text-tertiary);
+  font-size: 12px;
 }
 
 /* "Alfa" column — the coin a trader has the best win rate on. Slim fixed
@@ -2093,7 +2262,7 @@ body {
   min-width: 64px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 4px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -2121,8 +2290,8 @@ body {
 .k-mini-table-chg.k-mini-table-pills {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  text-align: right;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Split mini-table row (analytics: Latest trades, Winning Trades) — the
@@ -2181,7 +2350,7 @@ body {
 .k-mini-table-val {
   flex: 0 0 auto;
   min-width: 76px;
-  text-align: right;
+  text-align: left;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--stripe-text-secondary);
@@ -2576,7 +2745,7 @@ tr.k-row-flash-down > td {
 .k-mini-table-lev {
   flex: 0 0 auto;
   min-width: 56px;
-  text-align: right;
+  text-align: left;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--stripe-text-secondary);

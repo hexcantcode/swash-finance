@@ -7,6 +7,7 @@ import {
 } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
+import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
 
 export interface WinRateLeaderRow {
   address: string;
@@ -23,6 +24,9 @@ export interface WinRateLeaderRow {
   /** "Alfa" — coin this trader has the highest fill-level win rate on with
    *  ≥ 5 trades on that coin. Null when no coin clears the sample floor. */
   alfa_coin: string | null;
+  /** Currently-open positions snapshot — top 3 by notional + total count.
+   *  Drives the Holdings cell on the traders page. */
+  holdings: HoldingsByAddress;
 }
 
 const LAST_CLOSED_LIMIT = 5;
@@ -82,7 +86,7 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
 
   // First pass: drop MM-shaped wallets. We still over-fetch by 10× so the
   // post-filter has plenty of candidates left.
-  const passMM: Array<Omit<WinRateLeaderRow, 'last_closed' | 'alfa_coin'>> = [];
+  const passMM: Array<Omit<WinRateLeaderRow, 'last_closed' | 'alfa_coin' | 'holdings'>> = [];
   for (const r of candidates) {
     const isMM = isMarketMakerPattern({
       makerShare: numOrNull(r.maker_share),
@@ -106,9 +110,10 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
   // etc.) — those would render empty pills, so we skip them and let the
   // next-best candidate take the slot.
   const passingAddresses = passMM.map((r) => r.address);
-  const [lastClosedByAddr, alfaByAddress] = await Promise.all([
+  const [lastClosedByAddr, alfaByAddress, holdingsByAddress] = await Promise.all([
     getRecentClosingFills(passingAddresses, LAST_CLOSED_LIMIT),
     listBestAssetsByWinRate(passingAddresses),
+    listHoldingsByAddress(passingAddresses),
   ]);
   const result: WinRateLeaderRow[] = [];
   for (const r of passMM) {
@@ -119,6 +124,7 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
       ...r,
       last_closed: lastClosed,
       alfa_coin: alfaByAddress.get(r.address) ?? null,
+      holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
     });
   }
   return result;

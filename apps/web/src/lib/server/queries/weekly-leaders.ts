@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { scores, wallets } from '@copytrade/db';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
+import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
 
 export interface WeeklyLeaderRow {
   address: string;
@@ -20,6 +21,10 @@ export interface WeeklyLeaderRow {
   /** "Alfa" — coin this trader has the highest fill-level win rate on with
    *  ≥ 5 trades on that coin. Null when no coin clears the sample floor. */
   alfa_coin: string | null;
+  /** Currently-open positions snapshot — top 3 by notional + total count.
+   *  Drives the Holdings cell on the traders page. Empty top + total=0 when
+   *  the wallet has no open positions in `leader_cache`. */
+  holdings: HoldingsByAddress;
 }
 
 /**
@@ -59,7 +64,11 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     .orderBy(asc(wallets.winnerRank))
     .limit(limit);
 
-  const alfaByAddress = await listBestAssetsByWinRate(rows.map((r) => r.address));
+  const addresses = rows.map((r) => r.address);
+  const [alfaByAddress, holdingsByAddress] = await Promise.all([
+    listBestAssetsByWinRate(addresses),
+    listHoldingsByAddress(addresses),
+  ]);
 
   return rows.map((r) => ({
     address: r.address,
@@ -75,6 +84,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     account_value_usd: numOrNull(r.account_value_usd),
     last_active_at: r.last_active_at?.toISOString() ?? null,
     alfa_coin: alfaByAddress.get(r.address) ?? null,
+    holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
   }));
 }
 
