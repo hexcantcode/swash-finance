@@ -264,7 +264,6 @@
 
   <section class="k-trader-section">
     <div class="k-section-head">
-      <h2 class="k-section-title">All assets</h2>
       <div class="k-asset-filters" role="group" aria-label="Filter assets by category">
         <button
           type="button"

@@ -228,7 +228,7 @@
   <!-- 2. Latest trades + Top open positions (side-by-side) ─────── -->
   <section class="k-trader-section">
     <div class="k-winners-losers">
-      <div class="k-mini-table">
+      <div class="k-mini-table" role="list">
         <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
           <span class="k-mini-table-head-title">Latest trades</span>
           <span class="k-mini-table-head-label k-mini-table-val">Size</span>
@@ -238,7 +238,7 @@
           <div class="k-empty">no recent trades from tracked wallets</div>
         {:else}
           {#each latestFills as f (f.key)}
-            <div class="k-mini-table-row k-mini-table-row--split" animate:flip={{ duration: 400 }}>
+            <div class="k-mini-table-row k-mini-table-row--split" role="listitem" animate:flip={{ duration: 400 }}>
               <a
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{f.address}"
@@ -291,7 +291,7 @@
         {/if}
       </div>
 
-      <div class="k-mini-table">
+      <div class="k-mini-table" role="list">
         <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
           <span class="k-mini-table-head-title">Winning Trades</span>
           <span class="k-mini-table-head-label k-mini-table-val">Value</span>
@@ -301,7 +301,7 @@
           <div class="k-empty">no open positions across tracked traders right now</div>
         {:else}
           {#each data.topOpenPositions as p (`${p.address}|${p.coin}`)}
-            <div class="k-mini-table-row k-mini-table-row--split">
+            <div class="k-mini-table-row k-mini-table-row--split" role="listitem">
               <a
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{p.address}"

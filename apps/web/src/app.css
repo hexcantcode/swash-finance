@@ -990,7 +990,7 @@ body {
 }
 
 .stripe-table-numeric {
-  text-align: center;
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2030,7 +2030,7 @@ body {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 6px;
   min-width: 80px;
   font-size: 12px;
@@ -2062,7 +2062,7 @@ body {
 .k-mini-table-chg {
   flex: 0 0 auto;
   min-width: 80px;
-  text-align: center;
+  text-align: right;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -2098,15 +2098,15 @@ body {
   flex: 0 0 14px;
 }
 
-/* Win Rate panel's "Last 5" column — center the inline SVG within the
-   cell so it aligns the same way `.k-mini-table-chg`'s text (e.g. the
-   ROI column on Winners) does. Applied to both the colhead label and
-   the data cell so the header text and pills strip line up vertically. */
+/* Win Rate panel's "Last 5" column — right-align the inline SVG within
+   the cell to match the new numeric-cell spec (ROI / Profit / PnL all
+   right-aligned). Applied to both the colhead label and the data cell
+   so the header text and pills strip share the same right edge. */
 .k-mini-table-chg.k-mini-table-pills {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-end;
+  text-align: right;
 }
 
 /* Split mini-table row (analytics: Latest trades, Winning Trades) — the
