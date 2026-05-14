@@ -1947,6 +1947,35 @@ body {
   }
 }
 
+/* /analytics — 2x2 categorized panel grid. Outer grid splits the section
+ * into Stocks & Commodities (left) / Crypto (right); each column stacks
+ * Latest trades on top of Winning Trades. Falls back to a single-column
+ * stack on narrow viewports so the panels don't get unreadably tight. */
+.k-categorized-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+.k-category-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.k-category-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-tertiary);
+  padding: 0 var(--space-1);
+}
+@media (max-width: 720px) {
+  .k-categorized-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
 .k-mini-table {
   border: 0.5px solid var(--stripe-border);
   border-radius: var(--radius-md);
@@ -2530,18 +2559,6 @@ tr.k-row-flash-down > td {
   letter-spacing: 0;
 }
 
-/* Small inline ROE chip next to the PnL value in a `.k-mini-table-chg`
- * cell on the analytics top-open-positions panel. Keep the row single-
- * line so it matches the height of the Latest-trades rows in the sibling
- * panel. Dimmer than the primary value so the PnL is the headline number. */
-.k-mini-table-chg .k-mini-table-roe {
-  margin-right: 6px;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
-  opacity: 0.7;
-}
-
 /* Side glyph (↑ / ↓) shared by the chart-marker rings, the positions cells
  * here, and the latest-opens cells. */
 .k-side-arrow {
@@ -2567,9 +2584,13 @@ tr.k-row-flash-down > td {
 }
 
 /* Directional leverage pill — green for long/buy, red for short/sell.
- * Soft `color-mix` tint, same family as the sentiment-bias chip. */
+ * Soft `color-mix` tint, same family as the sentiment-bias chip. Fixed
+ * `min-width` + centered text so `4x` and `40x` render as the same-sized
+ * pill — the number itself stacks at one x across rows, not just the
+ * pill's right edge. */
 .k-lev-pill {
   display: inline-block;
+  min-width: 32px;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   font-size: 11px;
@@ -2577,6 +2598,7 @@ tr.k-row-flash-down > td {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   line-height: 1.4;
+  text-align: center;
 }
 .k-lev-pill--long {
   color: var(--stripe-success);

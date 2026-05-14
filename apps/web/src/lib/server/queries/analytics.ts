@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { fills, leaderCache, wallets } from '@copytrade/db';
 import { coinCategory } from '$lib/utils/coin';
 import { db } from '../db.js';
+import { resolveCoins } from '../spot-aliases';
 import { listAllAssetsRaw } from './assets.js';
 
 /**
@@ -166,6 +167,59 @@ export async function getLatestTrades(
   }
 
   return trades;
+}
+
+/**
+ * Variant of `getLatestTrades` that returns trades pre-split by category —
+ * `stocks` (HIP-3 builder dexes that aren't on the crypto whitelist, plus
+ * the index symbols) on the left, `crypto` on the right. Same shape as
+ * `getCategoryPositionBreakdown`'s buckets so the two panels classify
+ * consistently. Over-fetches so we can deliver `perCategory` rows in each
+ * bucket even when the data is heavily skewed toward one side.
+ */
+export interface CategorizedLatestTrades {
+  stocks: LatestTrade[];
+  crypto: LatestTrade[];
+}
+export async function getLatestTradesByCategory(
+  opts: { perCategory?: number; scope?: 'tracked' | 'all' } = {},
+): Promise<CategorizedLatestTrades> {
+  const perCategory = opts.perCategory ?? 10;
+  // Over-fetch — fills are heavily crypto-skewed, so we need a wide enough
+  // window to reliably surface `perCategory` stocks rows. 200 is generous
+  // and the query cost is dominated by the GROUP BY, not by the row count.
+  const trades = await getLatestTrades(
+    opts.scope !== undefined
+      ? { limit: perCategory * 20, scope: opts.scope }
+      : { limit: perCategory * 20 },
+  );
+  return splitTradesByCategory(trades, perCategory);
+}
+
+function splitTradesByCategory<T extends { coin: string }>(
+  items: T[],
+  perCategory: number,
+): { stocks: T[]; crypto: T[] } {
+  const stocks: T[] = [];
+  const crypto: T[] = [];
+  for (const it of items) {
+    const cat = panelCategory(it.coin);
+    if (cat === 'stocks' && stocks.length < perCategory) stocks.push(it);
+    else if (cat === 'crypto' && crypto.length < perCategory) crypto.push(it);
+    if (stocks.length >= perCategory && crypto.length >= perCategory) break;
+  }
+  return { stocks, crypto };
+}
+
+/** Two-bucket coin classifier shared by the /analytics panel-split helpers.
+ *  `coinCategory` returns three values (`stocks` | `crypto` | `index`); we
+ *  fold `index` into `stocks` so the panel grid stays a clean stocks-vs-crypto
+ *  split (matches what the sentiment cards already do). */
+function panelCategory(coin: string): 'stocks' | 'crypto' {
+  const colonIdx = coin.indexOf(':');
+  const dex = colonIdx === -1 ? null : coin.slice(0, colonIdx);
+  const cat3 = coinCategory(coin, dex);
+  return cat3 === 'crypto' ? 'crypto' : 'stocks';
 }
 
 // ── Position matrix ────────────────────────────────────────────────────
@@ -469,6 +523,50 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
     }
   }
   return out;
+}
+
+/**
+ * Variant of `getTopOpenPositions` that returns positions pre-split by
+ * panel category. Same fold rules as `getLatestTradesByCategory` so the
+ * two paired panels classify consistently. Ranking still descends by
+ * unrealized PnL within each bucket.
+ */
+export interface CategorizedTopOpenPositions {
+  stocks: TopOpenPosition[];
+  crypto: TopOpenPosition[];
+}
+export async function getTopOpenPositionsByCategory(
+  opts: { perCategory?: number } = {},
+): Promise<CategorizedTopOpenPositions> {
+  const perCategory = opts.perCategory ?? 10;
+  // Over-fetch a broad pool of top open positions (ranked by unrealized
+  // PnL in SQL — proxy for "active winners worth checking"), then in JS
+  // narrow to those that have also booked realized profit on this coin
+  // and re-rank by realized desc. The "Winning Trades" panel should only
+  // contain wallets who've actually made money — a trader with $5M of
+  // unrealized PnL but a $1M of realized losses on past closes is not a
+  // "winner" worth surfacing here.
+  //
+  // Pool size: 50× perCategory keeps the SQL fast (leader_cache JSONB
+  // unpack + one bounded fills aggregation) while giving the realized > 0
+  // filter enough survivors to fill both category buckets even when the
+  // ratio of realized-winners is low.
+  // "Total PnL on this coin position" = booked (`realizedPnlUsd`) +
+  // currently riding (`unrealizedPnlUsd`). Matches the convention public
+  // trading leaderboards use (Hyperliquid's own, dYdX, copytrade frontends)
+  // and is symmetric: a trader who took partial profit + is still up gets
+  // full credit; a never-closed paper-winner gets credit too; a trader
+  // who's overall net positive after some losses still surfaces. The
+  // 20 s page poll cadence keeps the live view honest if a paper-gain
+  // position reverses.
+  const pool = await getTopOpenPositions(perCategory * 50);
+  const winners = pool
+    .filter((p) => p.realizedPnlUsd + p.unrealizedPnlUsd > 0)
+    .sort(
+      (a, b) =>
+        b.realizedPnlUsd + b.unrealizedPnlUsd - (a.realizedPnlUsd + a.unrealizedPnlUsd),
+    );
+  return splitTradesByCategory(winners, perCategory);
 }
 
 // ── Category position breakdown (Stock & Commodity vs Crypto) ──────────

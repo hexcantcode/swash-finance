@@ -1,16 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { getTopOpenPositions } from '$lib/server/queries/analytics';
+import { getTopOpenPositionsByCategory } from '$lib/server/queries/analytics';
 import type { RequestHandler } from './$types';
 
 /**
  * Lightweight endpoint for the /analytics page's "Winning Trades" panel
- * (top open positions ranked by unrealized PnL desc) to poll on a timer.
+ * pair (stocks left, crypto right) — top open positions ranked by
+ * unrealized PnL desc per category — to poll on a timer. Returns
+ * positions pre-split by category so the client doesn't re-classify.
  *
- * Same `getTopOpenPositions(20)` call the +page.server.ts load makes —
- * unpacks `leader_cache.positions_json` via JSONB and sorts. Cost is
- * proportional to total open positions across the tracked set (~1.7k
- * currently), so the query is heavier than `latest-trades` but still
- * sub-second on the existing leader_cache row count.
+ * Same call the +page.server.ts load makes — 10 rows per category.
  *
  * Underlying data refresh cadence: ws-live-subscriber pushes (sub-second
  * for the hot subset) + REST leader-cache-poll (60 s for all 250). A
@@ -18,6 +16,6 @@ import type { RequestHandler } from './$types';
  * the JSONB unpack faster than it needs to be.
  */
 export const GET: RequestHandler = async () => {
-  const topOpenPositions = await getTopOpenPositions(20);
+  const topOpenPositions = await getTopOpenPositionsByCategory({ perCategory: 10 });
   return json({ ok: true, topOpenPositions });
 };

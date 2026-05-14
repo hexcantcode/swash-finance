@@ -54,13 +54,6 @@
     img.style.visibility = 'hidden';
   }
 
-  function fmtRoe(roe: number): string {
-    const pct = roe * 100;
-    if (!Number.isFinite(pct)) return '—';
-    if (Math.abs(pct) >= 100) return pct.toFixed(0) + '%';
-    return pct.toFixed(1) + '%';
-  }
-
   /** Map cell's pct-of-book → matrix tint opacity. Clamp so a tiny position
    *  still shows up but the strongest cells peg at 1.0. */
   function cellOpacity(pctOfBook: number): number {
@@ -154,7 +147,12 @@
           ok: boolean;
           latestFills: typeof data.latestFills;
         };
-        if (j?.ok && Array.isArray(j.latestFills)) {
+        if (
+          j?.ok &&
+          j.latestFills &&
+          Array.isArray(j.latestFills.stocks) &&
+          Array.isArray(j.latestFills.crypto)
+        ) {
           latestFills = j.latestFills;
         }
       } catch {
@@ -170,7 +168,12 @@
           ok: boolean;
           topOpenPositions: typeof data.topOpenPositions;
         };
-        if (j?.ok && Array.isArray(j.topOpenPositions)) {
+        if (
+          j?.ok &&
+          j.topOpenPositions &&
+          Array.isArray(j.topOpenPositions.stocks) &&
+          Array.isArray(j.topOpenPositions.crypto)
+        ) {
           topOpenPositions = j.topOpenPositions;
         }
       } catch {
@@ -282,139 +285,156 @@
     </div>
   </section>
 
-  <!-- 2. Latest trades + Top open positions (side-by-side) ─────── -->
-  <section class="k-trader-section">
-    <div class="k-winners-losers">
-      <div class="k-mini-table" role="list">
-        <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
-          <span class="k-mini-table-head-title">Latest trades</span>
-          <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
-          <span class="k-mini-table-head-label k-mini-table-val">Size</span>
-          <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
-        </div>
-        {#if latestFills.length === 0}
-          <div class="k-empty">no recent trades from tracked wallets</div>
-        {:else}
-          {#each latestFills as f (f.key)}
-            <div class="k-mini-table-row k-mini-table-row--split" role="listitem" animate:flip={{ duration: 400 }}>
-              <a
-                class="k-mini-table-seg k-mini-table-seg-trader"
-                href="/trader/{f.address}"
-                title="View trader {truncateAddress(f.address)}"
-                aria-label="View trader {truncateAddress(f.address)}"
-              >
-                <img
-                  src={effigyUrl(f.address)}
-                  alt=""
-                  loading="lazy"
-                  onerror={hideBrokenAvatar}
-                  class="k-coin-icon"
-                />
-              </a>
-              <a
-                class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
-                href="/assets/{f.coin}"
-                title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
-              >
-                <span class="k-trade-content">
-                  <span
-                    class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
-                    aria-label={f.side === 'B' ? 'buy' : 'sell'}
-                  >{f.side === 'B' ? '↑' : '↓'}</span>
-                  <img
-                    src={coinIconUrl(f.coin)}
-                    alt=""
-                    loading="lazy"
-                    onerror={hideBrokenAvatar}
-                    class="k-coin-icon"
-                    class:is-white-bg={coinNeedsWhiteBg(f.coin)}
-                  />
-                  {coinDisplayName(f.coin)}
-                </span>
-              </a>
-              <span class="k-mini-table-lev">
-                {#if f.leverage !== null}
-                  <span class="k-lev-pill k-lev-pill--{f.side === 'B' ? 'long' : 'short'}"
-                    >{formatLeverage(f.leverage)}</span>
-                {:else}—{/if}
-              </span>
-              <span class="k-mini-table-val">
-                {formatPnl(f.notionalUsd)}
-              </span>
-              <span class="k-mini-table-chg k-mini-table-time">
-                {formatRelativeTime(new Date(f.blockTimeMs))}
-              </span>
-            </div>
-          {/each}
-        {/if}
+  <!-- 2. Latest trades + Winning Trades, split by category ──────── -->
+  <!-- Stocks/commodities on the left, crypto on the right; each column
+       carries both panels stacked vertically. The two snippets below
+       render the panel shape once and get reused per-category — keeps
+       the markup compact and the four panels visually identical. -->
+  {#snippet latestTradesPanel(fills: typeof data.latestFills.stocks)}
+    <div class="k-mini-table" role="list">
+      <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
+        <span class="k-mini-table-head-title">Latest trades</span>
+        <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
+        <span class="k-mini-table-head-label k-mini-table-val">Size</span>
+        <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
       </div>
-
-      <div class="k-mini-table" role="list">
-        <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
-          <span class="k-mini-table-head-title">Winning Trades</span>
-          <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
-          <span class="k-mini-table-head-label k-mini-table-val">Value</span>
-          <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
-        </div>
-        {#if topOpenPositions.length === 0}
-          <div class="k-empty">no open positions across tracked traders right now</div>
-        {:else}
-          {#each topOpenPositions as p (`${p.address}|${p.coin}`)}
-            <div
-              class="k-mini-table-row k-mini-table-row--split"
-              role="listitem"
-              animate:flip={{ duration: 400 }}
+      {#if fills.length === 0}
+        <div class="k-empty">no recent trades</div>
+      {:else}
+        {#each fills as f (f.key)}
+          <div class="k-mini-table-row k-mini-table-row--split" role="listitem" animate:flip={{ duration: 400 }}>
+            <a
+              class="k-mini-table-seg k-mini-table-seg-trader"
+              href="/trader/{f.address}"
+              title="View trader {truncateAddress(f.address)}"
+              aria-label="View trader {truncateAddress(f.address)}"
             >
-              <a
-                class="k-mini-table-seg k-mini-table-seg-trader"
-                href="/trader/{p.address}"
-                title="View trader {truncateAddress(p.address)}"
-                aria-label="View trader {truncateAddress(p.address)}"
-              >
+              <img
+                src={effigyUrl(f.address)}
+                alt=""
+                loading="lazy"
+                onerror={hideBrokenAvatar}
+                class="k-coin-icon"
+              />
+            </a>
+            <a
+              class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
+              href="/assets/{f.coin}"
+              title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
+            >
+              <span class="k-trade-content">
+                <span
+                  class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
+                  aria-label={f.side === 'B' ? 'buy' : 'sell'}
+                >{f.side === 'B' ? '↑' : '↓'}</span>
                 <img
-                  src={effigyUrl(p.address)}
+                  src={coinIconUrl(f.coin)}
                   alt=""
                   loading="lazy"
                   onerror={hideBrokenAvatar}
                   class="k-coin-icon"
+                  class:is-white-bg={coinNeedsWhiteBg(f.coin)}
                 />
-              </a>
-              <a
-                class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
-                href="/assets/{p.coin}"
-                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · realized {formatPnl(p.realizedPnlUsd)} · uPnL {formatPnl(p.unrealizedPnlUsd)}"
-              >
-                <span class="k-trade-content">
-                  <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
-                    >{p.side === 'long' ? '↑' : '↓'}</span>
-                  <img
-                    src={coinIconUrl(p.coin)}
-                    alt=""
-                    loading="lazy"
-                    onerror={hideBrokenAvatar}
-                    class="k-coin-icon"
-                    class:is-white-bg={coinNeedsWhiteBg(p.coin)}
-                  />
-                  {coinDisplayName(p.coin)}
-                </span>
-              </a>
-              <span class="k-mini-table-lev">
-                {#if p.leverage > 0}
-                  <span class="k-lev-pill k-lev-pill--{p.side}"
-                    >{formatLeverage(p.leverage)}</span>
-                {:else}—{/if}
+                {coinDisplayName(f.coin)}
               </span>
-              <span class="k-mini-table-val">
-                {formatPnl(p.notionalUsd)}
+            </a>
+            <span class="k-mini-table-lev">
+              {#if f.leverage !== null}
+                <span class="k-lev-pill k-lev-pill--{f.side === 'B' ? 'long' : 'short'}"
+                  >{formatLeverage(f.leverage)}</span>
+              {:else}—{/if}
+            </span>
+            <span class="k-mini-table-val">
+              {formatPnl(f.notionalUsd)}
+            </span>
+            <span class="k-mini-table-chg k-mini-table-time">
+              {formatRelativeTime(new Date(f.blockTimeMs))}
+            </span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {/snippet}
+
+  {#snippet winningTradesPanel(positions: typeof data.topOpenPositions.stocks)}
+    <div class="k-mini-table" role="list">
+      <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
+        <span class="k-mini-table-head-title">Winning Trades</span>
+        <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
+        <span class="k-mini-table-head-label k-mini-table-val">Value</span>
+        <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
+      </div>
+      {#if positions.length === 0}
+        <div class="k-empty">no open positions</div>
+      {:else}
+        {#each positions as p (`${p.address}|${p.coin}`)}
+          <div
+            class="k-mini-table-row k-mini-table-row--split"
+            role="listitem"
+            animate:flip={{ duration: 400 }}
+          >
+            <a
+              class="k-mini-table-seg k-mini-table-seg-trader"
+              href="/trader/{p.address}"
+              title="View trader {truncateAddress(p.address)}"
+              aria-label="View trader {truncateAddress(p.address)}"
+            >
+              <img
+                src={effigyUrl(p.address)}
+                alt=""
+                loading="lazy"
+                onerror={hideBrokenAvatar}
+                class="k-coin-icon"
+              />
+            </a>
+            <a
+              class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
+              href="/assets/{p.coin}"
+              title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · realized {formatPnl(p.realizedPnlUsd)} · uPnL {formatPnl(p.unrealizedPnlUsd)}"
+            >
+              <span class="k-trade-content">
+                <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
+                  >{p.side === 'long' ? '↑' : '↓'}</span>
+                <img
+                  src={coinIconUrl(p.coin)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                  class:is-white-bg={coinNeedsWhiteBg(p.coin)}
+                />
+                {coinDisplayName(p.coin)}
               </span>
-              <span class="k-mini-table-chg {pnlSignClass(p.realizedPnlUsd)}">
-                <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
-                  >{fmtRoe(p.returnOnEquity)}</span>
-                {formatPnl(p.realizedPnlUsd)}
-              </span>
-            </div>
-          {/each}
-        {/if}
+            </a>
+            <span class="k-mini-table-lev">
+              {#if p.leverage > 0}
+                <span class="k-lev-pill k-lev-pill--{p.side}"
+                  >{formatLeverage(p.leverage)}</span>
+              {:else}—{/if}
+            </span>
+            <span class="k-mini-table-val">
+              {formatPnl(p.notionalUsd)}
+            </span>
+            <span class="k-mini-table-chg {pnlSignClass(p.realizedPnlUsd + p.unrealizedPnlUsd)}">
+              {formatPnl(p.realizedPnlUsd + p.unrealizedPnlUsd)}
+            </span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {/snippet}
+
+  <section class="k-trader-section">
+    <div class="k-categorized-panels">
+      <div class="k-category-column">
+        <div class="k-category-header">Stocks &amp; Commodities</div>
+        {@render latestTradesPanel(latestFills.stocks)}
+        {@render winningTradesPanel(topOpenPositions.stocks)}
+      </div>
+      <div class="k-category-column">
+        <div class="k-category-header">Crypto</div>
+        {@render latestTradesPanel(latestFills.crypto)}
+        {@render winningTradesPanel(topOpenPositions.crypto)}
       </div>
     </div>
   </section>
