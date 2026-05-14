@@ -48,6 +48,12 @@ export interface LatestTrade {
   notionalUsd: number;
   /** ms timestamp of the *latest* fill in the group — drives recency sort. */
   blockTimeMs: number;
+  /** Trader's CURRENT per-coin leverage from `leader_cache.positions_json`
+   *  — the same value `getTopOpenPositions` returns. Null when the trader
+   *  has no open position on this coin right now (closed after the fill,
+   *  or wallet not in leader_cache). Approximate for historical fills but
+   *  accurate for recent ones, which is the panel's use case. */
+  leverage: number | null;
 }
 
 /**
@@ -106,7 +112,7 @@ export async function getLatestTrades(
     LIMIT ${limit}
   `);
 
-  return rows.rows.map((r) => {
+  const trades = rows.rows.map((r) => {
     const szBase = Number.parseFloat(r.total_sz);
     const notionalUsd = Number.parseFloat(r.total_notional);
     return {
@@ -119,8 +125,47 @@ export async function getLatestTrades(
       notionalUsd,
       vwapUsd: szBase > 0 ? notionalUsd / szBase : 0,
       blockTimeMs: Number(r.latest_ms),
+      leverage: null as number | null,
     };
   });
+
+  // Enrich with per-coin leverage from `leader_cache.positions_json`. Same
+  // JSONB shape `getTopOpenPositions` consumes, so the Latest trades and
+  // Winning Trades panels read leverage from one source. Single round-trip
+  // covers every (address, coin) pair in the visible trade list.
+  if (trades.length > 0) {
+    const addresses = Array.from(new Set(trades.map((t) => t.address)));
+    // `node-postgres` won't auto-cast a JS array for `= ANY($n)` here, so
+    // build an `IN (...)` list of individual parameters via `sql.join`.
+    // (drizzle's `inArray` helper would also work but doesn't compose
+    // cleanly inside this raw `sql` template that we already need for the
+    // LATERAL unpack.)
+    const addrList = sql.join(
+      addresses.map((a) => sql`${a}`),
+      sql`, `,
+    );
+    const levRows = await db().execute<{ address: string; coin: string; leverage: string | null }>(sql`
+      SELECT
+        lc.address,
+        (p.elem -> 'position' ->> 'coin')              AS coin,
+        (p.elem -> 'position' -> 'leverage' ->> 'value') AS leverage
+      FROM leader_cache lc,
+           LATERAL jsonb_array_elements(lc.positions_json) AS p(elem)
+      WHERE lc.positions_json IS NOT NULL
+        AND lc.address IN (${addrList})
+    `);
+    const levByKey = new Map<string, number>();
+    for (const r of levRows.rows) {
+      if (r.leverage === null) continue;
+      const v = Number.parseFloat(r.leverage);
+      if (Number.isFinite(v) && v > 0) levByKey.set(`${r.address}|${r.coin}`, v);
+    }
+    for (const t of trades) {
+      t.leverage = levByKey.get(`${t.address}|${t.coin}`) ?? null;
+    }
+  }
+
+  return trades;
 }
 
 // ── Position matrix ────────────────────────────────────────────────────

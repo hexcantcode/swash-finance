@@ -67,6 +67,15 @@ export function formatNumber(
   });
 }
 
+/** Leverage tag — "10x", "1.5x". Returns empty string for null / ≤ 0 so the
+ *  caller can `{#if formatLeverage(v)}` without an extra null check. Whole
+ *  number at ≥2x; one decimal below. */
+export function formatLeverage(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return '';
+  if (value >= 2) return `${Math.round(value)}x`;
+  return `${value.toFixed(1)}x`;
+}
+
 /** Monthly trade average → "12 / mo", "0.4 / mo", "—". Compact: integer at ≥10,
  *  one decimal below. */
 export function formatTradesPerMonth(value: number | null | undefined): string {

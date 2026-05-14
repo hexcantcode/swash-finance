@@ -2567,7 +2567,7 @@ tr.k-row-flash-down > td {
  * line so it matches the height of the Latest-trades rows in the sibling
  * panel. Dimmer than the primary value so the PnL is the headline number. */
 .k-mini-table-chg .k-mini-table-roe {
-  margin-left: 6px;
+  margin-right: 6px;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0;
@@ -2583,6 +2583,17 @@ tr.k-row-flash-down > td {
   font-weight: 700;
   font-size: 12px;
   line-height: 1;
+}
+
+/* Leverage tag sitting just before the side arrow in `.k-trade-content`
+ * (Latest trades + Winning Trades). Plain text on purpose — not a pill —
+ * to keep the row from looking busy. Tertiary color so it reads as
+ * secondary context to the headline asset name. */
+.k-lev-tag {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-tertiary);
 }
 .k-side-arrow.k-side-long {
   color: var(--stripe-success);

@@ -4,6 +4,7 @@
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import {
     effigyUrl,
+    formatLeverage,
     formatPnl,
     formatRelativeTime,
     pnlSignClass,
@@ -29,6 +30,15 @@
   // rather than the table snapping to its new state.
   let latestFills = $state(data.latestFills);
   const LATEST_TRADES_POLL_MS = 10_000;
+
+  // Top open positions ("Winning Trades" panel) — ranked by unrealized PnL
+  // desc across every tracked wallet's `leader_cache.positions_json`. The
+  // underlying JSONB updates whenever the worker writes (≤ 60 s for the
+  // REST broad-cohort path, sub-second for the WS hot subset), and PnL
+  // moves shuffle the ranking continuously. 20 s cadence + animate:flip
+  // makes re-ranks visible as smooth row-shuffles rather than a jump cut.
+  let topOpenPositions = $state(data.topOpenPositions);
+  const TOP_POSITIONS_POLL_MS = 20_000;
 
   function hideBrokenAvatar(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
@@ -142,12 +152,30 @@
         /* ignore transient poll failures; next tick will retry */
       }
     };
+    const tickTopOpenPositions = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch('/api/analytics/top-open-positions');
+        if (!r.ok) return;
+        const j = (await r.json()) as {
+          ok: boolean;
+          topOpenPositions: typeof data.topOpenPositions;
+        };
+        if (j?.ok && Array.isArray(j.topOpenPositions)) {
+          topOpenPositions = j.topOpenPositions;
+        }
+      } catch {
+        /* ignore transient poll failures; next tick will retry */
+      }
+    };
     const sentimentId = setInterval(tickSentiment, SENTIMENT_POLL_MS);
     const latestTradesId = setInterval(tickLatestTrades, LATEST_TRADES_POLL_MS);
+    const topPositionsId = setInterval(tickTopOpenPositions, TOP_POSITIONS_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(sentimentId);
       clearInterval(latestTradesId);
+      clearInterval(topPositionsId);
     };
   });
 </script>
@@ -259,6 +287,9 @@
                 title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
               >
                 <span class="k-trade-content">
+                  {#if f.leverage !== null}
+                    <span class="k-lev-tag">{formatLeverage(f.leverage)}</span>
+                  {/if}
                   <span
                     class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
                     aria-label={f.side === 'B' ? 'buy' : 'sell'}
@@ -297,11 +328,15 @@
           <span class="k-mini-table-head-label k-mini-table-val">Value</span>
           <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
         </div>
-        {#if data.topOpenPositions.length === 0}
+        {#if topOpenPositions.length === 0}
           <div class="k-empty">no open positions across tracked traders right now</div>
         {:else}
-          {#each data.topOpenPositions as p (`${p.address}|${p.coin}`)}
-            <div class="k-mini-table-row k-mini-table-row--split" role="listitem">
+          {#each topOpenPositions as p (`${p.address}|${p.coin}`)}
+            <div
+              class="k-mini-table-row k-mini-table-row--split"
+              role="listitem"
+              animate:flip={{ duration: 400 }}
+            >
               <a
                 class="k-mini-table-seg k-mini-table-seg-trader"
                 href="/trader/{p.address}"
@@ -322,6 +357,9 @@
                 title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · profit {formatPnl(p.unrealizedPnlUsd)}"
               >
                 <span class="k-trade-content">
+                  {#if p.leverage > 0}
+                    <span class="k-lev-tag">{formatLeverage(p.leverage)}</span>
+                  {/if}
                   <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
                     >{p.side === 'long' ? '↑' : '↓'}</span>
                   <img
@@ -339,9 +377,9 @@
                 {formatPnl(p.notionalUsd)}
               </span>
               <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
-                {formatPnl(p.unrealizedPnlUsd)}
                 <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
                   >{fmtRoe(p.returnOnEquity)}</span>
+                {formatPnl(p.unrealizedPnlUsd)}
               </span>
             </div>
           {/each}
