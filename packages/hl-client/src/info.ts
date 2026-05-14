@@ -118,12 +118,21 @@ export class HlInfoClient {
 
   // ───── per-user reads ────────────────────────────────────────────────
 
+  /**
+   * Perpetuals account summary. Defaults to the main dex; pass `dex` (a HIP-3
+   * builder dex name like `xyz` or `cash`) to query that dex's slice. The
+   * underlying SDK accepts `""` for main dex, but we elide the field entirely
+   * in that case to keep the request body matching the existing main-dex form.
+   */
   async clearinghouseState(
     user: string,
-    opts: HlReadOptions = {},
+    opts: HlReadOptions & { dex?: string } = {},
   ): Promise<HlResult<ClearinghouseStateResponse>> {
     const u = asHexAddress(user);
-    const data = await this.client.clearinghouseState({ user: u }, opts.signal);
+    const req = opts.dex && opts.dex.length > 0
+      ? { user: u, dex: opts.dex }
+      : { user: u };
+    const data = await this.client.clearinghouseState(req, opts.signal);
     return wrapFresh(data, WEIGHTS.clearinghouseState);
   }
 

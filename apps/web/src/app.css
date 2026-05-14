@@ -1938,6 +1938,26 @@ body {
   color: var(--stripe-text-tertiary);
   border-bottom: 0.5px solid var(--stripe-border);
 }
+/* Combined head row — panel title sits where the first column would, small
+   column labels aligned with the data columns to the right. Avoids a
+   redundant "TRADER" / "ASSET" first-column label since the title names
+   that column implicitly. */
+.k-mini-table-head-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.k-mini-table-head-row .k-mini-table-head-title {
+  flex: 1;
+  min-width: 0;
+}
+.k-mini-table-head-row .k-mini-table-head-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-muted);
+}
 .k-mini-table-row {
   display: flex;
   align-items: center;
@@ -1986,7 +2006,9 @@ body {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-width: 80px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--stripe-text-secondary);
@@ -2015,11 +2037,42 @@ body {
 }
 .k-mini-table-chg {
   flex: 0 0 auto;
-  min-width: 64px;
-  text-align: right;
+  min-width: 80px;
+  text-align: center;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Win Rate panel's "Last 5" column — flex-align the inline SVG to the
+   right edge of the cell so it lines up with the column-header label.
+   Applied to both the head label and the data cell so the text and the
+   pills strip share the same right alignment. */
+.k-mini-table-chg.k-mini-table-pills {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+/* Split mini-table row (analytics: Latest trades, Top open positions) — the
+ * row is a non-link wrapper with two `<a>` segments inside, so the trader
+ * half navigates to /trader/<addr> and the asset half to /assets/<coin>. */
+.k-mini-table-seg {
+  text-decoration: none;
+  color: inherit;
+}
+.k-mini-table-seg-trader {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.k-mini-table-seg-trader:hover .k-mini-table-addr,
+.k-mini-table-seg-asset:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ── Asset detail (/assets/[coin]) ───────────────────────── */
@@ -2184,9 +2237,11 @@ body {
   color: var(--stripe-text-tertiary);
 }
 
-/* ── Asset page · long/short sentiment bars ──────────────── */
-/* Two stacked bars above the open-positions table — total notional split
- * and trader-count split. Matches the user-provided NOTIONAL widget. */
+/* ── Asset / analytics · long/short sentiment bars ───────── */
+/* Two stacked bars per category — notional split + trader-count split.
+ * The analytics-page cards (`.k-sentiment-card`) drop all panel chrome
+ * via the override block below so the card reads as a typographic block;
+ * the asset-page caller keeps the standard `.k-mini-table` frame. */
 .k-sentiment-stack {
   display: flex;
   flex-direction: column;
@@ -2223,10 +2278,14 @@ body {
 .k-sentiment-short {
   background: var(--stripe-danger);
 }
+/* Foot row: 4 rigid columns so the long value, long %, short %, short value
+ * align identically across the Size and Traders rows of the same card.
+ * Left half left-aligned, right half right-aligned. */
 .k-sentiment-foot {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: baseline;
+  column-gap: 8px;
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -2234,15 +2293,79 @@ body {
 }
 .k-sentiment-foot-left,
 .k-sentiment-foot-right {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  display: contents;
+}
+.k-sentiment-foot-right > * {
+  text-align: right;
+}
+.k-sentiment-foot-right > :first-child {
+  grid-column: 4;
 }
 .k-sentiment-foot-sub {
   color: var(--stripe-text-tertiary);
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 0.06em;
+}
+
+/* Analytics-page sentiment card: drop all panel chrome inherited from
+ * `.k-mini-table` so the two cards read as bare typographic blocks aligned
+ * to the page gutter, with the bias chip pinned to the right of the title. */
+.k-sentiment-card {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+.k-sentiment-card .k-mini-table-head {
+  padding-left: 0;
+  padding-right: 0;
+  border-bottom: 0;
+  margin-bottom: var(--space-3);
+}
+.k-sentiment-card .k-empty {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Sentiment card header: label on the left, bias chip on the right.
+ * `.k-mini-table-head` is the shared header style; this only adds the
+ * flex layout when a bias chip is present alongside it. */
+.k-sentiment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.k-sentiment-bias {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 0.5px solid currentColor;
+}
+.k-sentiment-bias--ex-bull {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
+}
+.k-sentiment-bias--bull {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 6%, transparent);
+}
+.k-sentiment-bias--neutral {
+  color: var(--stripe-text-tertiary);
+  background: var(--stripe-bg-tertiary);
+}
+.k-sentiment-bias--bear {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 6%, transparent);
+}
+.k-sentiment-bias--ex-bear {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
 }
 
 /* ── Live-price flash animations ─────────────────────────── */

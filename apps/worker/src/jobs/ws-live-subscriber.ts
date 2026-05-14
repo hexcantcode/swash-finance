@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type {
   UserFillsEvent,
@@ -16,40 +16,43 @@ import {
   type NewFunding,
   type NewLedgerUpdate,
 } from '@copytrade/db';
+import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { normalizeAddress } from '@copytrade/shared';
 import { closeDb, db } from '../db.js';
+import { hl } from '../hl.js';
 import { log } from '../log.js';
 
 /**
- * `ws-live-subscriber` — long-running worker that tracks the current winner set
- * (HL 7d-ROI top-10, filtered) — one connection, ≤10 users — holding per-user
- * Hyperliquid WS subscriptions for each winner wallet and keeping the live-tier
- * cache (`leader_cache`) plus the history tables (`fills`/`fundings`/
- * `ledger_updates`) fresh in real time.
+ * `ws-live-subscriber` — long-running worker that tracks the **tracked set**
+ * (top `TRACKED_LIMIT` wallets by HL 7d PnL passing the listing floor) and
+ * holds per-user Hyperliquid WS subscriptions on each one, keeping the
+ * live-tier cache (`leader_cache`) plus the history tables (`fills`/
+ * `fundings`/`ledger_updates`) fresh in real time.
  *
  * Runs as its own process (like `trades-subscriber`) — NOT one of the
  * scheduled crons in `index.ts`. Launch via `pnpm --filter @copytrade/worker ws-live`.
  *
  * No backfill: the leaderboard-poll + refresh-queue + score flow already
- * ingests winner candidates' history (every winner is queued for deep-ingest +
- * scoring when it enters the set). This job only keeps the tail fresh.
+ * ingests tracked candidates' history. This job only keeps the tail fresh.
  *
- * **The set.** `leaderboard-poll` makes the in/out decision — it reconciles
- * `wallets.winner` / `winner_rank` (HL's top-10 by 7d ROI passing the noise
- * filter). We just subscribe `where winner = true order by winner_rank` (≤10).
- * Hysteresis: an address is only *unsubscribed* once it's been absent from the
- * desired set for 2 consecutive reconcile cycles, so a winner that briefly
- * blips out (or a stale read) doesn't churn the connection.
+ * **The set.** Same listing floor the home-page leaderboard uses (one
+ * source of truth): `is_agent = false`, `account_value >= $25k`,
+ * `hl_pnl_7d_usd IS NOT NULL`, ordered by `hl_pnl_7d_usd DESC`, top
+ * `TRACKED_LIMIT` (default 250). The previous version subscribed only to
+ * the ≤10 winners — too narrow to catch HIP-3 holders and other deep
+ * cohort activity. Hysteresis: an address is only *unsubscribed* once
+ * it's been absent from the desired set for 2 consecutive reconcile
+ * cycles, so a wallet that briefly drops out doesn't churn the pool.
  *
  * **Sharding.** Hyperliquid hard-caps each WS connection at 10 *unique users*
  * (not 10 subscriptions — one connection can hold 10 users × 4 subs = 40 subs).
- * The winner set is ≤10, so this only ever uses a single shard, but the pool
- * machinery is kept (harmless): each shard is its own `WebSocketTransport` +
- * `SubscriptionClient` holding up to `MAX_USERS_PER_CONNECTION` (= 9, one below
- * the cap for a safety margin against a reconnect-resubscribe race) distinct
- * user addresses; the reconcile loop diffs the desired set against the union of
- * all shards' users, places new users on a non-full shard (creating a new shard
- * when all are full), and drops users no longer wanted (closing a shard's
+ * With 250 users that's ~28 connections. Each shard is its own
+ * `WebSocketTransport` + `SubscriptionClient` holding up to
+ * `MAX_USERS_PER_CONNECTION` (= 9, one below the cap for a safety margin
+ * against a reconnect-resubscribe race) distinct user addresses; the
+ * reconcile loop diffs the desired set against the union of all shards'
+ * users, places new users on a non-full shard (creating a new shard when
+ * all are full), and drops users no longer wanted (closing a shard's
  * transport when it ends up empty).
  *
  * Each shard's `WebSocketTransport` auto-reconnects and auto-resubscribes
@@ -60,13 +63,38 @@ import { log } from '../log.js';
 const DEFAULT_RECONCILE_SECONDS = 60;
 
 /**
- * Max distinct user addresses per WS connection. HL's hard cap is 10; we use 9
- * for a safety margin (a reconnect-resubscribe race could briefly double-count).
+ * Max distinct user addresses per WS connection. HL's hard cap is 10; we use 8
+ * for a safety margin. A failed-mid-`Promise.allSettled` subscribe can briefly
+ * leave a user registered on the HL side until we roll it back, and reconnect-
+ * resubscribe can also double-count for a moment.
  */
-const MAX_USERS_PER_CONNECTION = 9;
+const MAX_USERS_PER_CONNECTION = 8;
 
-/** The winners section holds the top-10 by 7d ROI (HL caps a WS connection at 10 unique users). */
-const WINNER_LIMIT = 10;
+/**
+ * Per-WS-request timeout (ms). Default in `@nktkas/hyperliquid` is 10s, which
+ * is too tight when we burst ~32 subscribe requests (8 users × 4 channels) at
+ * the same socket back-to-back during shard fill — HL's response queue can
+ * fall behind. 30s gives the server room to drain.
+ */
+const WS_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Pause between consecutive users in a reconcile pass. Prevents bursting
+ * subscribe requests faster than HL can ack them.
+ */
+const PER_USER_DELAY_MS = 100;
+
+/**
+ * How many tracked wallets to hold per-user WS subscriptions on. Matches the
+ * leaderboard listing floor (`is_agent = false`, `account_value >= $25k`,
+ * `hl_pnl_7d_usd IS NOT NULL`, ordered by 7d PnL desc). Overridable via env
+ * `WS_TRACKED_LIMIT`. 250 → ~28 shards at 9 users each.
+ */
+const TRACKED_LIMIT = (() => {
+  const raw = process.env['WS_TRACKED_LIMIT'];
+  const n = raw ? Number.parseInt(raw, 10) : 250;
+  return Number.isFinite(n) && n > 0 ? n : 250;
+})();
 
 /**
  * Unsubscribe hysteresis: only drop a subscribed address once it's been absent
@@ -75,6 +103,23 @@ const WINNER_LIMIT = 10;
  * churning the connection.
  */
 const MAX_MISSED_CYCLES = 2;
+
+/**
+ * HIP-3 polling cadence. HL's `webData2` push only carries main-dex positions
+ * — HIP-3 builder dexes (`xyz`, `cash`, …) require a per-dex REST poll. We
+ * run this loop in parallel with the WS reconcile/event handlers, hitting
+ * only the **HIP-3 cohort** (tracked wallets that have at least one HIP-3
+ * fill in the recent window) so we don't burn API weight on crypto-only
+ * traders.
+ */
+const HIP3_POLL_SECONDS = 300;
+/** Recency window for the HIP-3 cohort filter — a wallet enters the cohort
+ *  once it has any `coin LIKE '%:%'` fill within this many days. */
+const HIP3_COHORT_LOOKBACK_DAYS = 14;
+/** Throttle between consecutive per-dex calls in a single poll pass.
+ *  N(cohort) × N(dexes) calls per cycle; 100 ms keeps total weight to
+ *  ~120/min even at the worst case. */
+const HIP3_PER_CALL_DELAY_MS = 100;
 
 interface UserSubs {
   webData2: { unsubscribe(): Promise<void> };
@@ -91,7 +136,7 @@ interface Shard {
 }
 
 function newShard(): Shard {
-  const transport = new WebSocketTransport();
+  const transport = new WebSocketTransport({ timeout: WS_REQUEST_TIMEOUT_MS });
   const client = new SubscriptionClient({ transport });
   return { transport, client, users: new Map() };
 }
@@ -133,6 +178,33 @@ export async function runWsLiveSubscriber(
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  // Resolve the HIP-3 dex list once at startup. The set rarely changes — if
+  // HL adds a new dex mid-process we'll pick it up on the next worker restart.
+  // Failure here doesn't block the WS loop; we just skip HIP-3 polling.
+  const hip3DexNames: string[] = await hl()
+    .perpDexs()
+    .then((r) => r.data.flatMap((d) => (d && d.name ? [d.name] : [])))
+    .catch((err) => {
+      log.warn({ err: errMsg(err) }, 'ws-live.hip3_dexes_fetch_failed');
+      return [] as string[];
+    });
+  log.info({ hip3Dexes: hip3DexNames }, 'ws-live.hip3_dexes_resolved');
+
+  // HIP-3 polling loop — runs in parallel with reconcile. A failure inside
+  // shouldn't kill the WS work; everything is caught at the cycle level.
+  const hip3Loop = (async () => {
+    while (!stopping) {
+      if (hip3DexNames.length > 0) {
+        try {
+          await runHip3PollOnce(shards, hip3DexNames, () => stopping);
+        } catch (err) {
+          log.warn({ err: errMsg(err) }, 'ws-live.hip3_poll_failed');
+        }
+      }
+      await sleep(HIP3_POLL_SECONDS * 1000);
+    }
+  })();
+
   // Reconciliation loop: keep the subscription pool in sync with the winner set.
   while (!stopping) {
     try {
@@ -142,6 +214,8 @@ export async function runWsLiveSubscriber(
     }
     await sleep(reconcileSeconds * 1000);
   }
+
+  await hip3Loop.catch(() => {});
 }
 
 /** Find the shard currently holding `address`, or undefined. */
@@ -154,15 +228,24 @@ async function reconcileOnce(
   missedCycles: Map<string, number>,
   isStopping: () => boolean,
 ): Promise<void> {
-  // The desired set is the current winner set — HL's top-10 by 7d ROI passing
-  // the noise filter, as decided by `leaderboard-poll`. (`winner_rank` 1..N is
-  // display-adjacent here; we just need the ≤10 members.)
+  // The desired set is the leaderboard listing floor — same one the
+  // home-page table uses (single source of truth): `is_agent = false`,
+  // `account_value >= MIN_ACCOUNT_VALUE_USD`, `hl_pnl_7d_usd IS NOT NULL`,
+  // ranked by HL 7d PnL desc, top `TRACKED_LIMIT`. Catches HIP-3 holders
+  // and other cohort activity that the old `winner = true` (≤10) gate
+  // would miss.
   const rows = await db()
     .select({ address: wallets.address })
     .from(wallets)
-    .where(sql`${wallets.winner} = true`)
-    .orderBy(sql`${wallets.winnerRank} asc nulls last`)
-    .limit(WINNER_LIMIT);
+    .where(
+      and(
+        eq(wallets.isAgent, false),
+        isNotNull(wallets.hlPnl7dUsd),
+        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
+      ),
+    )
+    .orderBy(desc(wallets.hlPnl7dUsd))
+    .limit(TRACKED_LIMIT);
   // Use the master address — for v1 we subscribe to masters only.
   // TODO: also subscribe to winners' agent addresses (resolve via extraAgents /
   // `wallets.master_address` links) so agent-only activity is attributed to the
@@ -188,7 +271,7 @@ async function reconcileOnce(
       shard.users.set(address, subs);
       added += 1;
     } catch (err) {
-      // With MAX_USERS_PER_CONNECTION = 9 the "Cannot track more than 10 unique
+      // With MAX_USERS_PER_CONNECTION = 8 the "Cannot track more than 10 unique
       // users" error shouldn't happen — log and move on if it somehow does.
       log.warn({ address, err: errMsg(err) }, 'ws-live.subscribe_failed');
       // If a brand-new shard failed on its first user, drop it so we retry next cycle.
@@ -197,6 +280,9 @@ async function reconcileOnce(
         await shard.transport.close().catch(() => {});
       }
     }
+    // Pace requests so HL's response queue can drain — bursting 4 subscribes
+    // per user against the same socket back-to-back triggers timeouts.
+    if (added > 0 && !isStopping()) await sleep(PER_USER_DELAY_MS);
   }
 
   // Unsubscribe addresses no longer in the desired set — but only after they've
@@ -235,39 +321,60 @@ async function reconcileOnce(
   );
 }
 
+/**
+ * Subscribe a user to all 4 channels on the given shard's client.
+ *
+ * Channels go one at a time (not `Promise.all`) so we know exactly which
+ * subscriptions are live at any moment. If any channel throws, we roll back
+ * the ones that already succeeded — `_subscriptionManager._countUniqueUsers`
+ * is incremented on the **first successful** channel for an address, so
+ * leaving partial subscriptions behind would burn one of the shard's 10
+ * user slots even though our own `users` map shows 0.
+ */
 async function subscribeUser(
   client: SubscriptionClient,
   address: string,
 ): Promise<UserSubs> {
   const user = address as `0x${string}`;
-  const [webData2Sub, userFillsSub, userFundingsSub, userLedgerSub] = await Promise.all([
-    client.webData2({ user }, (data) => {
+  const acquired: Array<{ unsubscribe(): Promise<void> }> = [];
+  try {
+    const webData2Sub = await client.webData2({ user }, (data) => {
       void handleWebData2(address, data).catch((err) =>
         log.warn({ address, err: errMsg(err) }, 'ws-live.webData2_handler_failed'),
       );
-    }),
-    client.userFills({ user }, (data) => {
+    });
+    acquired.push(webData2Sub);
+    const userFillsSub = await client.userFills({ user }, (data) => {
       void handleUserFills(data).catch((err) =>
         log.warn({ address, err: errMsg(err) }, 'ws-live.userFills_handler_failed'),
       );
-    }),
-    client.userFundings({ user }, (data) => {
+    });
+    acquired.push(userFillsSub);
+    const userFundingsSub = await client.userFundings({ user }, (data) => {
       void handleUserFundings(data).catch((err) =>
         log.warn({ address, err: errMsg(err) }, 'ws-live.userFundings_handler_failed'),
       );
-    }),
-    client.userNonFundingLedgerUpdates({ user }, (data) => {
+    });
+    acquired.push(userFundingsSub);
+    const userLedgerSub = await client.userNonFundingLedgerUpdates({ user }, (data) => {
       void handleUserLedger(data).catch((err) =>
         log.warn({ address, err: errMsg(err) }, 'ws-live.userLedger_handler_failed'),
       );
-    }),
-  ]);
-  return {
-    webData2: webData2Sub,
-    userFills: userFillsSub,
-    userFundings: userFundingsSub,
-    userLedger: userLedgerSub,
-  };
+    });
+    acquired.push(userLedgerSub);
+    return {
+      webData2: webData2Sub,
+      userFills: userFillsSub,
+      userFundings: userFundingsSub,
+      userLedger: userLedgerSub,
+    };
+  } catch (err) {
+    // Roll back partial successes so the manager's unique-user count drops
+    // back to where it was before this attempt. allSettled — we want to try
+    // every unsub even if one fails.
+    await Promise.allSettled(acquired.map((s) => s.unsubscribe()));
+    throw err;
+  }
 }
 
 // ── Handlers ───────────────────────────────────────────────────────────────
@@ -278,6 +385,12 @@ async function subscribeUser(
  * source / last_refreshed_at / last_refresh_source. It does NOT touch
  * `last_trade_ms` (owned by the userFills handler) nor recent_fills_json /
  * funding_30d_json / ledger_30d_json (owned by the REST refresh path).
+ *
+ * `positions_json` merge: the WS push only carries main-dex positions, but
+ * the column also stores HIP-3 positions written by `runHip3PollOnce`. The
+ * conflict update keeps any existing HIP-3 entries (coin contains a `:`)
+ * from the prior row and concatenates the new main-dex array — so the
+ * push doesn't clobber HIP-3 state.
  */
 async function handleWebData2(rawAddress: string, data: WebData2Event): Promise<void> {
   const address = normalizeAddress(rawAddress);
@@ -313,7 +426,18 @@ async function handleWebData2(rawAddress: string, data: WebData2Event): Promise<
         accountValue: sql`excluded.account_value`,
         marginUsed: sql`excluded.margin_used`,
         leverage: sql`excluded.leverage`,
-        positionsJson: sql`excluded.positions_json`,
+        // Merge: keep existing HIP-3 entries (coin contains `:`), append the
+        // new main-dex positions from the push. coalesce → '[]' covers a
+        // freshly-inserted row with no prior HIP-3 data.
+        positionsJson: sql`(
+          coalesce(
+            (select jsonb_agg(elem)
+             from jsonb_array_elements(${leaderCache.positionsJson}) as elem
+             where (elem -> 'position' ->> 'coin') like '%:%'),
+            '[]'::jsonb
+          )
+          || excluded.positions_json
+        )`,
         source: sql`excluded.source`,
         lastRefreshedAt: sql`excluded.last_refreshed_at`,
         lastRefreshSource: sql`excluded.last_refresh_source`,
@@ -459,6 +583,118 @@ async function handleUserLedger(data: UserNonFundingLedgerUpdatesEvent): Promise
     inserted += out.length;
   }
   log.debug({ address, inserted }, 'ws-live.ledger');
+}
+
+// ── HIP-3 polling ──────────────────────────────────────────────────────────
+
+/**
+ * One HIP-3 poll pass. Walks the **HIP-3 cohort** — tracked wallets currently
+ * subscribed on a shard AND with at least one `coin LIKE '%:%'` fill in the
+ * last `HIP3_COHORT_LOOKBACK_DAYS` days — and for each (address, hip3 dex)
+ * pair calls `clearinghouseState` on that dex, then merges into
+ * `leader_cache.positions_json` preserving everything from other dexes /
+ * main. Coin names returned by HL may or may not include the `dex:` prefix
+ * depending on the API; we defensively normalize to `dex:SYMBOL` so the
+ * downstream queries that key on `coin LIKE '%:%'` always see prefixed names.
+ */
+async function runHip3PollOnce(
+  shards: Shard[],
+  hip3DexNames: string[],
+  isStopping: () => boolean,
+): Promise<void> {
+  const subscribedAddresses = new Set<string>();
+  for (const s of shards) for (const a of s.users.keys()) subscribedAddresses.add(a);
+  if (subscribedAddresses.size === 0) return;
+
+  // Cohort = subscribed ∩ recent-HIP-3-fill. Index by user_address means this
+  // scan is cheap even with millions of fills.
+  const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+  const cohortRows = await db()
+    .selectDistinct({ address: fills.userAddress })
+    .from(fills)
+    .where(
+      and(
+        sql`${fills.coin} like '%:%'`,
+        sql`${fills.blockTimeMs} >= ${cutoffMs}`,
+        inArray(fills.userAddress, Array.from(subscribedAddresses)),
+      ),
+    );
+  const cohort = cohortRows.map((r) => r.address);
+  if (cohort.length === 0) {
+    log.info({ subscribed: subscribedAddresses.size }, 'ws-live.hip3_poll_no_cohort');
+    return;
+  }
+
+  let polled = 0;
+  let positionsWritten = 0;
+  let failed = 0;
+  for (const address of cohort) {
+    for (const dexName of hip3DexNames) {
+      if (isStopping()) return;
+      try {
+        const positionCount = await pollHip3ForAddress(address, dexName);
+        positionsWritten += positionCount;
+        polled += 1;
+      } catch (err) {
+        failed += 1;
+        log.debug(
+          { address, dex: dexName, err: errMsg(err) },
+          'ws-live.hip3_poll_call_failed',
+        );
+      }
+      if (!isStopping()) await sleep(HIP3_PER_CALL_DELAY_MS);
+    }
+  }
+  log.info(
+    { cohort: cohort.length, dexes: hip3DexNames.length, polled, failed, positionsWritten },
+    'ws-live.hip3_polled',
+  );
+}
+
+async function pollHip3ForAddress(address: string, dexName: string): Promise<number> {
+  const res = await hl().clearinghouseState(address, { dex: dexName });
+  const raw = res.data.assetPositions;
+
+  // Normalize: prefix bare symbols with `${dexName}:` so the storage format
+  // is always `dex:SYMBOL`. If HL already returns it prefixed, the includes
+  // check is a no-op.
+  const normalized = raw.map((ap) => ({
+    ...ap,
+    position: {
+      ...ap.position,
+      coin: ap.position.coin.includes(':') ? ap.position.coin : `${dexName}:${ap.position.coin}`,
+    },
+  }));
+  const dexPrefixPattern = `${dexName}:%`;
+
+  await db()
+    .insert(leaderCache)
+    .values({
+      address,
+      positionsJson: normalized,
+      lastRefreshedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: leaderCache.address,
+      set: {
+        // Merge: drop existing entries belonging to THIS dex, append the
+        // freshly-fetched array. Other dexes / main-dex positions survive.
+        positionsJson: sql`(
+          coalesce(
+            (select jsonb_agg(elem)
+             from jsonb_array_elements(${leaderCache.positionsJson}) as elem
+             where (elem -> 'position' ->> 'coin') not like ${dexPrefixPattern}),
+            '[]'::jsonb
+          )
+          || excluded.positions_json
+        )`,
+        // Don't bump source / last_refresh_source — those track the main-dex
+        // freshness (owned by the WS handler). Don't touch account_value /
+        // margin_used / leverage either — those are main-dex summary numbers.
+      },
+    });
+
+  return normalized.length;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────

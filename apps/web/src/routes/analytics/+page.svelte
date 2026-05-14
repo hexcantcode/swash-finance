@@ -48,6 +48,18 @@
   // Translate notional + trader counts into long/short percentages for the
   // two stacked bars (Size + Traders). 50/50 fallback when nothing's open
   // so the empty track still reads as balanced rather than collapsed.
+  //
+  // Bias chip on each card blends the two signals — notional (how big the
+  // bets are) + trader count (how many people) — so neither a whale nor a
+  // mob alone can swing the label.
+  type BiasState = 'ex-bull' | 'bull' | 'neutral' | 'bear' | 'ex-bear';
+  function classifyBias(blendedLongShare: number): { state: BiasState; label: string } {
+    if (blendedLongShare >= 0.75) return { state: 'ex-bull', label: 'Extremely bullish' };
+    if (blendedLongShare >= 0.6) return { state: 'bull', label: 'Bullish' };
+    if (blendedLongShare > 0.4) return { state: 'neutral', label: 'Neutral' };
+    if (blendedLongShare > 0.25) return { state: 'bear', label: 'Bearish' };
+    return { state: 'ex-bear', label: 'Extremely bearish' };
+  }
   const sentimentCards = $derived(
     data.categoryBreakdown.map((cb) => {
       const totalNot = cb.long.notionalUsd + cb.short.notionalUsd;
@@ -56,6 +68,11 @@
       const shortNotPct = 100 - longNotPct;
       const longTrPct = totalTr > 0 ? (cb.long.traders / totalTr) * 100 : 50;
       const shortTrPct = 100 - longTrPct;
+      const hasData = totalNot > 0 || totalTr > 0;
+      // Blend = simple average of long-share by notional and by trader count.
+      // Empty bucket → 0.5 (neutral).
+      const blendedLongShare = hasData ? (longNotPct + longTrPct) / 200 : 0.5;
+      const bias = classifyBias(blendedLongShare);
       return {
         category: cb.category,
         label: cb.category === 'stocks' ? 'Stock & Commodity' : 'Crypto',
@@ -65,7 +82,9 @@
         shortNotPct,
         longTrPct,
         shortTrPct,
-        hasData: totalNot > 0 || totalTr > 0,
+        hasData,
+        biasState: bias.state,
+        biasLabel: bias.label,
       };
     }),
   );
@@ -85,7 +104,12 @@
     <div class="k-winners-losers">
       {#each sentimentCards as s (s.category)}
         <div class="k-mini-table k-sentiment-card">
-          <div class="k-mini-table-head">{s.label}</div>
+          <div class="k-mini-table-head k-sentiment-head">
+            <span>{s.label}</span>
+            {#if s.hasData}
+              <span class="k-sentiment-bias k-sentiment-bias--{s.biasState}">{s.biasLabel}</span>
+            {/if}
+          </div>
           {#if !s.hasData}
             <div class="k-empty">no open positions in this bucket yet</div>
           {:else}
@@ -143,25 +167,35 @@
   <section class="k-trader-section">
     <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Latest trades · {data.latestFills.length}</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Latest trades · {data.latestFills.length}</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Trade</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
+        </div>
         {#if data.latestFills.length === 0}
           <div class="k-empty">no recent trades from tracked wallets</div>
         {:else}
           {#each data.latestFills as f (f.key)}
-            <a
-              class="k-mini-table-row"
-              href="/trader/{f.address}"
-              title="{truncateAddress(f.address)} {f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
-            >
-              <img
-                src={effigyUrl(f.address)}
-                alt=""
-                loading="lazy"
-                onerror={hideBrokenAvatar}
-                class="k-coin-icon"
-              />
-              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(f.address)}</span>
-              <span class="k-mini-table-price">
+            <div class="k-mini-table-row k-mini-table-row--split">
+              <a
+                class="k-mini-table-seg k-mini-table-seg-trader"
+                href="/trader/{f.address}"
+                title="View trader {truncateAddress(f.address)}"
+              >
+                <img
+                  src={effigyUrl(f.address)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                />
+                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(f.address)}</span>
+              </a>
+              <a
+                class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
+                href="/assets/{f.coin}"
+                title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
+              >
                 <span
                   class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
                   aria-label={f.side === 'B' ? 'buy' : 'sell'}
@@ -178,31 +212,45 @@
                 {#if f.fillCount > 1}
                   <span class="k-mini-table-fillcount" aria-label="{f.fillCount} fills">{f.fillCount}×</span>
                 {/if}
-              </span>
+              </a>
               <span class="k-mini-table-chg k-mini-table-time">
                 {formatRelativeTime(new Date(f.blockTimeMs))}
               </span>
-            </a>
+            </div>
           {/each}
         {/if}
       </div>
 
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Top open positions · by uPnL</div>
+        <div class="k-mini-table-head k-mini-table-head-row">
+          <span class="k-mini-table-head-title">Top open positions · by uPnL</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Position</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">uPnL</span>
+        </div>
         {#if data.topOpenPositions.length === 0}
           <div class="k-empty">no open positions across tracked traders right now</div>
         {:else}
           {#each data.topOpenPositions as p (`${p.address}|${p.coin}`)}
-            <a class="k-mini-table-row" href="/trader/{p.address}">
-              <img
-                src={effigyUrl(p.address)}
-                alt=""
-                loading="lazy"
-                onerror={hideBrokenAvatar}
-                class="k-coin-icon"
-              />
-              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
-              <span class="k-mini-table-price">
+            <div class="k-mini-table-row k-mini-table-row--split">
+              <a
+                class="k-mini-table-seg k-mini-table-seg-trader"
+                href="/trader/{p.address}"
+                title="View trader {truncateAddress(p.address)}"
+              >
+                <img
+                  src={effigyUrl(p.address)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                />
+                <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
+              </a>
+              <a
+                class="k-mini-table-seg k-mini-table-seg-asset k-mini-table-price"
+                href="/assets/{p.coin}"
+                title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · uPnL {formatPnl(p.unrealizedPnlUsd)}"
+              >
                 <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
                   >{p.side === 'long' ? '↑' : '↓'}</span>
                 <img
@@ -214,13 +262,13 @@
                   class:is-white-bg={coinNeedsWhiteBg(p.coin)}
                 />
                 {coinDisplayName(p.coin)}  {formatPnl(p.notionalUsd)}
-              </span>
+              </a>
               <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
                 {formatPnl(p.unrealizedPnlUsd)}
                 <span class="k-mini-table-roe {pnlSignClass(p.returnOnEquity)}"
                   >{fmtRoe(p.returnOnEquity)}</span>
               </span>
-            </a>
+            </div>
           {/each}
         {/if}
       </div>
