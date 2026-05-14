@@ -49,6 +49,7 @@ export const COIN_WHITE_BG_SYMBOLS: ReadonlySet<string> = new Set([
   'SEI', 'AR', 'CTX', 'NIL', '2Z', 'GALA',
   'CC', 'POPCAT', 'CFX',
   'XLM', 'TENCENT', 'WLD', 'XRP', 'NEAR',
+  'ETH',
 ]);
 
 /**

@@ -58,11 +58,17 @@ function toRow(coin: string, symbol: string, dex: string | null, u: UniverseItem
 }
 
 /**
- * All tradable perp assets on HL's main dex plus every HIP-3 builder dex, with
- * live price / 24h change / 24h volume / open interest / funding. HIP-3 coins
- * are emitted as `dex:SYMBOL` in `coin` and the bare ticker in `symbol`.
+ * The raw set of HL perp markets — main dex *plus* every HIP-3 builder dex,
+ * emitted one row per `(dex, coin)`. HIP-3 coins are qualified as
+ * `dex:SYMBOL` in `row.coin` with the bare ticker in `row.symbol`. No
+ * dedup; if `cash:TSLA` and `xyz:TSLA` both exist, both appear.
+ *
+ * This is the single underlying fetch — both `listAssets()` (deduped, for
+ * the `/assets` index) and `listAllAssetsRaw()` (un-deduped, for the
+ * analytics position matrix that needs to match `leader_cache` positions
+ * keyed by the qualified coin) call into this.
  */
-export async function listAssets(): Promise<AssetRow[]> {
+async function fetchAllAssetRows(): Promise<AssetRow[]> {
   const client = hl();
   const [mainRes, dexsRes] = await Promise.all([
     client.metaAndAssetCtxs(),
@@ -103,11 +109,18 @@ export async function listAssets(): Promise<AssetRow[]> {
     }
   });
 
-  // Dedup cross-dex duplicates: HIP-3 builder dexes commonly re-list main-dex
-  // coins (hyna:BTC, hyna:ETH, …) and compete with each other on TradFi
-  // tickers (TSLA across xyz/cash/km/flx). Keep only the listing with the
-  // highest 24h notional volume per bare symbol so the table reflects where
-  // liquidity actually is. Null volume sorts as 0; main dex wins ties.
+  return rows;
+}
+
+/**
+ * Deduped asset rows — single row per bare symbol, highest-volume listing
+ * wins (main-dex wins ties). For the `/assets` index page where the user
+ * wants one row per ticker. HIP-3 builder dexes commonly re-list main-dex
+ * coins (hyna:BTC, hyna:ETH) and compete with each other on TradFi tickers
+ * (TSLA across xyz/cash/km/flx) — this surface chooses the deepest market.
+ */
+export async function listAssets(): Promise<AssetRow[]> {
+  const rows = await fetchAllAssetRows();
   const winners = new Map<string, AssetRow>();
   for (const row of rows) {
     const incumbent = winners.get(row.symbol);
@@ -121,4 +134,15 @@ export async function listAssets(): Promise<AssetRow[]> {
     else if (a === b && row.dex === null) winners.set(row.symbol, row);
   }
   return [...winners.values()];
+}
+
+/**
+ * Un-deduped raw asset rows — every `(dex, coin)` pair across main + HIP-3.
+ * The analytics page's position matrix uses this because `leader_cache`
+ * positions are keyed by the qualified coin (`cash:TSLA`, not `TSLA`), so
+ * matching against the deduped view would silently miss HIP-3 positions
+ * whose dex didn't win the volume tie-break.
+ */
+export async function listAllAssetsRaw(): Promise<AssetRow[]> {
+  return fetchAllAssetRows();
 }

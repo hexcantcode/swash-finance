@@ -1984,9 +1984,21 @@ body {
 }
 .k-mini-table-price {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+/* Coin icon nested inside `.k-mini-table-price` (Latest trades + Top open
+ * positions on /analytics). Pin to a small size so it doesn't push siblings
+ * onto the next line. */
+.k-mini-table-price .k-coin-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 .k-mini-table-chg {
   flex: 0 0 auto;
@@ -2347,14 +2359,17 @@ tr.k-row-flash-down > td {
   border-spacing: 4px;
   font-variant-numeric: tabular-nums;
 }
+/* Transposed matrix (coins rows, traders cols): rowheads carry coin icon
+ * + ticker + holder count; colheads carry a small trader avatar only. */
 .k-matrix-rowhead {
   background: transparent;
   font-weight: 500;
   text-align: left;
   padding: 6px 12px 6px 0;
-  min-width: 200px;
+  min-width: 140px;
 }
-.k-matrix-traderlink {
+/* Coin row (left edge of each body row). icon · TICKER · N */
+.k-matrix-coinrow {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -2363,34 +2378,28 @@ tr.k-row-flash-down > td {
   color: var(--stripe-text-secondary);
   text-decoration: none;
 }
-.k-matrix-traderlink:hover {
+.k-matrix-coinrow:hover {
   color: var(--stripe-accent);
 }
-.k-matrix-traderavatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex: 0 0 auto;
+.k-matrix-coinlabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
-.k-matrix-traderscore {
+.k-matrix-coinholders {
   margin-left: auto;
   padding-left: 8px;
   font-size: 11px;
   color: var(--stripe-text-tertiary);
 }
-.k-matrix-colhead {
-  width: 32px;
-  height: 32px;
-  padding: 0 0 4px 0;
-  background: transparent;
-  text-align: center;
-  vertical-align: bottom;
-}
+/* Coin icon in the rowhead. */
 .k-matrix-icon {
   width: 24px;
   height: 24px;
-  display: block;
-  margin: 0 auto;
+  flex: 0 0 24px;
   border-radius: 50%;
   background: var(--stripe-bg-tertiary);
   object-fit: cover;
@@ -2398,6 +2407,30 @@ tr.k-row-flash-down > td {
 .k-matrix-icon.is-white-bg {
   background: rgba(255, 255, 255, 0.92);
   padding: 1px;
+}
+/* Trader column head — just the avatar, hover for address. */
+.k-matrix-colhead {
+  width: 32px;
+  height: 36px;
+  padding: 0 0 6px 0;
+  background: transparent;
+  text-align: center;
+  vertical-align: bottom;
+}
+.k-matrix-traderchip {
+  display: inline-block;
+  line-height: 0;
+  transition: transform var(--transition-fast);
+}
+.k-matrix-traderchip:hover {
+  transform: scale(1.15);
+}
+.k-matrix-traderavatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: block;
+  background: var(--stripe-bg-tertiary);
 }
 .k-matrix-cell {
   width: 32px;

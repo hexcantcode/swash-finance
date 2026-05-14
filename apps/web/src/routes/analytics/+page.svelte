@@ -37,53 +37,188 @@
     const pct = (c.pctOfBook * 100).toFixed(0);
     return `${coinDisplayName(coin)} · ${c.side} · ${formatPnl(c.notionalUsd)} · ${pct}% of book · uPnL ${formatPnl(c.unrealizedPnlUsd)}`;
   }
+
+  function fmtPctInt(n: number): string {
+    if (!Number.isFinite(n)) return '—';
+    return Math.round(n) + '%';
+  }
+
+  // ── Top-of-page sentiment: server returns one CategoryPositionBreakdown
+  // per category (`stocks` = Stock & Commodity + folded Index; `crypto`).
+  // Translate notional + trader counts into long/short percentages for the
+  // two stacked bars (Size + Traders). 50/50 fallback when nothing's open
+  // so the empty track still reads as balanced rather than collapsed.
+  const sentimentCards = $derived(
+    data.categoryBreakdown.map((cb) => {
+      const totalNot = cb.long.notionalUsd + cb.short.notionalUsd;
+      const totalTr = cb.long.traders + cb.short.traders;
+      const longNotPct = totalNot > 0 ? (cb.long.notionalUsd / totalNot) * 100 : 50;
+      const shortNotPct = 100 - longNotPct;
+      const longTrPct = totalTr > 0 ? (cb.long.traders / totalTr) * 100 : 50;
+      const shortTrPct = 100 - longTrPct;
+      return {
+        category: cb.category,
+        label: cb.category === 'stocks' ? 'Stock & Commodity' : 'Crypto',
+        long: cb.long,
+        short: cb.short,
+        longNotPct,
+        shortNotPct,
+        longTrPct,
+        shortTrPct,
+        hasData: totalNot > 0 || totalTr > 0,
+      };
+    }),
+  );
 </script>
 
 <svelte:head><title>Analytics — Swash</title></svelte:head>
 
 <main id="main-content" class="stripe-content">
-  <!-- 1. Latest trades ─────────────────────────────────────────── -->
+  <!-- 1. Tracked-trader sentiment ──────────────────────────────── -->
   <section class="k-trader-section" style="margin-top: var(--space-4);">
     <div class="k-section-head">
-      <h2 class="k-section-title">Latest trades</h2>
+      <h2 class="k-section-title">
+        Tracked sentiment
+        <span class="k-section-sub">long vs short across every open position</span>
+      </h2>
     </div>
-    {#if data.latestFills.length === 0}
-      <p class="k-empty">No recent trades from tracked wallets.</p>
-    {:else}
+    <div class="k-winners-losers">
+      {#each sentimentCards as s (s.category)}
+        <div class="k-mini-table k-sentiment-card">
+          <div class="k-mini-table-head">{s.label}</div>
+          {#if !s.hasData}
+            <div class="k-empty">no open positions in this bucket yet</div>
+          {:else}
+            <div class="k-sentiment-stack">
+              <div class="k-sentiment-bar">
+                <div class="k-sentiment-label">Size</div>
+                <div
+                  class="k-sentiment-track"
+                  role="img"
+                  aria-label="{fmtPctInt(s.longNotPct)} long, {fmtPctInt(s.shortNotPct)} short by notional"
+                >
+                  <span class="k-sentiment-fill k-sentiment-long" style:width="{s.longNotPct}%"></span>
+                  <span class="k-sentiment-fill k-sentiment-short" style:width="{s.shortNotPct}%"></span>
+                </div>
+                <div class="k-sentiment-foot">
+                  <span class="k-sentiment-foot-left">
+                    <span class="k-pnl-positive">{formatPnl(s.long.notionalUsd)}</span>
+                    <span class="k-sentiment-foot-sub">{fmtPctInt(s.longNotPct)} LONG</span>
+                  </span>
+                  <span class="k-sentiment-foot-right">
+                    <span class="k-sentiment-foot-sub">{fmtPctInt(s.shortNotPct)} SHORT</span>
+                    <span class="k-pnl-negative">{formatPnl(s.short.notionalUsd)}</span>
+                  </span>
+                </div>
+              </div>
+              <div class="k-sentiment-bar">
+                <div class="k-sentiment-label">Traders</div>
+                <div
+                  class="k-sentiment-track"
+                  role="img"
+                  aria-label="{s.long.traders} long, {s.short.traders} short"
+                >
+                  <span class="k-sentiment-fill k-sentiment-long" style:width="{s.longTrPct}%"></span>
+                  <span class="k-sentiment-fill k-sentiment-short" style:width="{s.shortTrPct}%"></span>
+                </div>
+                <div class="k-sentiment-foot">
+                  <span class="k-sentiment-foot-left">
+                    <span class="k-pnl-positive">{s.long.traders}</span>
+                    <span class="k-sentiment-foot-sub">{fmtPctInt(s.longTrPct)} LONG</span>
+                  </span>
+                  <span class="k-sentiment-foot-right">
+                    <span class="k-sentiment-foot-sub">{fmtPctInt(s.shortTrPct)} SHORT</span>
+                    <span class="k-pnl-negative">{s.short.traders}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </section>
+
+  <!-- 2. Latest trades + Top open positions (side-by-side) ─────── -->
+  <section class="k-trader-section">
+    <div class="k-winners-losers">
       <div class="k-mini-table">
-        <div class="k-mini-table-head">Last {data.latestFills.length} fills · tracked wallets</div>
-        {#each data.latestFills as f (f.tid)}
-          <a class="k-mini-table-row" href="/trader/{f.address}">
-            <img
-              src={effigyUrl(f.address)}
-              alt=""
-              loading="lazy"
-              onerror={hideBrokenAvatar}
-              class="k-coin-icon"
-            />
-            <span class="k-coin-sym k-mini-table-addr">{truncateAddress(f.address)}</span>
-            <span class="k-mini-table-price">
-              <span
-                class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
-                aria-label={f.side === 'B' ? 'buy' : 'sell'}
-              >{f.side === 'B' ? '↑' : '↓'}</span>
+        <div class="k-mini-table-head">Latest trades · {data.latestFills.length}</div>
+        {#if data.latestFills.length === 0}
+          <div class="k-empty">no recent trades from tracked wallets</div>
+        {:else}
+          {#each data.latestFills as f (f.tid)}
+            <a class="k-mini-table-row" href="/trader/{f.address}">
               <img
-                src={coinIconUrl(f.coin)}
+                src={effigyUrl(f.address)}
                 alt=""
                 loading="lazy"
                 onerror={hideBrokenAvatar}
                 class="k-coin-icon"
-                class:is-white-bg={coinNeedsWhiteBg(f.coin)}
               />
-              {coinDisplayName(f.coin)}  {formatPnl(f.szBase * f.pxUsd)}
-            </span>
-            <span class="k-mini-table-chg k-mini-table-time">
-              {formatRelativeTime(new Date(f.blockTimeMs))}
-            </span>
-          </a>
-        {/each}
+              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(f.address)}</span>
+              <span class="k-mini-table-price">
+                <span
+                  class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
+                  aria-label={f.side === 'B' ? 'buy' : 'sell'}
+                >{f.side === 'B' ? '↑' : '↓'}</span>
+                <img
+                  src={coinIconUrl(f.coin)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                  class:is-white-bg={coinNeedsWhiteBg(f.coin)}
+                />
+                {coinDisplayName(f.coin)}  {formatPnl(f.szBase * f.pxUsd)}
+              </span>
+              <span class="k-mini-table-chg k-mini-table-time">
+                {formatRelativeTime(new Date(f.blockTimeMs))}
+              </span>
+            </a>
+          {/each}
+        {/if}
       </div>
-    {/if}
+
+      <div class="k-mini-table">
+        <div class="k-mini-table-head">Top open positions · by uPnL</div>
+        {#if data.topOpenPositions.length === 0}
+          <div class="k-empty">no open positions across tracked traders right now</div>
+        {:else}
+          {#each data.topOpenPositions as p (`${p.address}|${p.coin}`)}
+            <a class="k-mini-table-row" href="/trader/{p.address}">
+              <img
+                src={effigyUrl(p.address)}
+                alt=""
+                loading="lazy"
+                onerror={hideBrokenAvatar}
+                class="k-coin-icon"
+              />
+              <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
+              <span class="k-mini-table-price">
+                <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
+                  >{p.side === 'long' ? '↑' : '↓'}</span>
+                <img
+                  src={coinIconUrl(p.coin)}
+                  alt=""
+                  loading="lazy"
+                  onerror={hideBrokenAvatar}
+                  class="k-coin-icon"
+                  class:is-white-bg={coinNeedsWhiteBg(p.coin)}
+                />
+                {coinDisplayName(p.coin)}  {formatPnl(p.notionalUsd)}
+              </span>
+              <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
+                {formatPnl(p.unrealizedPnlUsd)}
+                <span class="k-mini-table-sub {pnlSignClass(p.returnOnEquity)}">
+                  {fmtRoe(p.returnOnEquity)}
+                </span>
+              </span>
+            </a>
+          {/each}
+        {/if}
+      </div>
+    </div>
   </section>
 
   <!-- 2. Position matrix ───────────────────────────────────────── -->
@@ -92,40 +227,32 @@
       <h2 class="k-section-title">
         Position matrix
         <span class="k-section-sub">
-          top {data.matrix.traders.length} by score · {data.matrix.coins.length} coins
+          {data.matrix.coins.length} coins (by 24h volume) × {data.matrix.traders.length} tracked traders
         </span>
       </h2>
     </div>
     {#if data.matrix.traders.length === 0 || data.matrix.coins.length === 0}
       <p class="k-empty">No tracked traders are currently holding overlapping positions.</p>
     {:else}
+      <!-- Transposed: coin rows down the left (full label + icon), trader
+           columns across the top (just the avatar, hover for address +
+           score). The cell lookup key is still `${address}|${coin}` — same
+           data, swapped axes. -->
       <div class="k-matrix-wrap">
         <table class="k-matrix">
           <thead>
             <tr>
               <th class="k-matrix-rowhead"></th>
-              {#each data.matrix.coins as c (c.coin)}
+              {#each data.matrix.traders as t (t.address)}
                 <th
                   class="k-matrix-colhead"
-                  title="{coinDisplayName(c.coin)} · {c.holders} holders · net {formatPnl(c.netNotionalUsd)}"
+                  title="{truncateAddress(t.address)}{t.score !== null ? ' · score ' + t.score : ''}"
                 >
-                  <img
-                    src={coinIconUrl(c.coin)}
-                    alt={coinDisplayName(c.coin)}
-                    loading="lazy"
-                    onerror={hideBrokenAvatar}
-                    class="k-matrix-icon"
-                    class:is-white-bg={coinNeedsWhiteBg(c.coin)}
-                  />
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.matrix.traders as t (t.address)}
-              <tr>
-                <th class="k-matrix-rowhead">
-                  <a class="k-matrix-traderlink" href="/trader/{t.address}">
+                  <a
+                    class="k-matrix-traderchip"
+                    href="/trader/{t.address}"
+                    aria-label="Open {truncateAddress(t.address)}"
+                  >
                     <img
                       src={effigyUrl(t.address)}
                       alt=""
@@ -133,20 +260,38 @@
                       onerror={hideBrokenAvatar}
                       class="k-matrix-traderavatar"
                     />
-                    <span>{truncateAddress(t.address)}</span>
-                    {#if t.score !== null}
-                      <span class="k-matrix-traderscore">{t.score}</span>
-                    {/if}
                   </a>
                 </th>
-                {#each data.matrix.coins as c (c.coin)}
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.matrix.coins as c (c.coin)}
+              <tr>
+                <th class="k-matrix-rowhead">
+                  <a class="k-matrix-coinrow" href="/assets/{c.coin}">
+                    <img
+                      src={coinIconUrl(c.coin)}
+                      alt=""
+                      loading="lazy"
+                      onerror={hideBrokenAvatar}
+                      class="k-matrix-icon"
+                      class:is-white-bg={coinNeedsWhiteBg(c.coin)}
+                    />
+                    <span class="k-matrix-coinlabel">{coinDisplayName(c.coin)}</span>
+                    <span class="k-matrix-coinholders">{c.holders}</span>
+                  </a>
+                </th>
+                {#each data.matrix.traders as t (t.address)}
                   {@const cell = data.matrix.cells[`${t.address}|${c.coin}`]}
                   <td
                     class="k-matrix-cell"
                     class:k-cell-long={cell?.side === 'long'}
                     class:k-cell-short={cell?.side === 'short'}
                     style={cell ? `--k-cell-opacity:${cellOpacity(cell.pctOfBook)}` : ''}
-                    title={cell ? cellTitle(c.coin, cell) : `${coinDisplayName(c.coin)}: no position`}
+                    title={cell
+                      ? `${truncateAddress(t.address)} · ${cellTitle(c.coin, cell)}`
+                      : `${truncateAddress(t.address)} · ${coinDisplayName(c.coin)}: no position`}
                   ></td>
                 {/each}
               </tr>
@@ -157,43 +302,4 @@
     {/if}
   </section>
 
-  <!-- 3. Top open positions ────────────────────────────────────── -->
-  <section class="k-trader-section">
-    <div class="k-section-head">
-      <h2 class="k-section-title">
-        Top open positions
-        <span class="k-section-sub">by unrealized PnL · {data.topOpenPositions.length}</span>
-      </h2>
-    </div>
-    {#if data.topOpenPositions.length === 0}
-      <p class="k-empty">No open positions across tracked traders right now.</p>
-    {:else}
-      <div class="k-mini-table">
-        <div class="k-mini-table-head">Top {data.topOpenPositions.length} · sorted by uPnL</div>
-        {#each data.topOpenPositions as p (`${p.address}|${p.coin}`)}
-          <a class="k-mini-table-row" href="/trader/{p.address}">
-            <img
-              src={effigyUrl(p.address)}
-              alt=""
-              loading="lazy"
-              onerror={hideBrokenAvatar}
-              class="k-coin-icon"
-            />
-            <span class="k-coin-sym k-mini-table-addr">{truncateAddress(p.address)}</span>
-            <span class="k-mini-table-price">
-              <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
-                >{p.side === 'long' ? '↑' : '↓'}</span>
-              {p.coin}  {formatPnl(p.notionalUsd)}
-            </span>
-            <span class="k-mini-table-chg {pnlSignClass(p.unrealizedPnlUsd)}">
-              {formatPnl(p.unrealizedPnlUsd)}
-              <span class="k-mini-table-sub {pnlSignClass(p.returnOnEquity)}">
-                {fmtRoe(p.returnOnEquity)}
-              </span>
-            </span>
-          </a>
-        {/each}
-      </div>
-    {/if}
-  </section>
 </main>

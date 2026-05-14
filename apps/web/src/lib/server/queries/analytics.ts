@@ -1,13 +1,16 @@
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { fills, leaderCache, wallets } from '@copytrade/db';
+import { coinCategory } from '$lib/utils/coin';
 import { db } from '../db.js';
-import { listAssets } from './assets.js';
+import { listAllAssetsRaw } from './assets.js';
 
 /**
- * Server queries powering `/analytics` — three panels:
- *   1. `getLatestFills`         — most-recent fills from the tracked set.
- *   2. `getPositionMatrix`      — top-25 wallets × top N coins; coloured cells.
- *   3. `getTopOpenPositions`    — currently-open positions ranked by PnL.
+ * Server queries powering `/analytics` — four panels:
+ *   1. `getCategoryPositionBreakdown` — long/short split by Stock & Commodity
+ *                                        vs Crypto across every tracked trader.
+ *   2. `getLatestFills`               — most-recent fills from the tracked set.
+ *   3. `getPositionMatrix`            — top-25 wallets × top N coins; coloured cells.
+ *   4. `getTopOpenPositions`          — currently-open positions ranked by PnL.
  *
  * Design: docs/plans/2026-05-13-analytics-page-idea.md.
  */
@@ -125,28 +128,36 @@ export async function getPositionMatrix(opts: {
   const coinsLimit = opts.coinsLimit ?? 18;
   const coinMinHolders = opts.coinMinHolders ?? 1;
 
-  // 1. Pick the matrix's trader set (score-ranked, gate-passers) + the live
-  //    HL asset universe (for the volume-based column ranking). Fetched in
-  //    parallel — the asset list isn't cheap (one `metaAndAssetCtxs` call).
-  const [traderRows, assetList] = await Promise.all([
-    db()
-      .select({
-        address: wallets.address,
-        score: wallets.score,
-        accountValue: wallets.accountValue,
-      })
-      .from(wallets)
-      .where(
-        and(
-          isNotNull(wallets.score),
-          eq(wallets.isAgent, false),
-          sql`${wallets.accountValue} is not null`,
-        ),
-      )
-      .orderBy(desc(wallets.score))
-      .limit(tradersLimit),
-    listAssets(),
+  // 1. Pick the matrix's trader set — any tracked wallet that *currently*
+  //    holds positions (`leader_cache.positions_json` non-empty), ordered
+  //    by `score desc NULLS LAST`. Including un-scored wallets keeps the
+  //    matrix from going blank on whole markets just because the score
+  //    gate hasn't run on a freshly-discovered wallet trading HIP-3
+  //    names. Score-ranked traders still come first; un-scored fill the
+  //    bottom rows (ordered by equity desc).
+  //
+  //    Asset universe pulled in parallel — raw, un-deduped, since
+  //    `leader_cache` positions are keyed by the fully-qualified coin
+  //    name (`cash:TSLA`, not `TSLA`); the volume lookup must be 1:1.
+  const [traderResp, assetList] = await Promise.all([
+    db().execute<{ address: string; score: number | null; account_value: string | null }>(sql`
+      SELECT w.address, w.score, w.account_value
+      FROM wallets w
+      JOIN leader_cache lc ON lc.address = w.address
+      WHERE coalesce(w.is_agent, false) = false
+        AND w.account_value IS NOT NULL
+        AND lc.positions_json IS NOT NULL
+        AND jsonb_array_length(lc.positions_json) > 0
+      ORDER BY w.score DESC NULLS LAST, w.account_value::numeric DESC
+      LIMIT ${tradersLimit}
+    `),
+    listAllAssetsRaw(),
   ]);
+  const traderRows = traderResp.rows.map((r) => ({
+    address: r.address,
+    score: r.score,
+    accountValue: r.account_value,
+  }));
   const volumeByCoin = new Map<string, number>();
   for (const a of assetList) {
     if (a.volume24h !== null) volumeByCoin.set(a.coin, a.volume24h);
@@ -320,4 +331,86 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
     });
   }
   return out;
+}
+
+// ── Category position breakdown (Stock & Commodity vs Crypto) ──────────
+
+export interface CategoryPositionBreakdown {
+  /** Folded categories per user direction: index assets fold into 'stocks'. */
+  category: 'stocks' | 'crypto';
+  long: {
+    /** Sum of long-side notional across every tracked trader, USD. */
+    notionalUsd: number;
+    /** Distinct tracked traders holding any long position in this category. */
+    traders: number;
+  };
+  short: {
+    notionalUsd: number;
+    traders: number;
+  };
+}
+
+/**
+ * Long/short sentiment split across every tracked wallet's currently-open
+ * positions, bucketed by asset category. The category-3 (`'index'`) bucket
+ * is folded into `'stocks'` so the analytics header surfaces a clean
+ * two-bar Stock-vs-Crypto view; if we ever want a separate Index bar, drop
+ * the fold here.
+ *
+ * Same JSONB-unpack pattern as `getTopOpenPositions`, just unsorted and
+ * un-limited — we want every position.
+ */
+export async function getCategoryPositionBreakdown(): Promise<
+  CategoryPositionBreakdown[]
+> {
+  const rows = await db().execute<{
+    address: string;
+    coin: string;
+    szi: string;
+    notional: string;
+  }>(sql`
+    SELECT
+      lc.address,
+      (p.elem -> 'position' ->> 'coin')          AS coin,
+      (p.elem -> 'position' ->> 'szi')           AS szi,
+      (p.elem -> 'position' ->> 'positionValue') AS notional
+    FROM leader_cache lc,
+         LATERAL jsonb_array_elements(lc.positions_json) AS p(elem)
+    WHERE lc.positions_json IS NOT NULL
+  `);
+
+  type Cat = 'stocks' | 'crypto';
+  type Side = 'long' | 'short';
+  const notional: Record<Cat, Record<Side, number>> = {
+    stocks: { long: 0, short: 0 },
+    crypto: { long: 0, short: 0 },
+  };
+  const traders: Record<Cat, Record<Side, Set<string>>> = {
+    stocks: { long: new Set(), short: new Set() },
+    crypto: { long: new Set(), short: new Set() },
+  };
+
+  for (const r of rows.rows) {
+    const szi = Number.parseFloat(r.szi);
+    if (!Number.isFinite(szi) || szi === 0) continue;
+    const n = Math.abs(Number.parseFloat(r.notional));
+    if (!Number.isFinite(n) || n === 0) continue;
+
+    // Coin name is either bare (`BTC`) or qualified (`xyz:TSLA`). The same
+    // string format `coinCategory` expects everywhere else.
+    const colonIdx = r.coin.indexOf(':');
+    const dex = colonIdx === -1 ? null : r.coin.slice(0, colonIdx);
+    const cat3 = coinCategory(r.coin, dex);
+    const cat: Cat = cat3 === 'crypto' ? 'crypto' : 'stocks';
+    const side: Side = szi > 0 ? 'long' : 'short';
+
+    notional[cat][side] += n;
+    traders[cat][side].add(r.address);
+  }
+
+  return (['stocks', 'crypto'] as const).map((cat) => ({
+    category: cat,
+    long: { notionalUsd: notional[cat].long, traders: traders[cat].long.size },
+    short: { notionalUsd: notional[cat].short, traders: traders[cat].short.size },
+  }));
 }

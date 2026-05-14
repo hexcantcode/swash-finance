@@ -1,4 +1,5 @@
 import {
+  getCategoryPositionBreakdown,
   getLatestFills,
   getPositionMatrix,
   getTopOpenPositions,
@@ -6,13 +7,14 @@ import {
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-  const [latestFills, matrix, topOpenPositions] = await Promise.all([
+  const [latestFills, matrix, topOpenPositions, categoryBreakdown] = await Promise.all([
     getLatestFills(10),
-    // Intersection mode (per user direction 2026-05-14): rank columns by HL
-    // 24h volume, but drop coins no tracked trader holds — so the matrix is
-    // dense-ish but the volume-headline names lead.
-    getPositionMatrix({ tradersLimit: 25, coinsLimit: 18, coinMinHolders: 1 }),
+    // Transposed layout (2026-05-14): coins are rows, traders are columns
+    // (avatars only). 30 coin rows lets HIP-3 markets (cash:TSLA, xyz:MSTR)
+    // make the cut alongside the main-dex majors.
+    getPositionMatrix({ tradersLimit: 25, coinsLimit: 30, coinMinHolders: 1 }),
     getTopOpenPositions(25),
+    getCategoryPositionBreakdown(),
   ]);
-  return { latestFills, matrix, topOpenPositions };
+  return { latestFills, matrix, topOpenPositions, categoryBreakdown };
 };
