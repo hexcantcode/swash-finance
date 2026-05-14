@@ -23,26 +23,26 @@
     <span class="k-ticker-label">Live</span>
     <div class="k-ticker-mask">
       <div class="k-ticker-track">
-        {#each doubled as t, i (i + '-' + t.tid)}
+        {#each doubled as t, i (i + '-' + t.key)}
           <a
             class="k-ticker-item"
-            href="/trader/{t.master_address}"
-            aria-label="{truncateAddress(t.master_address)} {t.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(t.coin)}"
+            href="/trader/{t.address}"
+            aria-label="{truncateAddress(t.address)} {t.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(t.coin)}"
           >
             <img
-              src={effigyUrl(t.master_address)}
+              src={effigyUrl(t.address)}
               alt=""
               loading="lazy"
               onerror={hideBrokenAvatar}
               class="k-ticker-avatar"
             />
-            <span class="k-ticker-addr">{truncateAddress(t.master_address)}</span>
+            <span class="k-ticker-addr">{truncateAddress(t.address)}</span>
             <span class="k-ticker-side {t.side === 'B' ? 'buy' : 'sell'}">
               {t.side === 'B' ? '↗' : '↘'}
             </span>
             <span class="k-ticker-coin">{coinDisplayName(t.coin)}</span>
-            <span class="k-ticker-notional">{formatUsd(t.notional)}</span>
-            <span class="k-ticker-time">{formatRelativeTime(new Date(t.block_time_ms))}</span>
+            <span class="k-ticker-notional">{formatUsd(t.notionalUsd)}</span>
+            <span class="k-ticker-time">{formatRelativeTime(new Date(t.blockTimeMs))}</span>
           </a>
         {/each}
       </div>

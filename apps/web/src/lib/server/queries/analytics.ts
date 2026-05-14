@@ -19,14 +19,22 @@ import { listAllAssetsRaw } from './assets.js';
 
 /**
  * One *trade* — a single user order, even when HL split it into many fills
- * because it matched multiple counterparties. We group by `(user_address,
+ * because it matched multiple counterparties. We group by `(master_address,
  * coin, side, oid)` so the panel shows one row per intent, not per market
- * impact. When `oid` is null (rare — pre-HL-v2 ingest), each fill becomes
- * its own singleton group keyed by `tid`.
+ * impact, and so an agent + its master attribute to one row (the master).
+ * When `oid` is null (rare — pre-HL-v2 ingest), each fill becomes its own
+ * singleton group keyed by `tid` to avoid all-null-oid fills collapsing
+ * into a single nonsense row.
+ *
+ * This is the shared shape behind both the `/analytics` Latest-trades panel
+ * (`scope: 'tracked'`) and the global `TradeTicker` (`scope: 'all'`).
  */
 export interface LatestTrade {
   /** Stable `{#each}` key. `oid` when set, else `tid:NNN` for null-oid fills. */
   key: string;
+  /** Master wallet address — agent fills are rolled up to their master via
+   *  `wallets.master_address`. Falls back to the fill's own `user_address`
+   *  when no master is recorded (i.e. the wallet is itself a master). */
   address: string;
   coin: string;
   side: 'B' | 'A';
@@ -42,10 +50,31 @@ export interface LatestTrade {
   blockTimeMs: number;
 }
 
-/** Most-recent *trades* across tracked wallets (any wallet with a
- *  leader_cache row). Groups fills by `(user_address, coin, side, oid)` so a
- *  market order that hit 10 counterparties shows as one row, not ten. */
-export async function getLatestTrades(limit = 10): Promise<LatestTrade[]> {
+/**
+ * Most-recent *trades* across HL fills, with the order-aggregation rollup.
+ *
+ * - `scope: 'tracked'` (default) — restricts to wallets in `leader_cache`
+ *   (the curated ~250 set). Powers the `/analytics` Latest-trades panel.
+ * - `scope: 'all'` — no `leader_cache` filter; covers every ingested wallet,
+ *   rolled to the master via `wallets.master_address`. Powers the global
+ *   `TradeTicker` (used on `/traders` and `/assets`).
+ *
+ * Groups fills by `(master_address, coin, side, oid)` so a market order
+ * that hit 10 counterparties — and any sub-fills under an agent that
+ * belongs to the master — shows as one row, not many.
+ */
+export async function getLatestTrades(
+  opts: { limit?: number; scope?: 'tracked' | 'all' } = {},
+): Promise<LatestTrade[]> {
+  const limit = opts.limit ?? 10;
+  const scope = opts.scope ?? 'tracked';
+  // `WHERE` is an expression we inline conditionally — `sql` empty fragment
+  // when scope = 'all' so the SQL stays grammatically valid either way.
+  const scopeFilter =
+    scope === 'tracked'
+      ? sql`WHERE COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leader_cache)`
+      : sql``;
+
   const rows = await db().execute<{
     address: string;
     coin: string;
@@ -57,7 +86,7 @@ export async function getLatestTrades(limit = 10): Promise<LatestTrade[]> {
     fill_count: string | number;
   }>(sql`
     SELECT
-      f.user_address                              AS address,
+      COALESCE(w.master_address, f.user_address)  AS address,
       f.coin,
       f.side,
       -- When oid is set we group all fills of that order together; for
@@ -69,8 +98,9 @@ export async function getLatestTrades(limit = 10): Promise<LatestTrade[]> {
       MAX(f.block_time_ms)                        AS latest_ms,
       COUNT(*)                                    AS fill_count
     FROM fills f
-    WHERE f.user_address IN (SELECT address FROM leader_cache)
-    GROUP BY f.user_address, f.coin, f.side,
+    LEFT JOIN wallets w ON w.address = f.user_address
+    ${scopeFilter}
+    GROUP BY COALESCE(w.master_address, f.user_address), f.coin, f.side,
              COALESCE(f.oid::text, 'tid:' || f.tid::text)
     ORDER BY MAX(f.block_time_ms) DESC
     LIMIT ${limit}

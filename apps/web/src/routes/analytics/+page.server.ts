@@ -8,7 +8,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
   const [latestFills, matrix, topOpenPositions, categoryBreakdown] = await Promise.all([
-    getLatestTrades(20),
+    getLatestTrades({ limit: 20 }),
     // Transposed layout (2026-05-14): coins are rows, traders are columns
     // (avatars only). 30 coin rows lets HIP-3 markets (cash:TSLA, xyz:MSTR)
     // make the cut alongside the main-dex majors.
