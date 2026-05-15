@@ -66,21 +66,48 @@ export interface LatestTrade {
  *   rolled to the master via `wallets.master_address`. Powers the global
  *   `TradeTicker` (used on `/traders` and `/assets`).
  *
- * Groups fills by `(master_address, coin, side, oid)` so a market order
- * that hit 10 counterparties — and any sub-fills under an agent that
- * belongs to the master — shows as one row, not many.
+ * - `aggregation: 'order'` (default) — groups fills by `(master_address,
+ *   coin, side, oid)` so a market order that hit 10 counterparties — and
+ *   any sub-fills under an agent that belongs to the master — shows as one
+ *   row, not many. Right shape for the Latest-trades panel where every HL
+ *   order is a distinct event the user wants to see.
+ * - `aggregation: 'session'` — groups by `(master_address, coin, side,
+ *   5-minute window)`. One row per trader-coin-side burst, so a scalper
+ *   firing 26 single-fill orders on ZEC in two minutes collapses to a
+ *   single ticker row rather than dominating the strip. Right shape for
+ *   the ticker where the user wants signal density, not every order.
  */
 export async function getLatestTrades(
-  opts: { limit?: number; scope?: 'tracked' | 'all' } = {},
+  opts: {
+    limit?: number;
+    scope?: 'tracked' | 'all';
+    aggregation?: 'order' | 'session';
+  } = {},
 ): Promise<LatestTrade[]> {
   const limit = opts.limit ?? 10;
   const scope = opts.scope ?? 'tracked';
+  const aggregation = opts.aggregation ?? 'order';
   // `WHERE` is an expression we inline conditionally — `sql` empty fragment
   // when scope = 'all' so the SQL stays grammatically valid either way.
   const scopeFilter =
     scope === 'tracked'
       ? sql`WHERE COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leader_cache)`
       : sql``;
+
+  // Aggregation key:
+  //   - 'order'   → COALESCE(f.oid::text, 'tid:' || f.tid::text). Distinct
+  //                 HL order or per-fill singleton when oid is null.
+  //   - 'session' → integer-divide block_time_ms by 5 min (300_000 ms). Same
+  //                 (trader, coin, side) within a 5-min bucket collapses;
+  //                 makes the ticker resistant to one scalper flooding it.
+  // The literal `300000` is inlined (not bound as a parameter) so both the
+  // SELECT and GROUP BY references render to byte-identical SQL — Postgres
+  // doesn't recognize `(c / $1)` and `(c / $2)` as the same expression
+  // even when both parameters hold the same value.
+  const groupKeyExpr =
+    aggregation === 'session'
+      ? sql.raw(`(f.block_time_ms / 300000)::text`)
+      : sql`COALESCE(f.oid::text, 'tid:' || f.tid::text)`;
 
   const rows = await db().execute<{
     address: string;
@@ -96,10 +123,7 @@ export async function getLatestTrades(
       COALESCE(w.master_address, f.user_address)  AS address,
       f.coin,
       f.side,
-      -- When oid is set we group all fills of that order together; for
-      -- null-oid rows fall back to the per-fill tid so each becomes
-      -- a singleton group instead of all collapsing into one.
-      COALESCE(f.oid::text, 'tid:' || f.tid::text) AS group_key,
+      ${groupKeyExpr}                              AS group_key,
       SUM(f.sz::numeric)                          AS total_sz,
       SUM(f.sz::numeric * f.px::numeric)          AS total_notional,
       MAX(f.block_time_ms)                        AS latest_ms,
@@ -107,8 +131,7 @@ export async function getLatestTrades(
     FROM fills f
     LEFT JOIN wallets w ON w.address = f.user_address
     ${scopeFilter}
-    GROUP BY COALESCE(w.master_address, f.user_address), f.coin, f.side,
-             COALESCE(f.oid::text, 'tid:' || f.tid::text)
+    GROUP BY COALESCE(w.master_address, f.user_address), f.coin, f.side, ${groupKeyExpr}
     ORDER BY MAX(f.block_time_ms) DESC
     LIMIT ${limit}
   `);
