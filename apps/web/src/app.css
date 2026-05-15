@@ -2117,14 +2117,15 @@ body {
  * the columns flush to the right side of the row. Explicit `grid-column`
  * placement keeps cells stable when siblings hide (currently
  * `.k-mini-table-alfa` is `display: none` and its auto-column collapses
- * to 0). Analytics's `--split` rows keep the flex base above. */
-.k-mini-table-row:not(.k-mini-table-row--split),
+ * to 0). Analytics's `--split` rows (Latest trades / Winning Trades)
+ * and `--coin` rows (Most Held coin list) keep the flex base above. */
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--coin),
 .k-mini-table-head-colheads {
   display: grid;
   grid-template-columns: 20px 1fr 96px auto 80px 96px;
   align-items: center;
   column-gap: var(--space-3);
-  gap: 0;
+  row-gap: 0;
 }
 .k-mini-table-row:not(.k-mini-table-row--split) > .stripe-avatar,
 .k-mini-table-head-avatar-spacer {
@@ -2160,6 +2161,52 @@ body {
 }
 .k-mini-table-row:hover {
   background: var(--stripe-bg-secondary);
+}
+
+/* Most-Held coin-list row — flex layout, three cells: coin icon + name
+ * (flex 1) + holders count. Lives under the sentiment cards on
+ * /analytics; opt-out of the leader-table grid via the modifier so this
+ * file can keep that grid scoped to /traders. */
+.k-mini-table-row--coin {
+  display: flex;
+}
+.k-most-held-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.k-most-held-coin {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+}
+/* Most-Held direction cell — long count (green) + short count (red),
+ * arrows make the side unambiguous. Tabular-nums so numbers stack
+ * cleanly between rows. */
+.k-most-held-direction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.k-most-held-long {
+  color: var(--stripe-success);
+}
+.k-most-held-short {
+  color: var(--stripe-danger);
+}
+/* Head-label slot above the direction cell — sits to the right of the
+ * panel title (which is flex:1). Uppercase via shared `.k-mini-table-head-row .k-mini-table-head-label`. */
+.k-most-held-direction-head {
+  flex: 0 0 auto;
 }
 .k-coin-sym {
   flex: 1;

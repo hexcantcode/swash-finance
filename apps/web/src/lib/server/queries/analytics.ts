@@ -666,3 +666,101 @@ export async function getCategoryPositionBreakdown(): Promise<
     short: { notionalUsd: notional[cat].short, traders: traders[cat].short.size },
   }));
 }
+
+// ── Most held positions (per-coin holder ranking) ──────────────────────
+
+export interface MostHeldRow {
+  /** Fully-qualified coin name (`BTC`, `xyz:NVDA`, …). */
+  coin: string;
+  /** Distinct tracked traders currently holding any open position on this
+   *  coin (long OR short). Primary sort key for the panel. Equal to
+   *  `longCount + shortCount` since a trader can only hold one side per
+   *  coin at a time on HL. */
+  holders: number;
+  /** Distinct tracked traders currently long on this coin. */
+  longCount: number;
+  /** Distinct tracked traders currently short on this coin. */
+  shortCount: number;
+  /** Σ long − Σ short notional in USD — signed net exposure across the
+   *  cohort. Surfaced for context; can color-tint the row. */
+  netNotionalUsd: number;
+}
+
+export interface CategorizedMostHeld {
+  stocks: MostHeldRow[];
+  crypto: MostHeldRow[];
+}
+
+/**
+ * Top-N coins per category by number of tracked traders currently
+ * holding an open position. Same JSONB unpack as
+ * `getCategoryPositionBreakdown`, just regrouped by coin instead of
+ * folded into the category aggregate. Snapshot, not flow — measures
+ * what's currently held, not what was opened today. The /analytics
+ * panel labels this as "Most Held" between the sentiment cards and
+ * the latest-trades / winning-trades grid.
+ */
+export async function getMostHeldByCategory(
+  opts: { perCategory?: number } = {},
+): Promise<CategorizedMostHeld> {
+  const perCategory = opts.perCategory ?? 5;
+  const rows = await db().execute<{
+    address: string;
+    coin: string;
+    szi: string;
+    notional: string;
+  }>(sql`
+    SELECT
+      lc.address,
+      (p.elem -> 'position' ->> 'coin')           AS coin,
+      (p.elem -> 'position' ->> 'szi')            AS szi,
+      (p.elem -> 'position' ->> 'positionValue')  AS notional
+    FROM leader_cache lc,
+         LATERAL jsonb_array_elements(lc.positions_json) AS p(elem)
+    WHERE lc.positions_json IS NOT NULL
+  `);
+
+  type Bucket = {
+    longHolders: Set<string>;
+    shortHolders: Set<string>;
+    netNotional: number;
+  };
+  const byCoin: Record<'stocks' | 'crypto', Map<string, Bucket>> = {
+    stocks: new Map(),
+    crypto: new Map(),
+  };
+  for (const r of rows.rows) {
+    const szi = Number.parseFloat(r.szi);
+    if (!Number.isFinite(szi) || szi === 0) continue;
+    const notional = Math.abs(Number.parseFloat(r.notional));
+    if (!Number.isFinite(notional) || notional === 0) continue;
+    const cat = panelCategory(r.coin);
+    const b = byCoin[cat].get(r.coin) ?? {
+      longHolders: new Set<string>(),
+      shortHolders: new Set<string>(),
+      netNotional: 0,
+    };
+    if (szi > 0) {
+      b.longHolders.add(r.address);
+      b.netNotional += notional;
+    } else {
+      b.shortHolders.add(r.address);
+      b.netNotional -= notional;
+    }
+    byCoin[cat].set(r.coin, b);
+  }
+
+  const topN = (m: Map<string, Bucket>): MostHeldRow[] =>
+    Array.from(m.entries())
+      .map(([coin, b]) => ({
+        coin,
+        longCount: b.longHolders.size,
+        shortCount: b.shortHolders.size,
+        holders: b.longHolders.size + b.shortHolders.size,
+        netNotionalUsd: b.netNotional,
+      }))
+      .sort((a, b) => b.holders - a.holders || Math.abs(b.netNotionalUsd) - Math.abs(a.netNotionalUsd))
+      .slice(0, perCategory);
+
+  return { stocks: topN(byCoin.stocks), crypto: topN(byCoin.crypto) };
+}

@@ -285,6 +285,55 @@
     </div>
   </section>
 
+  <!-- 1b. Most-Held coins (per-category top 5 by holder count) ───── -->
+  {#snippet mostHeldPanel(rows: typeof data.mostHeld.stocks)}
+    <div class="k-mini-table" role="list">
+      <div class="k-mini-table-head k-mini-table-head-row">
+        <span class="k-mini-table-head-title">Most Held</span>
+        <span class="k-mini-table-head-label k-most-held-direction-head">Long / Short</span>
+      </div>
+      {#if rows.length === 0}
+        <div class="k-empty">no open positions in this bucket</div>
+      {:else}
+        {#each rows as r (r.coin)}
+          <a
+            class="k-mini-table-row k-mini-table-row--coin"
+            href="/assets/{r.coin}"
+            role="listitem"
+            title="{coinDisplayName(r.coin)} · {r.longCount} long, {r.shortCount} short · net {formatPnl(r.netNotionalUsd)}"
+          >
+            <img
+              src={coinIconUrl(r.coin)}
+              alt=""
+              loading="lazy"
+              onerror={hideBrokenAvatar}
+              class="k-coin-icon k-most-held-icon"
+              class:is-white-bg={coinNeedsWhiteBg(r.coin)}
+            />
+            <span class="k-most-held-coin">{coinDisplayName(r.coin)}</span>
+            <span class="k-most-held-direction">
+              <span class="k-most-held-long">↑ {r.longCount}</span>
+              <span class="k-most-held-short">↓ {r.shortCount}</span>
+            </span>
+          </a>
+        {/each}
+      {/if}
+    </div>
+  {/snippet}
+
+  <section class="k-trader-section">
+    <div class="k-categorized-panels">
+      <div class="k-category-column">
+        <div class="k-category-header">Stocks &amp; Commodities</div>
+        {@render mostHeldPanel(data.mostHeld.stocks)}
+      </div>
+      <div class="k-category-column">
+        <div class="k-category-header">Crypto</div>
+        {@render mostHeldPanel(data.mostHeld.crypto)}
+      </div>
+    </div>
+  </section>
+
   <!-- 2. Latest trades + Winning Trades, split by category ──────── -->
   <!-- Stocks/commodities on the left, crypto on the right; each column
        carries both panels stacked vertically. The two snippets below
