@@ -24,10 +24,13 @@
     <div class="k-ticker-mask">
       <div class="k-ticker-track">
         {#each doubled as t, i (i + '-' + t.key)}
+          {@const isDuplicate = i >= trades.length}
           <a
             class="k-ticker-item"
             href="/trader/{t.address}"
             aria-label="{truncateAddress(t.address)} {t.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(t.coin)}"
+            aria-hidden={isDuplicate ? 'true' : undefined}
+            tabindex={isDuplicate ? -1 : undefined}
           >
             <img
               src={effigyUrl(t.address)}
@@ -36,7 +39,7 @@
               onerror={hideBrokenAvatar}
               class="k-ticker-avatar"
             />
-            <span class="k-ticker-side {t.side === 'B' ? 'buy' : 'sell'}">
+            <span class="k-ticker-side {t.side === 'B' ? 'buy' : 'sell'}" aria-hidden="true">
               {t.side === 'B' ? '↗' : '↘'}
             </span>
             <span class="k-ticker-coin">{coinDisplayName(t.coin)}</span>

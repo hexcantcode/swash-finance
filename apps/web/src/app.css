@@ -2045,6 +2045,16 @@ body {
 .k-mini-table-head-row .k-mini-table-head-title {
   flex: 1;
   min-width: 0;
+  /* Promoted from <span> to <h3> for landmark navigation. Reset the
+   * browser-default <h3> margin/font so the visual styling is driven
+   * entirely by the parent `.k-mini-table-head`. */
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 .k-mini-table-head-row .k-mini-table-head-label {
   font-size: 9px;
@@ -2068,6 +2078,14 @@ body {
 .k-mini-table-head-title-line {
   padding: var(--space-2) var(--space-3) 4px;
   color: var(--stripe-text-secondary);
+  /* Promoted from <div> to <h3>; reset the browser-default <h3>
+   * margin/font so the visual stays identical. */
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
 }
 .k-mini-table-head-colheads {
   display: flex;
@@ -2242,11 +2260,21 @@ body {
 }
 /* Coin icon nested inside `.k-mini-table-price` (Latest trades + Top open
  * positions on /analytics). Pin to a small size so it doesn't push siblings
- * onto the next line. */
+ * onto the next line. Directional ring (green for long / buy, red for short
+ * / sell) replaces the standalone ↑/↓ arrow that used to sit beside the
+ * icon — same visual language as the Holdings icons on /traders. */
 .k-mini-table-price .k-coin-icon {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-mini-table-price .k-coin-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-mini-table-price .k-coin-icon.is-short {
+  border-color: var(--stripe-danger);
 }
 .k-mini-table-chg {
   flex: 0 0 auto;

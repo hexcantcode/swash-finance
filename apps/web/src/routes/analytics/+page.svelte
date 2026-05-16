@@ -289,7 +289,7 @@
   {#snippet mostHeldPanel(rows: typeof data.mostHeld.stocks)}
     <div class="k-mini-table" role="list">
       <div class="k-mini-table-head k-mini-table-head-row">
-        <span class="k-mini-table-head-title">Most Held</span>
+        <h3 class="k-mini-table-head-title">Most Held</h3>
         <span class="k-mini-table-head-label k-most-held-direction-head">Long / Short</span>
       </div>
       {#if rows.length === 0}
@@ -299,7 +299,6 @@
           <a
             class="k-mini-table-row k-mini-table-row--coin"
             href="/assets/{r.coin}"
-            role="listitem"
             title="{coinDisplayName(r.coin)} · {r.longCount} long, {r.shortCount} short · net {formatPnl(r.netNotionalUsd)}"
           >
             <img
@@ -312,8 +311,16 @@
             />
             <span class="k-most-held-coin">{coinDisplayName(r.coin)}</span>
             <span class="k-most-held-direction">
-              <span class="k-most-held-long">↑ {r.longCount}</span>
-              <span class="k-most-held-short">↓ {r.shortCount}</span>
+              <span class="k-most-held-long">
+                <span aria-hidden="true">↑</span>
+                <span class="sr-only">long</span>
+                {r.longCount}
+              </span>
+              <span class="k-most-held-short">
+                <span aria-hidden="true">↓</span>
+                <span class="sr-only">short</span>
+                {r.shortCount}
+              </span>
             </span>
           </a>
         {/each}
@@ -342,7 +349,7 @@
   {#snippet latestTradesPanel(fills: typeof data.latestFills.stocks)}
     <div class="k-mini-table" role="list">
       <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
-        <span class="k-mini-table-head-title">Latest trades</span>
+        <h3 class="k-mini-table-head-title">Latest trades</h3>
         <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
         <span class="k-mini-table-head-label k-mini-table-val">Size</span>
         <span class="k-mini-table-head-label k-mini-table-chg">Time</span>
@@ -372,10 +379,6 @@
               title="{f.side === 'B' ? 'bought' : 'sold'} {coinDisplayName(f.coin)} · {f.fillCount} fill{f.fillCount === 1 ? '' : 's'} · VWAP ${f.vwapUsd.toLocaleString('en-US', {maximumFractionDigits: f.vwapUsd >= 1 ? 2 : 6})} · total {formatPnl(f.notionalUsd)}"
             >
               <span class="k-trade-content">
-                <span
-                  class="k-side-arrow k-side-{f.side === 'B' ? 'long' : 'short'}"
-                  aria-label={f.side === 'B' ? 'buy' : 'sell'}
-                >{f.side === 'B' ? '↑' : '↓'}</span>
                 <img
                   src={coinIconUrl(f.coin)}
                   alt=""
@@ -383,6 +386,8 @@
                   onerror={hideBrokenAvatar}
                   class="k-coin-icon"
                   class:is-white-bg={coinNeedsWhiteBg(f.coin)}
+                  class:is-long={f.side === 'B'}
+                  class:is-short={f.side === 'A'}
                 />
                 {coinDisplayName(f.coin)}
               </span>
@@ -408,7 +413,7 @@
   {#snippet winningTradesPanel(positions: typeof data.topOpenPositions.stocks)}
     <div class="k-mini-table" role="list">
       <div class="k-mini-table-head k-mini-table-head-row k-mini-table-head-row--split">
-        <span class="k-mini-table-head-title">Winning Trades</span>
+        <h3 class="k-mini-table-head-title">Winning Trades</h3>
         <span class="k-mini-table-head-label k-mini-table-lev">Leverage</span>
         <span class="k-mini-table-head-label k-mini-table-val">Value</span>
         <span class="k-mini-table-head-label k-mini-table-chg">Profit</span>
@@ -442,8 +447,6 @@
               title="{p.side} {coinDisplayName(p.coin)} · {formatPnl(p.notionalUsd)} notional · realized {formatPnl(p.realizedPnlUsd)} · uPnL {formatPnl(p.unrealizedPnlUsd)}"
             >
               <span class="k-trade-content">
-                <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
-                  >{p.side === 'long' ? '↑' : '↓'}</span>
                 <img
                   src={coinIconUrl(p.coin)}
                   alt=""
@@ -451,6 +454,8 @@
                   onerror={hideBrokenAvatar}
                   class="k-coin-icon"
                   class:is-white-bg={coinNeedsWhiteBg(p.coin)}
+                  class:is-long={p.side === 'long'}
+                  class:is-short={p.side === 'short'}
                 />
                 {coinDisplayName(p.coin)}
               </span>

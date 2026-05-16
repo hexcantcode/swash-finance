@@ -298,12 +298,12 @@
       <table class="stripe-table" aria-label="Hyperliquid perp assets by 24h volume">
         <thead>
           <tr>
-            <th class="stripe-table-trader">Asset</th>
-            <th class="stripe-table-numeric">Price</th>
-            <th class="stripe-table-numeric">24h</th>
-            <th class="stripe-table-numeric">24h volume</th>
-            <th class="stripe-table-numeric">Open interest</th>
-            <th class="stripe-table-numeric">Funding · 1h</th>
+            <th scope="col" class="stripe-table-trader">Asset</th>
+            <th scope="col" class="stripe-table-numeric">Price</th>
+            <th scope="col" class="stripe-table-numeric">24h</th>
+            <th scope="col" class="stripe-table-numeric">24h volume</th>
+            <th scope="col" class="stripe-table-numeric">Open interest</th>
+            <th scope="col" class="stripe-table-numeric">Funding · 1h</th>
           </tr>
         </thead>
         <tbody>

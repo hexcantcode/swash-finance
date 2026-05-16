@@ -69,7 +69,7 @@
     <div class="k-winners-losers">
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head--stacked">
-          <div class="k-mini-table-head-title-line">Winners · 7d</div>
+          <h3 class="k-mini-table-head-title-line">Winners · 7d</h3>
           <div class="k-mini-table-head-colheads">
             <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
             <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
@@ -84,7 +84,7 @@
           </div>
         {:else}
           {#each winnerRows as t (t.address)}
-            <a class="k-mini-table-row" href="/trader/{t.address}">
+            <a class="k-mini-table-row" href="/trader/{t.address}" aria-label="View trader profile">
               <img
                 src={effigyUrl(t.address)}
                 alt=""
@@ -139,7 +139,7 @@
       </div>
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head--stacked">
-          <div class="k-mini-table-head-title-line">Win Rate</div>
+          <h3 class="k-mini-table-head-title-line">Win Rate</h3>
           <div class="k-mini-table-head-colheads">
             <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
             <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
@@ -152,7 +152,7 @@
           <div class="k-empty">no scored traders yet</div>
         {:else}
           {#each winRateRows as t (t.address)}
-            <a class="k-mini-table-row" href="/trader/{t.address}">
+            <a class="k-mini-table-row" href="/trader/{t.address}" aria-label="View trader profile">
               <img
                 src={effigyUrl(t.address)}
                 alt=""

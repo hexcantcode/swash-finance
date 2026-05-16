@@ -101,40 +101,40 @@
   <table class="stripe-table" aria-label="Hyperliquid traders ranked by composite score">
     <thead>
       <tr>
-        <th class="stripe-table-trader">Trader</th>
-        <th class="stripe-table-holdings" title="Top 3 currently-open positions by notional. `+N` indicates additional positions.">Holdings</th>
-        <th class="stripe-table-alfa" title="Coin this trader has the best fill-level win rate on (min 5 trades).">Alfa</th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
+        <th scope="col" class="stripe-table-trader">Trader</th>
+        <th scope="col" class="stripe-table-holdings" title="Top 3 currently-open positions by notional. `+N` indicates additional positions.">Holdings</th>
+        <th scope="col" class="stripe-table-alfa" title="Coin this trader has the best fill-level win rate on (min 5 trades).">Alfa</th>
+        <th scope="col" class="stripe-table-numeric" aria-sort={ariaSort('pnl')}>
           <button
             type="button"
             class="k-th-sort-button"
             class:is-active={activeSort === 'pnl'}
             onclick={() => setSort('pnl')}
           >
-            PnL<span class="stripe-th-sort-indicator">{indicator('pnl')}</span>
+            PnL<span class="stripe-th-sort-indicator" aria-hidden="true">{indicator('pnl')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('equity')}>
+        <th scope="col" class="stripe-table-numeric" aria-sort={ariaSort('equity')}>
           <button
             type="button"
             class="k-th-sort-button"
             class:is-active={activeSort === 'equity'}
             onclick={() => setSort('equity')}
           >
-            Equity<span class="stripe-th-sort-indicator">{indicator('equity')}</span>
+            Equity<span class="stripe-th-sort-indicator" aria-hidden="true">{indicator('equity')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('score')}>
+        <th scope="col" class="stripe-table-numeric" aria-sort={ariaSort('score')}>
           <button
             type="button"
             class="k-th-sort-button"
             class:is-active={activeSort === 'score'}
             onclick={() => setSort('score')}
           >
-            Score<span class="stripe-th-sort-indicator">{indicator('score')}</span>
+            Score<span class="stripe-th-sort-indicator" aria-hidden="true">{indicator('score')}</span>
           </button>
         </th>
-        <th class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
+        <th scope="col" class="stripe-table-numeric" aria-sort={ariaSort('frequency')}>
           <button
             type="button"
             class="k-th-sort-button"
@@ -142,7 +142,7 @@
             onclick={() => setSort('frequency')}
             title="Monthly trade average"
           >
-            Frequency<span class="stripe-th-sort-indicator">{indicator('frequency')}</span>
+            Frequency<span class="stripe-th-sort-indicator" aria-hidden="true">{indicator('frequency')}</span>
           </button>
         </th>
       </tr>
@@ -151,7 +151,7 @@
       {#each displayed as row (row.address)}
         <tr>
           <td class="stripe-table-trader">
-            <a class="k-trader-link" href="/trader/{row.address}">
+            <a class="k-trader-link" href="/trader/{row.address}" aria-label="View trader profile">
               <img
                 src={effigyUrl(row.address)}
                 alt=""
