@@ -1,8 +1,20 @@
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
 import pg from 'pg';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 import * as schema from './schema.js';
 
-let _pool: pg.Pool | null = null;
+// WS-on-443 fallback for local dev when outbound TCP/5432 is filtered.
+// Enable with DB_OVER_WS=1. Railway keeps the default pg/TCP path.
+// Read lazily inside createDb so dotenv (loaded by worker/web before first DB
+// call but after this module is imported) can populate it in time.
+function shouldUseWs(): boolean {
+  const v = process.env['DB_OVER_WS'];
+  return v === '1' || v === 'true';
+}
+
+let _pool: pg.Pool | NeonPool | null = null;
 let _db: NodePgDatabase<typeof schema> | null = null;
 
 export type Db = NodePgDatabase<typeof schema>;
@@ -13,7 +25,20 @@ export interface DbConfig {
   idleTimeoutMillis?: number;
 }
 
-export function createDb(config: DbConfig): { db: Db; pool: pg.Pool } {
+export function createDb(config: DbConfig): { db: Db; pool: pg.Pool | NeonPool } {
+  if (shouldUseWs()) {
+    neonConfig.webSocketConstructor = ws;
+    const pool = new NeonPool({
+      connectionString: config.url,
+      max: config.max ?? 10,
+      idleTimeoutMillis: config.idleTimeoutMillis ?? 30_000,
+    });
+    pool.on('error', (err: Error) => {
+      console.error('[db] idle pool client error (recovering):', err.message);
+    });
+    const db = drizzleNeon(pool, { schema, casing: 'snake_case' }) as unknown as Db;
+    return { db, pool };
+  }
   const pool = new pg.Pool({
     connectionString: config.url,
     max: config.max ?? 10,
@@ -27,7 +52,7 @@ export function createDb(config: DbConfig): { db: Db; pool: pg.Pool } {
   pool.on('error', (err) => {
     console.error('[db] idle pool client error (recovering):', err.message);
   });
-  const db = drizzle(pool, { schema, casing: 'snake_case' });
+  const db = drizzlePg(pool, { schema, casing: 'snake_case' });
   return { db, pool };
 }
 

@@ -38,9 +38,12 @@ importers:
       '@copytrade/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       drizzle-orm:
         specifier: ^0.39.1
-        version: 0.39.3(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
+        version: 0.39.3(@neondatabase/serverless@1.1.0)(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
       layerchart:
         specifier: ^1.0.13
         version: 1.0.13(svelte@5.55.5)(tsx@4.21.0)(typescript@5.9.3)
@@ -111,6 +114,9 @@ importers:
       '@copytrade/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@nktkas/hyperliquid':
         specifier: ^0.32.2
         version: 0.32.2(typescript@5.9.3)
@@ -122,7 +128,7 @@ importers:
         version: 16.6.1
       drizzle-orm:
         specifier: ^0.39.1
-        version: 0.39.3(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
+        version: 0.39.3(@neondatabase/serverless@1.1.0)(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
       pg:
         specifier: ^8.13.1
         version: 8.20.0
@@ -157,19 +163,28 @@ importers:
       '@copytrade/shared':
         specifier: workspace:*
         version: link:../shared
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       drizzle-orm:
         specifier: ^0.39.1
-        version: 0.39.3(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
+        version: 0.39.3(@neondatabase/serverless@1.1.0)(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)
       pg:
         specifier: ^8.13.1
         version: 8.20.0
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
+      ws:
+        specifier: ^8.20.1
+        version: 8.20.1
     devDependencies:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -1009,6 +1024,10 @@ packages:
   '@layerstack/utils@1.0.1':
     resolution: {integrity: sha512-sWP9b+SFMkJYMZyYFI01aLxbg2ZUrix6Tv+BCDmeOrcLNxtWFsMYAomMhALzTMHbb+Vis/ua5vXhpdNXEw8a2Q==}
 
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
+
   '@nktkas/hyperliquid@0.32.2':
     resolution: {integrity: sha512-0Wh/keNAgnfdA/cLmdJDDzTZq/CSoT3lL/eY+MzF9R5U10d5J6nin/sEaH5HA+9K8CIag36ZtZ9dCxDvYEb0nw==}
     engines: {node: '>=20.19.0'}
@@ -1360,6 +1379,9 @@ packages:
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -2646,6 +2668,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -3106,6 +3140,8 @@ snapshots:
       date-fns: 4.1.0
       lodash-es: 4.18.1
 
+  '@neondatabase/serverless@1.1.0': {}
+
   '@nktkas/hyperliquid@0.32.2(typescript@5.9.3)':
     dependencies:
       '@nktkas/rews': 2.1.1
@@ -3396,6 +3432,10 @@ snapshots:
 
   '@types/trusted-types@2.0.7': {}
 
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.19.18
+
   '@vitest/expect@2.1.9':
     dependencies:
       '@vitest/spy': 2.1.9
@@ -3649,8 +3689,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.39.3(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9):
+  drizzle-orm@0.39.3(@neondatabase/serverless@1.1.0)(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9):
     optionalDependencies:
+      '@neondatabase/serverless': 1.1.0
       '@types/pg': 8.20.0
       pg: 8.20.0
       postgres: 3.4.9
@@ -4584,6 +4625,8 @@ snapshots:
       stackback: 0.0.2
 
   wrappy@1.0.2: {}
+
+  ws@8.20.1: {}
 
   xtend@4.0.2: {}
 

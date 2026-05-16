@@ -15,6 +15,7 @@
     "@copytrade/hl-client": "workspace:*",
     "@copytrade/scoring": "workspace:*",
     "@copytrade/shared": "workspace:*",
+    "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.39.1",
     "layerchart": "^1.0.13",
     "lightweight-charts": "^5.2.0",

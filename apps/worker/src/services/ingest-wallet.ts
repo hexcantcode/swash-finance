@@ -244,12 +244,28 @@ async function ingestSingleAddress(address: string): Promise<SingleAddressResult
       liquidationUser: f.liquidation?.liquidatedUser ?? null,
       createdAt: now,
     }));
+    // onConflictDoUpdate so REST enrichment overwrites any sentinel rows left
+    // by `trades-coin-subscriber` (fee=0, closedPnl=0). Stable fields (coin,
+    // side, px, sz, hash, block_time_ms) should already match; we only update
+    // the columns the firehose can't observe.
     fillsInserted = await chunkedInsertReturning(
       (chunk) =>
         db()
           .insert(fills)
           .values(chunk)
-          .onConflictDoNothing({ target: [fills.tid, fills.userAddress] })
+          .onConflictDoUpdate({
+            target: [fills.tid, fills.userAddress],
+            set: {
+              fee: sql`excluded.fee`,
+              feeToken: sql`excluded.fee_token`,
+              builderFee: sql`excluded.builder_fee`,
+              oid: sql`excluded.oid`,
+              crossed: sql`excluded.crossed`,
+              closedPnl: sql`excluded.closed_pnl`,
+              startPosition: sql`excluded.start_position`,
+              liquidationUser: sql`excluded.liquidation_user`,
+            },
+          })
           .returning({ tid: fills.tid }),
       rows,
     );

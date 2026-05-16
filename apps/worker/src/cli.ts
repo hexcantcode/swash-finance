@@ -4,6 +4,8 @@ import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
+import { runHip3PollSubscriber } from './jobs/hip3-poll-subscriber.js';
+import { runTradesCoinSubscriber } from './jobs/trades-coin-subscriber.js';
 import { runTradesSubscriber } from './jobs/trades-subscriber.js';
 import { runWsLiveSubscriber } from './jobs/ws-live-subscriber.js';
 import { ingestWallet } from './services/ingest-wallet.js';
@@ -17,8 +19,12 @@ const COMMANDS = {
   'leaderboard-poll':
     'Poll HL leaderboard for top-7d-ROI + top trader-rankers, queue them as curation candidates.',
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
+  'trades-coin-live':
+    'Long-running per-coin WS firehose: filters every fill against the wallets table and writes matched fills + advances leader_cache.last_trade_ms.',
+  'hip3-poll-live':
+    'Long-running REST poller for HIP-3 builder dex positions (every 5 min). Companion to trades-coin-live which only covers main-dex perps.',
   'ws-live':
-    'Long-running per-user WS subscriber for curated wallets (live cache + history). --reconcile=<seconds>.',
+    'Long-running per-user WS subscriber for curated wallets (live cache + history). --reconcile=<seconds>. NOTE: blocked by HL 10-user/IP cap — use trades-coin-live instead.',
   'leader-cache-poll':
     'Long-running REST poller: refreshes leader_cache positions for top-250 tracked wallets every --poll=<seconds> (default 60).',
   'refresh-queue': 'Process the next batch of wallets in discovery_queue.',
@@ -85,6 +91,14 @@ async function main(): Promise<void> {
     case 'trades-watch': {
       const topCoins = flags['coins'] ? Number.parseInt(flags['coins'], 10) : undefined;
       await runTradesSubscriber(topCoins !== undefined ? { topCoins } : {});
+      break;
+    }
+    case 'trades-coin-live': {
+      await runTradesCoinSubscriber();
+      break;
+    }
+    case 'hip3-poll-live': {
+      await runHip3PollSubscriber();
       break;
     }
     case 'ws-live': {

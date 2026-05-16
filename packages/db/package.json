@@ -17,12 +17,15 @@
   },
   "dependencies": {
     "@copytrade/shared": "workspace:*",
+    "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.39.1",
     "pg": "^8.13.1",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",
+    "@types/ws": "^8.18.1",
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.30.2",
     "tsx": "^4.19.2",
