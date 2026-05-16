@@ -17,8 +17,8 @@ describe('computeBehavioral', () => {
   it('Herfindahl is 1.0 when all volume is in one asset', () => {
     const m = computeBehavioral(
       [
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '50000', sz: '1', startPosition: 0, crossed: true },
-        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '51000', sz: '1', startPosition: '1', crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '50000', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '51000', sz: '1', startPosition: '1', crossed: true, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 2 },
     );
@@ -29,8 +29,8 @@ describe('computeBehavioral', () => {
   it('Herfindahl is < 1 when volume is split across assets', () => {
     const m = computeBehavioral(
       [
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '50000', sz: '1', startPosition: 0, crossed: true },
-        { blockTimeMs: day(2), coin: 'ETH', side: 'B', px: '3000', sz: '16.667', startPosition: 0, crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '50000', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
+        { blockTimeMs: day(2), coin: 'ETH', side: 'B', px: '3000', sz: '16.667', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 2 },
     );
@@ -42,9 +42,9 @@ describe('computeBehavioral', () => {
     const m = computeBehavioral(
       [
         // taker (crossed=true) — counts toward total only
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '100', sz: '1', startPosition: 0, crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '100', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
         // maker (crossed=false) — counts toward maker AND total
-        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '100', sz: '3', startPosition: '1', crossed: false },
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '100', sz: '3', startPosition: '1', crossed: false, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 2 },
     );
@@ -54,8 +54,8 @@ describe('computeBehavioral', () => {
   it('long/short ratio is sum(buy) / sum(sell)', () => {
     const m = computeBehavioral(
       [
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '4', startPosition: 0, crossed: true },
-        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '2', startPosition: '4', crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '4', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '2', startPosition: '4', crossed: true, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 2 },
     );
@@ -65,9 +65,9 @@ describe('computeBehavioral', () => {
   it('avgHoldSeconds estimates FIFO hold from open to close', () => {
     const m = computeBehavioral(
       [
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '1', startPosition: 0, crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
         // Closes 86400s later (1 day)
-        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true },
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 2 },
     );
@@ -78,21 +78,58 @@ describe('computeBehavioral', () => {
     const m = computeBehavioral(
       [
         // open long 3
-        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: 0, crossed: true },
+        { blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
         // reduce to 1 — not flat, no round trip
-        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '2', startPosition: '3', crossed: true },
+        { blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '1', sz: '2', startPosition: '3', crossed: true, closedPnl: '0', fee: '0' },
         // reduce to 0 — round trip #1
-        { blockTimeMs: day(3), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true },
+        { blockTimeMs: day(3), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true, closedPnl: '0', fee: '0' },
         // open short 1
-        { blockTimeMs: day(4), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: 0, crossed: true },
+        { blockTimeMs: day(4), coin: 'BTC', side: 'A', px: '1', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
         // buy 3 — flips through zero to +2 — round trip #2
-        { blockTimeMs: day(5), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: '-1', crossed: true },
+        { blockTimeMs: day(5), coin: 'BTC', side: 'B', px: '1', sz: '3', startPosition: '-1', crossed: true, closedPnl: '0', fee: '0' },
         // independent ETH round trip — #3
-        { blockTimeMs: day(6), coin: 'ETH', side: 'B', px: '1', sz: '1', startPosition: 0, crossed: true },
-        { blockTimeMs: day(7), coin: 'ETH', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true },
+        { blockTimeMs: day(6), coin: 'ETH', side: 'B', px: '1', sz: '1', startPosition: 0, crossed: true, closedPnl: '0', fee: '0' },
+        { blockTimeMs: day(7), coin: 'ETH', side: 'A', px: '1', sz: '1', startPosition: '1', crossed: true, closedPnl: '0', fee: '0' },
       ],
       { activeDays: 7 },
     );
     expect(m.roundTrips).toBe(3);
+  });
+
+  it('roundTripPnls sums (closedPnl − fee) across every fill in a cycle', () => {
+    const m = computeBehavioral(
+      [
+        // open long 2 @100 — fee 0.5, no realized PnL yet
+        {
+          blockTimeMs: day(1), coin: 'BTC', side: 'B', px: '100', sz: '2',
+          startPosition: 0, crossed: true, closedPnl: '0', fee: '0.5',
+        },
+        // partial reduce 1 @110 — booked +10 closedPnl, fee 0.5
+        {
+          blockTimeMs: day(2), coin: 'BTC', side: 'A', px: '110', sz: '1',
+          startPosition: '2', crossed: true, closedPnl: '10', fee: '0.5',
+        },
+        // close last 1 @120 — booked +20 closedPnl, fee 0.5; cycle PnL = 10+20−0.5−0.5−0.5 = 28.5
+        {
+          blockTimeMs: day(3), coin: 'BTC', side: 'A', px: '120', sz: '1',
+          startPosition: '1', crossed: true, closedPnl: '20', fee: '0.5',
+        },
+        // separate losing ETH trade: open 1 @100 then close @80 — PnL = -20 - 0.2 - 0.2 = -20.4
+        {
+          blockTimeMs: day(4), coin: 'ETH', side: 'B', px: '100', sz: '1',
+          startPosition: 0, crossed: true, closedPnl: '0', fee: '0.2',
+        },
+        {
+          blockTimeMs: day(5), coin: 'ETH', side: 'A', px: '80', sz: '1',
+          startPosition: '1', crossed: true, closedPnl: '-20', fee: '0.2',
+        },
+      ],
+      { activeDays: 5 },
+    );
+    expect(m.roundTrips).toBe(2);
+    expect(m.roundTripPnls).toHaveLength(2);
+    // BTC trade closes second (the partial reduce doesn't close the cycle); ETH trade closes after.
+    expect(m.roundTripPnls[0]).toBeCloseTo(28.5, 4);
+    expect(m.roundTripPnls[1]).toBeCloseTo(-20.4, 4);
   });
 });

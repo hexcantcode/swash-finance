@@ -2258,6 +2258,15 @@ body {
   color: var(--stripe-text-secondary);
   white-space: nowrap;
 }
+/* Sample-size tag next to a win-rate value in the Win Rate panel —
+ * "62%  (243)". Dim + smaller so the headline percentage stays primary
+ * but the user can see how many round trips back it at a glance. */
+.k-mini-table-trade-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--stripe-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
 /* Coin icon nested inside `.k-mini-table-price` (Latest trades + Top open
  * positions on /analytics). Pin to a small size so it doesn't push siblings
  * onto the next line. Directional ring (green for long / buy, red for short

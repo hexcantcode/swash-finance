@@ -8,6 +8,12 @@ export interface BehavioralFill {
   sz: Decimal.Value;
   startPosition: Decimal.Value | null;
   crossed: boolean;
+  /** HL-reported booked PnL on the *closing* portion of this fill. Zero on
+   *  opens; signed on partial/full closes. We carry it here so behavioral
+   *  can attribute fill-level PnL to the round-trip cycle it belongs to. */
+  closedPnl: Decimal.Value;
+  /** Fee paid on this fill — also rolled into the cycle's running PnL. */
+  fee: Decimal.Value;
 }
 
 export interface BehavioralMetrics {
@@ -22,6 +28,12 @@ export interface BehavioralMetrics {
   /** Real round-trip count: per-coin position open→flat (or flip-through-zero)
    *  events. A far better sample-size proxy than raw fill count. */
   roundTrips: number;
+  /** Net PnL (Σ closedPnl − Σ fee across every fill inside the cycle) per
+   *  completed round trip. One entry per `roundTrips`. The right input for
+   *  per-trade win-rate / profit-factor / expectancy — `winRate(arr)` here
+   *  produces "% of round trips that were profitable", the convention every
+   *  hedge-fund factsheet means by "win rate". */
+  roundTripPnls: number[];
 }
 
 export function computeBehavioral(
@@ -39,6 +51,7 @@ export function computeBehavioral(
       uniqueAssets: 0,
       totalNotional: d(0),
       roundTrips: 0,
+      roundTripPnls: [],
     };
   }
 
@@ -82,7 +95,7 @@ export function computeBehavioral(
   const tradesPerDayAvg = args.activeDays > 0 ? fills.length / args.activeDays : fills.length;
 
   const avgHoldSeconds = computeAvgHoldSeconds(sortedByTime);
-  const roundTrips = countRoundTrips(sortedByTime);
+  const roundTripPnls = computeRoundTripPnls(sortedByTime);
 
   return {
     avgHoldSeconds,
@@ -93,30 +106,75 @@ export function computeBehavioral(
     longShortRatio,
     uniqueAssets: perCoinNotional.size,
     totalNotional,
-    roundTrips,
+    roundTrips: roundTripPnls.length,
+    roundTripPnls,
   };
 }
 
 /**
- * Count completed round trips: per coin, every fill that takes a non-zero
- * position to flat — or flips it through zero to the other side — closes one
- * round trip. Partial reductions don't count; only the fill that hits/crosses
- * zero does. Uses HL's `startPosition` (position *before* the fill) so no
- * running-position reconstruction is needed; null `startPosition` ⇒ treated as
- * flat (the fill is an open, not a close).
+ * For each per-coin round trip — position open→flat (or flip-through-zero
+ * counts as one close + one new open) — return the cycle's net PnL:
+ *
+ *     Σ (closedPnl − fee) across every fill inside the cycle, opens included.
+ *
+ * The opening fill has `closedPnl = 0` so it contributes only its `−fee`;
+ * intermediate adds same; reducing/closing fills contribute HL's booked
+ * `closedPnl − fee`. Summing them gives the realized PnL for the whole
+ * trade as the user experienced it.
+ *
+ * Uses HL's `startPosition` (position *before* the fill) so no running-
+ * position reconstruction is needed; null `startPosition` ⇒ treated as flat
+ * (the fill is an open). Cycles that haven't closed yet (position still open
+ * at the end of the fills window) are intentionally excluded — their PnL is
+ * not yet decided.
+ *
+ * Returns one entry per completed round trip; `roundTrips = arr.length`.
  */
-function countRoundTrips(sorted: BehavioralFill[]): number {
-  let count = 0;
+function computeRoundTripPnls(sorted: BehavioralFill[]): number[] {
+  const cycles: number[] = [];
+  // Per-coin running net PnL for the currently-open cycle. Coin is removed
+  // from the map when the cycle closes flat; reset to 0 when it crosses
+  // zero (the new direction is a fresh cycle starting from this fill).
+  const openCycle = new Map<string, number>();
+
   for (const f of sorted) {
     const start = f.startPosition !== null ? d(f.startPosition) : d(0);
-    if (start.isZero()) continue; // opening from flat — no round trip closed
+    const fillNet =
+      Number.parseFloat(String(f.closedPnl)) - Number.parseFloat(String(f.fee));
+
+    if (start.isZero()) {
+      // Opening from flat — start a new cycle on this coin. Stack onto any
+      // residual entry (shouldn't exist for a clean dataset, but be safe).
+      openCycle.set(f.coin, (openCycle.get(f.coin) ?? 0) + fillNet);
+      continue;
+    }
+
+    // Fill modifies an existing position. Roll its PnL into the open cycle.
+    const running = (openCycle.get(f.coin) ?? 0) + fillNet;
+
     const signed = f.side === 'B' ? d(f.sz) : d(f.sz).negated();
     const result = start.plus(signed);
-    // Closed if it lands exactly flat, or crosses zero (sign flip).
     const startedLong = start.gt(0);
-    if (result.isZero() || (startedLong ? result.lt(0) : result.gt(0))) count += 1;
+    const closedFlat = result.isZero();
+    const crossed = startedLong ? result.lt(0) : result.gt(0);
+
+    if (closedFlat) {
+      cycles.push(running);
+      openCycle.delete(f.coin);
+    } else if (crossed) {
+      // Old cycle closes here (with running PnL); a new one opens on the
+      // other side from the same fill. The fee was attributed entirely to
+      // the closing cycle above (slight pessimism — typically immaterial,
+      // and avoids fragile fee-splitting between the two halves of one
+      // fill).
+      cycles.push(running);
+      openCycle.set(f.coin, 0);
+    } else {
+      // Partial reduce or add — cycle keeps running.
+      openCycle.set(f.coin, running);
+    }
   }
-  return count;
+  return cycles;
 }
 
 /**

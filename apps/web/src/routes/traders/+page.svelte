@@ -197,7 +197,13 @@
                   —
                 {/if}
               </span>
-              <span class="k-mini-table-price k-pnl-positive">{formatPct(t.win_rate, 0)}</span>
+              <span
+                class="k-mini-table-price k-pnl-positive"
+                title="{formatPct(t.win_rate, 0)} win rate across {t.total_round_trips} completed round trips"
+              >
+                {formatPct(t.win_rate, 0)}
+                <span class="k-mini-table-trade-count">({t.total_round_trips})</span>
+              </span>
               <span class="k-mini-table-chg k-mini-table-pills">
                 <WinLossPills results={t.last_closed} />
               </span>

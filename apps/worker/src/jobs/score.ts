@@ -172,6 +172,12 @@ async function scoreSingleWallet(args: {
 
   const initialDeposit = estimateInitialDeposit(ledgerRows);
   const returns = toDailyReturns(series, initialDeposit);
+  // `perTradePnl` keeps the per-fill (closedPnl − fee) shape — feeds the
+  // `profitFactor` / `expectancy` display columns where the per-fill basis
+  // is fine. Win-rate is computed separately below from the per-round-trip
+  // PnLs `computeBehavioral` returns; that matches the convention every
+  // hedge-fund / copy-trading platform reports (one open→flat cycle = one
+  // win/loss, not one per closing fill).
   const perTradePnl = fillsRows.map((f) => Number.parseFloat(f.closedPnl) - Number.parseFloat(f.fee));
 
   // Track-record span — display only (the score itself reads the 90d
@@ -189,8 +195,8 @@ async function scoreSingleWallet(args: {
   const maxDd = maxDrawdownPct(returns);
   const recovery = recoveryTimeDays(returns);
   const pf = profitFactor(perTradePnl);
-  const wr = winRate(perTradePnl);
   const exp = expectancy(perTradePnl);
+  // Win rate (declared below — needs `behavioral.roundTripPnls`).
   // PSR dropped in score v2 (it only fed the old composite). `scores.psr`
   // column kept for backwards compatibility, written as null.
   const psr: number | null = null;
@@ -215,9 +221,17 @@ async function scoreSingleWallet(args: {
       sz: f.sz,
       startPosition: f.startPosition,
       crossed: f.crossed,
+      closedPnl: f.closedPnl,
+      fee: f.fee,
     })),
     { activeDays: series.activeDays },
   );
+
+  // Win rate over completed round trips — one entry per open→flat cycle,
+  // signed by the cycle's net realized PnL. Industry convention; what every
+  // hedge fund factsheet means by "win rate". See behavioral.ts
+  // `computeRoundTripPnls`.
+  const wr = winRate(behavioral.roundTripPnls);
 
   // Tag classification
   const lastTradeDaysAgo =
