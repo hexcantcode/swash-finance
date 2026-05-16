@@ -215,6 +215,7 @@
 <svelte:head><title>Feed — Swash</title></svelte:head>
 
 <main id="main-content" class="stripe-content">
+  <h1 class="sr-only">Feed</h1>
   <!-- 1. Tracked-trader sentiment ──────────────────────────────── -->
   <section class="k-trader-section" style="margin-top: var(--space-4);">
     <div class="k-section-head">

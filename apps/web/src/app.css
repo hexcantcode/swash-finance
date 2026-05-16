@@ -59,6 +59,21 @@
   --radius-lg: 10px;
   --radius-xl: 13px;
   --radius-full: 9999px;
+
+  /* ── Canonical responsive breakpoints (px) ──────────────────────
+     CSS variables can't be substituted inside `@media (max-width: …)`
+     queries, so these stay as a *convention* — any new component
+     stylesheet should pick from this set instead of inventing its own
+     px value. Keeps switch points predictable across pages.
+
+         560   small-phone polish (tighter padding, smaller fills)
+         720   tablet two-column → one-column
+        1023   max for mobile chrome (header + bottom-nav)
+        1024   sidenav appears, page shifts to viewport − 200px
+
+     If you find yourself wanting an extra step (e.g. 900, 960), it's a
+     hint that the layout depends on the sidenav transition — align with
+     1024 instead. */
 }
 
 :root {
@@ -1313,56 +1328,6 @@ body {
 }
 
 /* Inline metric strip — text only, color-coded values, vertical-rule separators */
-.k-trader-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0;
-  width: 100%;
-  padding-top: var(--space-4);
-  border-top: 0.5px solid var(--stripe-border);
-}
-
-.k-trader-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 var(--space-5);
-  border-right: 0.5px solid var(--stripe-border);
-  min-width: 96px;
-}
-
-.k-trader-stat:first-child {
-  padding-left: 0;
-}
-
-.k-trader-stat:last-child {
-  border-right: 0;
-  padding-right: 0;
-}
-
-.k-trader-stat-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--stripe-text-tertiary);
-}
-
-.k-trader-stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--stripe-text-primary);
-  line-height: 1;
-}
-
-.k-trader-stat-value.k-pnl-positive {
-  color: var(--stripe-success);
-}
-.k-trader-stat-value.k-pnl-negative {
-  color: var(--stripe-danger);
-}
-
 .k-trader-avatar {
   width: 56px;
   height: 56px;

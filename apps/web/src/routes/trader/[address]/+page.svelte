@@ -610,7 +610,11 @@
     gap: var(--space-4);
     align-items: start;
   }
-  @media (max-width: 960px) {
+  /* Aligns with the app-wide 1023/1024 nav-switch breakpoint: when the
+     sidenav appears at 1024px, content shrinks by 200px and the rail+main
+     two-column layout finally fits. Below 1024 we use mobile chrome, so
+     stack everything to avoid awkward in-between widths. */
+  @media (max-width: 1023px) {
     .k-tp-shell { grid-template-columns: minmax(0, 1fr); }
   }
 
@@ -746,13 +750,14 @@
     min-width: 0;
   }
 
+  /* Auto-fit drops cards based on available width, not viewport. Solves the
+     1024–1280px dead zone where the sidenav appeared but four cards still
+     tried to fit into the shrunken main column. 220px floor keeps the PnL
+     and meter sub-lines legible; cards wrap to 3-up / 2-up / 1-up naturally. */
   .k-tp-stat-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--space-3);
-  }
-  @media (max-width: 900px) {
-    .k-tp-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .k-tp-stat-card {
     background: var(--stripe-bg-primary);

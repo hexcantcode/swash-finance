@@ -195,6 +195,7 @@
 </svelte:head>
 
 <main id="main-content" class="stripe-content">
+  <h1 class="sr-only">Assets</h1>
   <section class="k-trader-section" style="margin-top: 0; margin-bottom: var(--space-6);">
     <TradeTicker trades={data.recentTrades} />
   </section>
