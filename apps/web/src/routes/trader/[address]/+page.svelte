@@ -220,11 +220,11 @@
             <!-- TODO(social): display_name slot — falls back to truncated address until labels ship -->
             <h1 class="k-tp-name">{shortAddress(data.leader.address)}</h1>
             <!-- TODO(social): X (Twitter) link slot — hidden until we store socials -->
-            <a class="k-tp-social k-tp-social-placeholder" aria-hidden="true" tabindex="-1" href="#">
+            <span class="k-tp-social k-tp-social-placeholder" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M18.244 2H21l-6.52 7.453L22.5 22H16.18l-4.95-6.475L5.4 22H2.64l6.97-7.967L1.5 2h6.42l4.48 5.92Zm-2.21 18h1.49L7.05 4H5.45z"/>
               </svg>
-            </a>
+            </span>
           </div>
           <button class="k-tp-address" onclick={copyAddress} aria-label="Copy address" title="Copy address">
             <span class="k-tp-address-text">{shortAddress(data.leader.address, 6, 4)}</span>
@@ -376,7 +376,7 @@
 
         <article class="k-tp-stat-card">
           <span class="k-stat-label">Direction Bias</span>
-          <p class="k-tp-stat-card-value {directionBiasDir === 'long' ? 'stripe-positive' : directionBiasDir === 'short' ? 'stripe-negative' : ''}">
+          <p class="k-tp-stat-card-value {directionBiasDir === 'long' ? 'k-pnl-positive' : directionBiasDir === 'short' ? 'k-pnl-negative' : ''}">
             {directionBiasLabel ?? '—'}
             {#if directionBiasDir === 'long'}<span aria-hidden="true">↗</span>{:else if directionBiasDir === 'short'}<span aria-hidden="true">↘</span>{/if}
           </p>
@@ -599,11 +599,15 @@
 </main>
 
 <style>
-  /* Trader-profile layout shell: rail + main on desktop, stack on mobile. */
+  /* Trader-profile layout — uses the existing design tokens so cards visually
+     match .k-card / .k-stat-label everywhere else in the app. All rail and
+     stat-card backgrounds share .k-card's surface so the page reads as one
+     family. */
+
   .k-tp-shell {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
-    gap: 16px;
+    gap: var(--space-4);
     align-items: start;
   }
   @media (max-width: 960px) {
@@ -614,35 +618,37 @@
   .k-tp-rail {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
   }
+  /* Same surface as .k-card so cards stack visually. */
   .k-tp-rail-section {
+    background: var(--stripe-bg-primary);
     border: 0.5px solid var(--stripe-border);
-    border-radius: 8px;
-    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
   }
   .k-tp-identity {
     display: flex;
-    gap: 12px;
+    gap: var(--space-3);
     align-items: flex-start;
   }
   .k-tp-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
     flex-shrink: 0;
     border: 0.5px solid var(--stripe-border);
   }
   .k-tp-identity-body {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-1);
     min-width: 0;
     flex: 1;
   }
-  .k-tp-name-row { display: flex; align-items: center; gap: 6px; }
+  .k-tp-name-row { display: flex; align-items: center; gap: var(--space-2); }
   .k-tp-name {
-    font-size: 1rem;
+    font-size: 15px;
     font-weight: 600;
     margin: 0;
     color: var(--stripe-text-primary);
@@ -658,65 +664,77 @@
   .k-tp-address {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 0;
+    gap: var(--space-1);
+    padding: 0;
     border: none;
     background: transparent;
     cursor: pointer;
     color: var(--stripe-text-tertiary);
-    font: inherit;
-    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
   }
-  .k-tp-address-text { font-family: var(--stripe-mono, ui-monospace, monospace); }
-  .k-tp-tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .k-tp-tag-row {
+    display: flex;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+    margin-top: var(--space-1);
+  }
 
-  .k-tp-score-panel { display: flex; flex-direction: column; gap: 8px; }
+  .k-tp-score-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
   .k-tp-score-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-2);
   }
   .k-tp-score-value {
-    font-size: 2.25rem;
+    font-size: 32px;
     font-weight: 600;
     line-height: 1;
     margin: 0;
     color: var(--stripe-text-primary);
+    font-variant-numeric: tabular-nums;
   }
   .k-tp-score-of {
-    font-size: 0.85rem;
+    font-size: 13px;
     color: var(--stripe-text-tertiary);
     font-weight: 400;
   }
-  .k-tp-score-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-  .k-tp-refresh { margin-top: 4px; width: 100%; }
+  .k-tp-score-tags { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+  .k-tp-refresh { margin-top: var(--space-1); width: 100%; }
 
   .k-tp-big-value {
-    font-size: 1.4rem;
+    font-size: 20px;
     font-weight: 600;
     color: var(--stripe-text-primary);
-    margin: 4px 0 0 0;
+    margin: var(--space-1) 0 0 0;
     font-variant-numeric: tabular-nums;
   }
 
   .k-tp-kv {
-    margin: 6px 0 0 0;
+    margin: var(--space-2) 0 0 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
   }
   .k-tp-kv > div {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--space-2);
   }
-  .k-tp-kv dt { color: var(--stripe-text-tertiary); font-size: 0.78rem; }
+  .k-tp-kv dt {
+    color: var(--stripe-text-tertiary);
+    font-size: 12px;
+  }
   .k-tp-kv dd {
     margin: 0;
     color: var(--stripe-text-primary);
-    font-size: 0.85rem;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
   }
 
@@ -724,24 +742,26 @@
   .k-tp-main {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--space-4);
     min-width: 0;
   }
+
   .k-tp-stat-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--space-3);
   }
   @media (max-width: 900px) {
     .k-tp-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .k-tp-stat-card {
+    background: var(--stripe-bg-primary);
     border: 0.5px solid var(--stripe-border);
-    border-radius: 8px;
-    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
     min-width: 0;
   }
   .k-tp-stat-card-head {
@@ -750,17 +770,18 @@
     justify-content: space-between;
   }
   .k-tp-stat-card-value {
-    font-size: 1.55rem;
+    font-size: 22px;
     font-weight: 600;
     line-height: 1.1;
     margin: 0;
     color: var(--stripe-text-primary);
     font-variant-numeric: tabular-nums;
   }
+
   .k-tp-meter {
     height: 4px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    background: var(--stripe-bg-tertiary);
     overflow: hidden;
     display: flex;
   }
@@ -768,46 +789,49 @@
     height: 100%;
     background: var(--stripe-text-tertiary);
   }
-  .k-tp-meter-split .k-tp-meter-long  { background: #16f199; }
-  .k-tp-meter-split .k-tp-meter-short { background: #ff5d75; }
+  .k-tp-meter-split .k-tp-meter-long  { background: var(--stripe-success); }
+  .k-tp-meter-split .k-tp-meter-short { background: var(--stripe-danger); }
 
-  .k-tp-chart-section { padding: 16px; }
+  .k-tp-chart-section { padding: var(--space-4); }
   .k-tp-chart-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-3);
     flex-wrap: wrap;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
   }
   .k-tp-chart-value {
-    font-size: 1.45rem;
+    font-size: 20px;
     font-weight: 600;
-    margin: 4px 0 0 0;
+    margin: var(--space-1) 0 0 0;
     color: var(--stripe-text-primary);
     font-variant-numeric: tabular-nums;
   }
-  .k-tp-chart-controls { display: flex; gap: 4px; }
+  .k-tp-chart-controls { display: flex; gap: var(--space-1); }
   .k-tp-pill {
     background: transparent;
     border: 0.5px solid var(--stripe-border);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 4px 10px;
     color: var(--stripe-text-tertiary);
-    font-size: 0.72rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     cursor: pointer;
   }
+  .k-tp-pill:hover { color: var(--stripe-text-secondary); border-color: var(--stripe-border-light); }
   .k-tp-pill.is-active {
     color: var(--stripe-text-primary);
-    border-color: var(--stripe-text-primary);
+    border-color: var(--stripe-text-secondary);
+    background: var(--stripe-bg-secondary);
   }
 
-  .k-tp-tabs-section { display: flex; flex-direction: column; gap: 12px; }
+  .k-tp-tabs-section { display: flex; flex-direction: column; gap: var(--space-3); }
   .k-tp-tabs {
     display: flex;
-    gap: 4px;
+    gap: var(--space-1);
     border-bottom: 0.5px solid var(--stripe-border);
     overflow-x: auto;
   }
@@ -816,16 +840,18 @@
     border: none;
     border-bottom: 2px solid transparent;
     color: var(--stripe-text-tertiary);
-    padding: 8px 12px;
-    font-size: 0.82rem;
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     letter-spacing: 0.02em;
     white-space: nowrap;
   }
+  .k-tp-tab:hover { color: var(--stripe-text-secondary); }
   .k-tp-tab.is-active {
     color: var(--stripe-text-primary);
-    border-bottom-color: var(--stripe-text-primary);
+    border-bottom-color: var(--stripe-accent);
   }
   .k-tp-tab-count {
     color: var(--stripe-text-tertiary);
