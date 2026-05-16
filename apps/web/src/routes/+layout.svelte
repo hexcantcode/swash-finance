@@ -11,7 +11,7 @@
   // `path.startsWith('/trader')` catches both.
   const tradersActive = $derived(path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
-  const analyticsActive = $derived(path.startsWith('/analytics'));
+  const feedActive = $derived(path.startsWith('/feed') || path.startsWith('/analytics'));
 
   let searchInput = $state($page.url.searchParams.get('search') ?? '');
   let searchExpanded = $state(($page.url.searchParams.get('search') ?? '') !== '');
@@ -175,12 +175,12 @@
       </li>
       <li>
         <a
-          href="/analytics"
+          href="/feed"
           class="k-sidenav-item"
-          class:is-active={analyticsActive}
-          aria-current={analyticsActive ? 'page' : undefined}
+          class:is-active={feedActive}
+          aria-current={feedActive ? 'page' : undefined}
         >
-          Analytics
+          Feed
         </a>
       </li>
     </ul>
@@ -248,15 +248,15 @@
         <span class="k-bottomnav-label">Traders</span>
       </a>
       <a
-        href="/analytics"
+        href="/feed"
         class="k-bottomnav-item"
-        class:is-active={analyticsActive}
-        aria-current={analyticsActive ? 'page' : undefined}
+        class:is-active={feedActive}
+        aria-current={feedActive ? 'page' : undefined}
       >
         <svg class="k-bottomnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d={ICON_ANALYTICS} />
         </svg>
-        <span class="k-bottomnav-label">Analytics</span>
+        <span class="k-bottomnav-label">Feed</span>
       </a>
     </div>
   </nav>

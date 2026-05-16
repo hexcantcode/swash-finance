@@ -212,7 +212,7 @@
   });
 </script>
 
-<svelte:head><title>Analytics — Swash</title></svelte:head>
+<svelte:head><title>Feed — Swash</title></svelte:head>
 
 <main id="main-content" class="stripe-content">
   <!-- 1. Tracked-trader sentiment ──────────────────────────────── -->
