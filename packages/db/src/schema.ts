@@ -67,6 +67,13 @@ export const wallets = pgTable(
     winner: boolean('winner').notNull().default(false),
     winnerRank: integer('winner_rank'),
 
+    // Deep-history flag: set when a user clicks "Show all history" on the
+    // trader profile. Tells the fills-retention cron to skip this wallet so
+    // its >90d fills survive. `history_oldest_ms` records the earliest fill
+    // we have for the UI badge.
+    historyDeepenedAt: timestamp('history_deepened_at', { withTimezone: true }),
+    historyOldestMs: bigint('history_oldest_ms', { mode: 'number' }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -174,7 +181,7 @@ export const scores = pgTable('scores', {
   sortino: numeric('sortino', { precision: 10, scale: 4 }),
   psr: numeric('psr', { precision: 10, scale: 4 }),
   profitFactor: numeric('profit_factor', { precision: 10, scale: 4 }),
-  winRate: numeric('win_rate', { precision: 10, scale: 4 }),
+  winRate: numeric('win_rate', { precision: 10, scale: 5 }),
   expectancy: numeric('expectancy', { precision: 20, scale: 8 }),
   maxDrawdownPct: numeric('max_drawdown_pct', { precision: 10, scale: 4 }),
   recoveryTimeDays: integer('recovery_time_days'),

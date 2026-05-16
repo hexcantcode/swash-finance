@@ -1,10 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { fills, leaderCache, wallets } from '@copytrade/db';
-import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
+import { fills, leaderCache, replaceDexOnHip3Write } from '@copytrade/db';
 import { normalizeAddress } from '@copytrade/shared';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
-import { replaceDexOnHip3Write } from '../lib/leader-cache-merge.js';
 import { log } from '../log.js';
 
 /**
@@ -15,12 +13,11 @@ import { log } from '../log.js';
  * Lifted out of `ws-live-subscriber.ts` (which is no longer run — HL's 10-
  * users-per-IP cap makes per-user WS unusable for our 250+ tracked set).
  *
- * Cadence: every 5 minutes. Walks the **HIP-3 cohort** — tracked wallets
- * (top-N by 7d PnL passing the listing floor) that either have a HIP-3 fill
- * in the last 14 days, or currently hold a HIP-3 position. For each
- * (cohort_member, hip3_dex) pair, calls `clearinghouseState` on that dex
- * and merges results into `leader_cache.positions_json` preserving entries
- * from other dexes and main.
+ * Cadence: every 5 minutes. Walks the **HIP-3 cohort** — `leaders` view
+ * members that either have a HIP-3 fill in the last 14 days, or currently
+ * hold a HIP-3 position. For each (cohort_member, hip3_dex) pair, calls
+ * `clearinghouseState` on that dex and merges results into
+ * `leader_cache.positions_json` preserving entries from other dexes and main.
  */
 
 const HIP3_POLL_SECONDS = 300;
@@ -28,20 +25,11 @@ const HIP3_DEX_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const HIP3_COHORT_LOOKBACK_DAYS = 14;
 const HIP3_PER_CALL_DELAY_MS = 100;
 
-/** Cohort cap — bounds the per-cycle REST call count to N(cohort) × N(dexes).
- *  Matches the historical `TRACKED_LIMIT` in ws-live-subscriber so behavior
- *  is unchanged. Override with `HIP3_TRACKED_LIMIT`. */
-const TRACKED_LIMIT = (() => {
-  const raw = process.env['HIP3_TRACKED_LIMIT'];
-  const n = raw ? Number.parseInt(raw, 10) : 250;
-  return Number.isFinite(n) && n > 0 ? n : 250;
-})();
-
 const errMsg = (err: unknown): string =>
   err instanceof Error ? (err.stack ?? err.message) : String(err);
 
 export async function runHip3PollSubscriber(): Promise<void> {
-  log.info({ pollSeconds: HIP3_POLL_SECONDS, trackedLimit: TRACKED_LIMIT }, 'hip3-poll.start');
+  log.info({ pollSeconds: HIP3_POLL_SECONDS }, 'hip3-poll.start');
 
   let stopping = false;
   const shutdown = async () => {
@@ -101,33 +89,24 @@ async function runHip3PollOnce(
   hip3DexNames: string[],
   isStopping: () => boolean,
 ): Promise<void> {
-  // Cohort = tracked ∩ (recent-HIP-3-fill ∪ current-HIP-3-holder). The
-  // holder branch covers stale wallets that haven't traded HIP-3 in the
-  // lookback window but still hold an open position — without it those
-  // positions would never refresh.
+  // Cohort = leaders ∩ (recent-HIP-3-fill ∪ current-HIP-3-holder). The
+  // holder branch covers wallets that haven't traded HIP-3 in the lookback
+  // window but still hold an open position — without it those positions
+  // would never refresh.
   const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
   const cohortResp = await db().execute<{ address: string }>(sql`
-    with tracked as (
-      select address
-      from ${wallets}
-      where ${wallets.isAgent} = false
-        and ${wallets.hlPnl7dUsd} is not null
-        and ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}
-      order by ${wallets.hlPnl7dUsd} desc nulls last
-      limit ${TRACKED_LIMIT}
-    )
-    select t.address
-    from tracked t
+    select l.address
+    from leaders l
     where exists (
       select 1 from ${fills} f
-      where f.user_address = t.address
+      where f.user_address = l.address
         and f.coin like '%:%'
         and f.block_time_ms >= ${cutoffMs}
     )
     or exists (
       select 1 from ${leaderCache} lc,
            lateral jsonb_array_elements(lc.positions_json) as p(elem)
-      where lc.address = t.address
+      where lc.address = l.address
         and (p.elem -> 'position' ->> 'coin') like '%:%'
     )
   `);

@@ -1,7 +1,8 @@
 import { setMaxListeners } from 'node:events';
 import { sql } from 'drizzle-orm';
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { fills, leaderCache, wallets, type NewFill } from '@copytrade/db';
+import { fills, leaderCache, type NewFill } from '@copytrade/db';
+import { sql as drizzleSql } from 'drizzle-orm';
 import { normalizeAddress } from '@copytrade/shared';
 import type { NormalizedTrade } from '@copytrade/hl-client';
 import { closeDb, db } from '../db.js';
@@ -12,7 +13,11 @@ import { log } from '../log.js';
  * `trades-coin-subscriber` — the real-time backbone of the copytrading feed.
  *
  * Subscribes to Hyperliquid's per-coin `trades` channel for every perp in the
- * universe and filters incoming events against our entire `wallets` table.
+ * universe and filters incoming events against the `leaders` SQL VIEW —
+ * the quality-filtered set (~69 today; see
+ * docs/plans/2026-05-16-fills-retention-and-deepen.md). Older code referred
+ * to this as the "tracked" set; we settled on "leaders" to match the
+ * leader_cache / leader-detail terminology that's everywhere else.
  *
  * Why per-coin instead of per-user: HL hard-caps `userFills` subscriptions at
  * 10 unique users per source IP (verified empirically — see commit history).
@@ -49,7 +54,7 @@ export async function runTradesCoinSubscriber(): Promise<void> {
   // 10-listener cap. Suppress the warning — these are intentional.
   setMaxListeners(0, (transport as unknown as { socket: { eventTarget?: EventTarget } }).socket?.eventTarget ?? process);
   const activeSubs = new Map<string, { unsubscribe(): Promise<void> }>();
-  let tracked = new Set<string>();
+  let leaders = new Set<string>();
   let stopping = false;
   let totalMatched = 0;
   let totalEvents = 0;
@@ -69,10 +74,12 @@ export async function runTradesCoinSubscriber(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  const refreshTracked = async (): Promise<void> => {
-    const rows = await db().select({ address: wallets.address }).from(wallets);
-    tracked = new Set(rows.map((r) => normalizeAddress(r.address)));
-    log.debug({ tracked: tracked.size }, 'trades-coin.tracked_refreshed');
+  const refreshLeaders = async (): Promise<void> => {
+    // Reads from the `leaders` SQL VIEW — see
+    // packages/db/sql/2026-05-16-leaders-view-and-history.sql.
+    const res = await db().execute<{ address: string }>(drizzleSql`SELECT address FROM leaders`);
+    leaders = new Set(res.rows.map((r) => normalizeAddress(r.address)));
+    log.debug({ leaders: leaders.size }, 'trades-coin.leaders_refreshed');
   };
 
   const refreshCoins = async (): Promise<void> => {
@@ -162,8 +169,8 @@ export async function runTradesCoinSubscriber(): Promise<void> {
       // hex strings from the lib but normalize defensively in case.
       const maker = normalizeAddress(t.users[0]);
       const taker = normalizeAddress(t.users[1]);
-      const makerHit = tracked.has(maker);
-      const takerHit = tracked.has(taker);
+      const makerHit = leaders.has(maker);
+      const takerHit = leaders.has(taker);
       if (!makerHit && !takerHit) continue;
 
       if (makerHit) {
@@ -217,18 +224,18 @@ export async function runTradesCoinSubscriber(): Promise<void> {
   };
 
   // Initial bootstrap
-  await refreshTracked();
+  await refreshLeaders();
   await refreshCoins();
 
   // Periodic refresh loops — neither blocks the other; failures log and retry.
-  const trackedLoop = (async () => {
+  const leadersLoop = (async () => {
     while (!stopping) {
       await sleep(TRACKED_REFRESH_SECONDS * 1000);
       if (stopping) break;
       try {
-        await refreshTracked();
+        await refreshLeaders();
       } catch (err) {
-        log.warn({ err: errMsg(err) }, 'trades-coin.tracked_refresh_failed');
+        log.warn({ err: errMsg(err) }, 'trades-coin.leaders_refresh_failed');
       }
     }
   })();
@@ -258,7 +265,7 @@ export async function runTradesCoinSubscriber(): Promise<void> {
       log.info(
         {
           coins: activeSubs.size,
-          tracked: tracked.size,
+          leaders: leaders.size,
           eventsThisMinute: dEvents,
           matchedThisMinute: dMatched,
           totalEvents,
@@ -269,7 +276,7 @@ export async function runTradesCoinSubscriber(): Promise<void> {
     }
   })();
 
-  await Promise.race([trackedLoop, coinLoop, heartbeatLoop]);
+  await Promise.race([leadersLoop, coinLoop, heartbeatLoop]);
 }
 
 function makeFill(

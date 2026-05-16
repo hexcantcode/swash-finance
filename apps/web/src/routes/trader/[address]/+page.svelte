@@ -24,6 +24,9 @@
   let chartWindow = $state<'24h' | '7d' | '30d' | 'all'>('30d');
   // Bottom tab strip.
   let activeTab = $state<'positions' | 'fills' | 'trades' | 'performance'>('positions');
+  // Deepen-history button state.
+  let deepening = $state(false);
+  let deepenError = $state<string | null>(null);
 
   // Volatile slice (positions + recent fills + cache freshness) polled every
   // POLL_MS while the tab is visible. Seeded from the server load; updates
@@ -90,6 +93,31 @@
       if (res.ok) location.reload();
     } finally {
       refreshing = false;
+    }
+  }
+
+  // POST to the deepen endpoint. On success, reload so the new fills feed
+  // into the equity curve + recent-fills + stats. On 409 (in_progress) we
+  // poll-by-reload after a short pause; on 4xx/5xx we surface the message.
+  async function deepenHistory() {
+    deepening = true;
+    deepenError = null;
+    try {
+      const res = await fetch(`/api/trader/${data.leader.address}/deepen`, { method: 'POST' });
+      if (res.ok) {
+        location.reload();
+        return;
+      }
+      if (res.status === 409) {
+        deepenError = 'another deepen is already running — try again in a moment';
+      } else {
+        const text = await res.text().catch(() => '');
+        deepenError = text || `deepen failed (${res.status})`;
+      }
+    } catch (e) {
+      deepenError = e instanceof Error ? e.message : 'network error';
+    } finally {
+      deepening = false;
     }
   }
 
@@ -410,6 +438,28 @@
             {/each}
           </div>
         </div>
+        {#if !data.leader.history_deepened_at}
+          <!-- Default fills retention is 90 days. Click the button to backfill
+               older history from HL (one wallet per click; durable). -->
+          <div class="k-tp-deepen">
+            <span class="stripe-text-tertiary stripe-body-sm">
+              Showing last 90 days — older history was trimmed.
+            </span>
+            <button
+              type="button"
+              class="btn-poly k-tp-deepen-btn"
+              disabled={deepening}
+              onclick={deepenHistory}
+            >
+              {deepening ? 'Loading history…' : 'Show all history'}
+            </button>
+          </div>
+          {#if deepenError}
+            <p class="stripe-text-tertiary stripe-body-sm" style="color: var(--stripe-danger); margin: 4px 0 0;">
+              {deepenError}
+            </p>
+          {/if}
+        {/if}
         {#if windowedSeries.length === 0}
           <p class="k-empty">no equity curve yet</p>
         {:else}
@@ -831,6 +881,21 @@
     color: var(--stripe-text-primary);
     border-color: var(--stripe-text-secondary);
     background: var(--stripe-bg-secondary);
+  }
+
+  .k-tp-deepen {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 0.5px dashed var(--stripe-border);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .k-tp-deepen-btn {
+    padding: 4px 12px;
+    font-size: 12px;
   }
 
   .k-tp-tabs-section { display: flex; flex-direction: column; gap: var(--space-3); }

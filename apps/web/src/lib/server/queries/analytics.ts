@@ -60,9 +60,9 @@ export interface LatestTrade {
 /**
  * Most-recent *trades* across HL fills, with the order-aggregation rollup.
  *
- * - `scope: 'tracked'` (default) — restricts to wallets in `leader_cache`
+ * - `scope: 'tracked'` (default) — restricts to wallets in the `leaders` view
  *   (the curated ~250 set). Powers the `/analytics` Latest-trades panel.
- * - `scope: 'all'` — no `leader_cache` filter; covers every ingested wallet,
+ * - `scope: 'all'` — no `leaders` filter; covers every ingested wallet,
  *   rolled to the master via `wallets.master_address`. Powers the global
  *   `TradeTicker` (used on `/traders` and `/assets`).
  *
@@ -91,7 +91,7 @@ export async function getLatestTrades(
   // when scope = 'all' so the SQL stays grammatically valid either way.
   const scopeFilter =
     scope === 'tracked'
-      ? sql`WHERE COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leader_cache)`
+      ? sql`WHERE COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leaders)`
       : sql``;
 
   // Aggregation key:

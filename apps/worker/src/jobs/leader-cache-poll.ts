@@ -1,57 +1,32 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
-import { leaderCache, wallets } from '@copytrade/db';
-import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
+import { sql } from 'drizzle-orm';
+import { leaderCache } from '@copytrade/db';
 import { normalizeAddress } from '@copytrade/shared';
 import type { ClearinghouseStateResponse } from '@copytrade/hl-client';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
-import { preserveHip3OnMainWrite } from '../lib/leader-cache-merge.js';
+import { preserveHip3OnMainWrite } from '@copytrade/db';
 import { log } from '../log.js';
 
 /**
  * `leader-cache-poll` — long-running REST poller that keeps `leader_cache`
- * fresh for the **broader tracked set** (top `TRACKED_LIMIT` wallets by HL
- * 7d PnL passing the listing floor). Companion to `ws-live-subscriber`,
- * which holds per-user WS subscriptions on a smaller hot subset (HL caps
- * those at 10 unique users per WS connection — making WS the wrong tool
- * for a 250-wallet cohort).
+ * fresh for the **`leaders` cohort** (~69 wallets today; see
+ * packages/db/sql/2026-05-16-leaders-view-and-history.sql).
  *
  * Each cycle:
- *   1. Pick top-`TRACKED_LIMIT` tracked wallets (same listing-floor query
- *      the home-page leaderboard uses, single source of truth).
+ *   1. Read `SELECT address FROM leaders` (single source of truth).
  *   2. Fan out `info.clearinghouseState({ user })` calls with bounded
- *      concurrency (HL allows ~1200 weight/min; clearinghouseState is
- *      weight 2 → 250 wallets/cycle = 500 weight per cycle, 21–42% of
- *      the budget at 120s/60s cadence).
- *   3. Upsert `leader_cache` with the same columns + HIP-3-preserving
- *      `positions_json` merge that `ws-live-subscriber.handleWebData2`
- *      uses. `source = 'rest_poll'`, `last_refresh_source = 'rest_poll'`.
+ *      concurrency. clearinghouseState is weight 2 → 69 × 2 = 138 weight
+ *      per cycle, ~6 % of the 1200/min HL budget at 60s cadence.
+ *   3. Upsert `leader_cache` with HIP-3-preserving `positions_json` merge.
  *
- * Why REST and not WS for the broader cohort: the HL WS
- * `WebSocketSubscriptionManager` hard-caps each connection at 10 unique
- * users (see `_subscriptionManager.ts:86`). Sharding to ~28 connections
- * to cover 250 wallets triggers cascade subscribe timeouts under burst
- * load (HL's response queue falls behind when ~32 subscribes hit a
- * single socket back-to-back). REST has no per-IP user cap and the
- * weight budget is generous, so polling is the robust path.
- *
- * Launch via `pnpm --filter @copytrade/worker leader-cache-poll`
- * (sibling to `ws-live`).
+ * Launch via `pnpm --filter @copytrade/worker leader-cache-poll`.
  */
 
 const DEFAULT_POLL_SECONDS = 60;
 
-/** How many tracked wallets to poll each cycle. Overridable via env. */
-const TRACKED_LIMIT = (() => {
-  const raw = process.env['REST_POLL_TRACKED_LIMIT'];
-  const n = raw ? Number.parseInt(raw, 10) : 250;
-  return Number.isFinite(n) && n > 0 ? n : 250;
-})();
-
 /**
  * Max parallel in-flight `clearinghouseState` calls. 5 keeps the HL request
- * pipeline gentle while still finishing 250 calls in well under 60s
- * (typical p50 ~80ms × 250/5 = ~4s).
+ * pipeline gentle while still finishing well under 60s for the leaders set.
  */
 const CONCURRENCY = 5;
 
@@ -60,7 +35,7 @@ export async function runLeaderCachePoll(
 ): Promise<void> {
   const pollSeconds = opts.pollSeconds ?? DEFAULT_POLL_SECONDS;
   log.info(
-    { pollSeconds, trackedLimit: TRACKED_LIMIT, concurrency: CONCURRENCY },
+    { pollSeconds, concurrency: CONCURRENCY },
     'leader-cache-poll.start',
   );
 
@@ -91,22 +66,11 @@ export async function runLeaderCachePoll(
 async function pollOnce(isStopping: () => boolean): Promise<void> {
   const t0 = Date.now();
 
-  // Same listing-floor query as ws-live-subscriber + the home-page leaderboard
-  // (single source of truth): `is_agent = false`, `account_value >= $25k`,
-  // `hl_pnl_7d_usd IS NOT NULL`, ordered by 7d PnL desc, top TRACKED_LIMIT.
-  const rows = await db()
-    .select({ address: wallets.address })
-    .from(wallets)
-    .where(
-      and(
-        eq(wallets.isAgent, false),
-        isNotNull(wallets.hlPnl7dUsd),
-        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
-      ),
-    )
-    .orderBy(desc(wallets.hlPnl7dUsd))
-    .limit(TRACKED_LIMIT);
-  const addresses = rows.map((r) => normalizeAddress(r.address));
+  // Cohort = the `leaders` view (~69 today). Single source of truth, shared
+  // with the firehose and hip3-poll. See
+  // packages/db/sql/2026-05-16-leaders-view-and-history.sql.
+  const res = await db().execute<{ address: string }>(sql`SELECT address FROM leaders`);
+  const addresses = res.rows.map((r) => normalizeAddress(r.address));
 
   let ok = 0;
   let failed = 0;

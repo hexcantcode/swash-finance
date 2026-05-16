@@ -216,11 +216,11 @@
 
 <main id="main-content" class="stripe-content">
   <h1 class="sr-only">Feed</h1>
-  <!-- 1. Tracked-trader sentiment ──────────────────────────────── -->
+  <!-- 1. Leader sentiment ──────────────────────────────────────── -->
   <section class="k-trader-section" style="margin-top: var(--space-4);">
     <div class="k-section-head">
       <h2 class="k-section-title">
-        Tracked sentiment
+        Leader sentiment
         <span class="k-section-sub">long vs short across every open position</span>
       </h2>
     </div>
@@ -500,12 +500,12 @@
       <h2 class="k-section-title">
         Position matrix
         <span class="k-section-sub">
-          {matrix.coins.length} coins (by 24h volume) × {matrix.traders.length} tracked traders
+          {matrix.coins.length} coins (by 24h volume) × {matrix.traders.length} leaders
         </span>
       </h2>
     </div>
     {#if matrix.traders.length === 0 || matrix.coins.length === 0}
-      <p class="k-empty">No tracked traders are currently holding overlapping positions.</p>
+      <p class="k-empty">No leaders are currently holding overlapping positions.</p>
     {:else}
       <!-- Trader rows down the left (small avatar + truncated address + score
            badge), coin columns across the top (icon only, volume-ranked).

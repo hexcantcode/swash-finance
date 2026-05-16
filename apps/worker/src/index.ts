@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
 import { closeDb } from './db.js';
 import { withAdvisoryLock } from './db.js';
+import { runFillsRetention } from './jobs/fills-retention.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
@@ -34,11 +35,26 @@ async function main(): Promise<void> {
     },
   );
 
+  // Nightly fills retention — runs 30 min after `score` so the day's
+  // scoring sees the fuller table before trim. Skips wallets where
+  // history_deepened_at IS NOT NULL.
+  const fillsRetention = new Cron(
+    '0 30 2 * * *',
+    { name: 'fills-retention', protect: true },
+    async () => {
+      const result = await withAdvisoryLock('worker.fills_retention', () =>
+        runFillsRetention(),
+      );
+      if (result === null) log.warn('fills-retention.locked_skip');
+    },
+  );
+
   log.info(
     {
       refreshNext: refresh.nextRun()?.toISOString(),
       scoreNext: score.nextRun()?.toISOString(),
       leaderboardPollNext: leaderboardPoll.nextRun()?.toISOString(),
+      fillsRetentionNext: fillsRetention.nextRun()?.toISOString(),
     },
     'worker.scheduled',
   );
@@ -48,6 +64,7 @@ async function main(): Promise<void> {
     refresh.stop();
     score.stop();
     leaderboardPoll.stop();
+    fillsRetention.stop();
     await closeDb();
     process.exit(0);
   };

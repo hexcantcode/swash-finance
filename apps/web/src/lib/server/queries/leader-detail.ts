@@ -59,6 +59,12 @@ export interface LeaderDetail {
   live_source: 'ws' | 'rest' | null;
   /** Analyzed tier — when the scoring run that produced `scoring` ran (ISO). */
   analyzed_as_of: string | null;
+  /** True once the user has clicked "Show all history" on this trader; the
+   *  retention cron skips this wallet so its >90d fills persist. */
+  history_deepened_at: string | null;
+  /** Earliest fill we have stored for this wallet (ms since epoch). Powers
+   *  the "Last X days" badge above the equity chart. */
+  history_oldest_ms: number | null;
 }
 
 export interface OpenPosition {
@@ -117,6 +123,71 @@ export interface RecentFill {
   crossed: boolean;
 }
 
+export interface LiveSlice {
+  open_positions: OpenPosition[];
+  recent_fills: RecentFill[];
+  live_refreshed_at: string | null;
+  live_source: 'ws' | 'rest' | null;
+}
+
+// Volatile slice of the trader page — polled by the client every few seconds
+// via `/trader/[address]/live`. Owns positions + recent fills + cache
+// freshness in one query path so the loader and the live endpoint never drift.
+export async function getLiveSlice(rawAddress: string): Promise<LiveSlice | null> {
+  const address = rawAddress.toLowerCase();
+  const walletRow = await db().query.wallets.findFirst({
+    where: eq(wallets.address, address),
+  });
+  if (!walletRow) return null;
+  const masterAddress = walletRow.masterAddress ?? address;
+
+  const linkedAddresses = await db()
+    .select({ address: wallets.address })
+    .from(wallets)
+    .where(sql`${wallets.address} = ${masterAddress} or ${wallets.masterAddress} = ${masterAddress}`);
+  const linked = linkedAddresses.map((r) => r.address);
+
+  const cacheRow = await db().query.leaderCache.findFirst({
+    where: eq(leaderCache.address, masterAddress),
+  });
+  const open_positions = parseOpenPositions(cacheRow?.positionsJson);
+  const live_refreshed_at = cacheRow?.lastRefreshedAt
+    ? cacheRow.lastRefreshedAt.toISOString()
+    : null;
+  const live_source =
+    cacheRow?.source === 'ws'
+      ? 'ws'
+      : cacheRow?.source === 'rest_poll' || cacheRow?.source === 'rest_ondemand'
+        ? 'rest'
+        : null;
+
+  const recentFillRows = await db()
+    .select()
+    .from(fills)
+    .where(inArray(fills.userAddress, linked))
+    .orderBy(desc(fills.blockTimeMs))
+    .limit(50);
+
+  const recent_fills: RecentFill[] = recentFillRows.map((f) => {
+    const px = Number.parseFloat(f.px);
+    const sz = Number.parseFloat(f.sz);
+    return {
+      tid: f.tid,
+      block_time_ms: f.blockTimeMs,
+      coin: f.coin,
+      side: f.side as 'B' | 'A',
+      px,
+      sz,
+      notional: px * sz,
+      closed_pnl: Number.parseFloat(f.closedPnl),
+      fee: Number.parseFloat(f.fee),
+      crossed: f.crossed,
+    };
+  });
+
+  return { open_positions, recent_fills, live_refreshed_at, live_source };
+}
+
 export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail | null> {
   const address = rawAddress.toLowerCase();
   const walletRow = await db().query.wallets.findFirst({
@@ -144,12 +215,10 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
   const account_value = numOrNull(cacheRow?.accountValue ?? null);
   const leverage = numOrNull(cacheRow?.leverage ?? null);
   const margin_used = numOrNull(cacheRow?.marginUsed ?? null);
-  const open_positions = parseOpenPositions(cacheRow?.positionsJson);
-  const live_refreshed_at = cacheRow?.lastRefreshedAt
-    ? cacheRow.lastRefreshedAt.toISOString()
-    : null;
-  const live_source =
-    cacheRow?.source === 'ws' || cacheRow?.source === 'rest' ? cacheRow.source : null;
+  const live = await getLiveSlice(masterAddress);
+  const open_positions = live?.open_positions ?? [];
+  const live_refreshed_at = live?.live_refreshed_at ?? null;
+  const live_source = live?.live_source ?? null;
 
   // Score v2 (gate + computeScore) is the single source. The legacy
   // copyability breakdown panel is gone; the trader page surfaces the
@@ -160,33 +229,11 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
     .from(walletTags)
     .where(eq(walletTags.address, masterAddress));
 
-  const recentFillRows = await db()
-    .select()
-    .from(fills)
-    .where(inArray(fills.userAddress, linked))
-    .orderBy(desc(fills.blockTimeMs))
-    .limit(50);
-
-  const recent_fills: RecentFill[] = recentFillRows.map((f) => {
-    const px = Number.parseFloat(f.px);
-    const sz = Number.parseFloat(f.sz);
-    return {
-      tid: f.tid,
-      block_time_ms: f.blockTimeMs,
-      coin: f.coin,
-      side: f.side as 'B' | 'A',
-      px,
-      sz,
-      notional: px * sz,
-      closed_pnl: Number.parseFloat(f.closedPnl),
-      fee: Number.parseFloat(f.fee),
-      crossed: f.crossed,
-    };
-  });
+  const recent_fills = live?.recent_fills ?? [];
 
   // Canonical "last traded": freshest of the last ingested fill and the
   // WS-written live value. Both are epoch-ms; either or both may be missing.
-  const lastFillMs = recentFillRows[0]?.blockTimeMs ?? null;
+  const lastFillMs = recent_fills[0]?.block_time_ms ?? null;
   const lastCacheMs = cacheRow?.lastTradeMs ?? null;
   const lastTradeMs =
     lastFillMs != null && lastCacheMs != null
@@ -290,6 +337,8 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
     live_refreshed_at,
     live_source,
     analyzed_as_of: score?.computedAt?.toISOString() ?? null,
+    history_deepened_at: walletRow.historyDeepenedAt?.toISOString() ?? null,
+    history_oldest_ms: walletRow.historyOldestMs ?? null,
   };
 }
 
