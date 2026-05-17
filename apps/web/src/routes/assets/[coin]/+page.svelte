@@ -43,6 +43,15 @@
   // Range is driven by the URL search param so it survives reloads + back/fwd.
   const range = $derived<RangeKey>(data.range);
 
+  // Biggest 5 currently-open positions on this coin (long OR short) by
+  // absolute notional. Derived from the loader's `openPositions` (capped at
+  // 25 in `getOpenPositionsOnAsset`, well above the ~13-holders ceiling we
+  // see per coin), so this is just a re-sort of data already on the page —
+  // no extra round-trip, one source of truth.
+  const topBySize = $derived(
+    [...openPositions].sort((a, b) => b.notionalUsd - a.notionalUsd).slice(0, 5),
+  );
+
   // 12s poll for fresh candles within the current range (doesn't re-run the
   // top-traders aggregation — that only updates on a range / page reload).
   async function pullCandles(r: RangeKey) {
@@ -353,6 +362,56 @@
         {/each}
       </div>
     {/if}
+  </section>
+
+  <section class="k-trader-section">
+    <div class="k-section-head">
+      <h2 class="k-section-title">Biggest positions on {asset.symbol}</h2>
+    </div>
+    <div class="k-mini-table">
+      <div class="k-mini-table-head k-mini-table-head--stacked">
+        <h3 class="k-mini-table-head-title-line">Top 5 by size · live</h3>
+        <div class="k-mini-table-head-colheads">
+          <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
+          <span class="k-mini-table-head-label k-mini-table-holdings">Trader</span>
+          <span class="k-mini-table-head-label k-mini-table-price">Size</span>
+          <span class="k-mini-table-head-label k-mini-table-chg">Lev</span>
+        </div>
+      </div>
+      {#if topBySize.length === 0}
+        <div class="k-mini-table-empty">
+          None of the tracked traders currently hold {asset.symbol}.
+        </div>
+      {:else}
+        {#each topBySize as p (p.address + ':' + p.entryPxUsd)}
+          <a class="k-mini-table-row" href="/trader/{p.address}" aria-label="View trader profile">
+            <img
+              src={coinIconUrl(asset.coin)}
+              alt=""
+              loading="lazy"
+              onerror={hideBrokenAvatar}
+              class="k-coin-icon"
+              class:is-white-bg={coinNeedsWhiteBg(asset.coin)}
+            />
+            <span class="k-mini-table-addr">{truncateAddress(p.address)}</span>
+            <span class="k-mini-table-holdings">
+              <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
+                >{p.side === 'long' ? '↑' : '↓'}</span
+              >
+              {formatPnl(p.notionalUsd)}
+            </span>
+            <span
+              class="k-mini-table-price {p.side === 'long' ? 'k-pnl-positive' : 'k-pnl-negative'}"
+            >
+              {p.side === 'long' ? 'LONG' : 'SHORT'}
+            </span>
+            <span class="k-mini-table-chg">
+              {p.leverage > 0 ? `${p.leverage}×` : '—'}
+            </span>
+          </a>
+        {/each}
+      {/if}
+    </div>
   </section>
 
   <section class="k-trader-section">
