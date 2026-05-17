@@ -11,6 +11,8 @@ import {
   fundings,
   ledgerUpdates,
   leaderCache,
+  preserveHip3OnMainWrite,
+  replaceDexOnHip3Write,
   wallets,
   type NewFill,
   type NewFunding,
@@ -20,10 +22,7 @@ import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { normalizeAddress } from '@copytrade/shared';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
-import {
-  preserveHip3OnMainWrite,
-  replaceDexOnHip3Write,
-} from '../lib/leader-cache-merge.js';
+import { downgradeIfBelowFloor } from '../lib/gate-reconcile.js';
 import { log } from '../log.js';
 
 /**
@@ -473,6 +472,12 @@ async function handleWebData2(rawAddress: string, data: WebData2Event): Promise<
         lastRefreshSource: sql`excluded.last_refresh_source`,
       },
     });
+
+  // Symmetric with `leader-cache-poll`: when the live push shows equity
+  // below the listing floor, downgrade immediately so list queries stop
+  // surfacing this wallet within seconds (instead of waiting up to 24h
+  // for the next scoring run).
+  await downgradeIfBelowFloor(address, Number.isFinite(accountValue) ? accountValue : null);
 }
 
 /**

@@ -19,14 +19,20 @@ describe('passesGate', () => {
     expect(r.failures).toEqual([]);
   });
 
-  describe('equity rule (>= $25k)', () => {
-    it('exactly $25k ⇒ passes', () => {
-      const r = passesGate(eligibleInputs({ accountValueUsd: 25_000 }));
+  describe('equity rule (>= $50k)', () => {
+    it('exactly $50k ⇒ passes', () => {
+      const r = passesGate(eligibleInputs({ accountValueUsd: 50_000 }));
       expect(r.passed).toBe(true);
     });
 
-    it('just under $25k ⇒ fails with equity_below_min', () => {
-      const r = passesGate(eligibleInputs({ accountValueUsd: 24_999 }));
+    it('just under $50k ⇒ fails with equity_below_min', () => {
+      const r = passesGate(eligibleInputs({ accountValueUsd: 49_999 }));
+      expect(r.passed).toBe(false);
+      expect(r.failures).toContain('equity_below_min');
+    });
+
+    it('mid-band $25k (old floor) ⇒ fails with equity_below_min', () => {
+      const r = passesGate(eligibleInputs({ accountValueUsd: 25_000 }));
       expect(r.passed).toBe(false);
       expect(r.failures).toContain('equity_below_min');
     });

@@ -5,6 +5,7 @@ import type { ClearinghouseStateResponse } from '@copytrade/hl-client';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
 import { preserveHip3OnMainWrite } from '@copytrade/db';
+import { downgradeIfBelowFloor } from '../lib/gate-reconcile.js';
 import { log } from '../log.js';
 
 /**
@@ -76,6 +77,7 @@ async function pollOnce(isStopping: () => boolean): Promise<void> {
   let failed = 0;
   let positionsRefreshed = 0;
   let withHip3 = 0;
+  let downgraded = 0;
 
   let cursor = 0;
   const workOne = async () => {
@@ -86,6 +88,10 @@ async function pollOnce(isStopping: () => boolean): Promise<void> {
       try {
         const res = await hl().clearinghouseState(addr);
         await upsertLeaderCacheFromClearinghouse(addr, res.data);
+        const liveEquity = Number.parseFloat(res.data.marginSummary.accountValue);
+        if (await downgradeIfBelowFloor(addr, Number.isFinite(liveEquity) ? liveEquity : null)) {
+          downgraded += 1;
+        }
         ok += 1;
         if (res.data.assetPositions.length > 0) positionsRefreshed += 1;
         // Snapshot-only HIP-3 check — `clearinghouseState` (main dex) doesn't
@@ -113,11 +119,13 @@ async function pollOnce(isStopping: () => boolean): Promise<void> {
       failed,
       positionsRefreshed,
       withHip3,
+      downgraded,
       ms: Date.now() - t0,
     },
     'leader-cache-poll.cycle_done',
   );
 }
+
 
 /**
  * Upsert `leader_cache` from a `clearinghouseState` REST response.

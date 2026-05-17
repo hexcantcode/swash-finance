@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Minimum account value (USD). Also the floor to even be *listed* on the
  *  leaderboard — below this we don't score or surface the wallet at all. */
-export const MIN_ACCOUNT_VALUE_USD = 25_000;
+export const MIN_ACCOUNT_VALUE_USD = 50_000;
 /** Minimum lifetime traded volume (USD). */
 export const MIN_TOTAL_VOLUME_USD = 100_000;
 /** Minimum track-record age (days since earliest known activity). */

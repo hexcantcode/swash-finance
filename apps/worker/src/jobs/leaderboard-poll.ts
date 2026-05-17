@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { discoveryQueue, wallets } from '@copytrade/db';
+import { discoveryQueue, leaderCache, wallets } from '@copytrade/db';
 import {
   fetchLeaderboard,
   isEligible,
@@ -139,15 +139,23 @@ export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Pro
   // account ROI scalpers; switching to `week.pnl` matches Hyperdash's
   // `/explore/global` 7d-PnL ranking, which is what users compare against.
   const sortedByPnl7d = [...rawRows].sort((a, b) => b.week.pnl - a.week.pnl);
-  const winners: LeaderboardRow[] = [];
+  // Take a generous pre-pass against the raw HL snapshot, then drop any
+  // wallet whose *live* equity (clearinghouseState via leader_cache) sits
+  // below the floor. Symmetric with `score.ts`'s COALESCE gate input — HL
+  // leaderboard snapshots keep showing peak equity long after a withdrawal,
+  // so the snapshot alone admits "$11M historical / $128 live" winners.
+  // Over-pull (WINNER_LIMIT * 3) so the live filter still has enough left.
+  const winnerCandidates: LeaderboardRow[] = [];
   let evaluated = 0;
   for (const r of sortedByPnl7d) {
     evaluated += 1;
     if (passesWinnerFilter(r)) {
-      winners.push(r);
-      if (winners.length >= WINNER_LIMIT) break;
+      winnerCandidates.push(r);
+      if (winnerCandidates.length >= WINNER_LIMIT * 3) break;
     }
   }
+  const winners = await filterWinnersByLiveEquity(winnerCandidates, WINNER_LIMIT);
+  const droppedByLive = winnerCandidates.length - winners.length;
 
   const winnerStats = await reconcileWinners(winners);
 
@@ -158,6 +166,7 @@ export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Pro
       winners: {
         evaluated,
         passed: winners.length,
+        droppedByLiveEquity: droppedByLive,
         ranks: winners.map((r) => r.address),
         queuedNew: winnerStats.queuedNew,
       },
@@ -165,6 +174,44 @@ export async function runLeaderboardPoll(opts: LeaderboardPollOptions = {}): Pro
     },
     'leaderboard-poll.done',
   );
+}
+
+/**
+ * Reject winner candidates whose live (clearinghouseState) equity has fallen
+ * below the listing floor. HL's leaderboard snapshot keeps reporting peak
+ * equity for hours after a withdrawal, so a wallet that traded a $10M
+ * account up by +30% in 7d and then withdrew everything still shows up as
+ * a top-PnL winner on the raw snapshot. Cross-checking `leader_cache` (kept
+ * fresh by `leader-cache-poll` + `ws-live-subscriber`) drops those before
+ * they reach `reconcileWinners`. Wallets without a cache row pass through —
+ * they're new to the winner set and will be live-checked once the cohort
+ * subscriber picks them up.
+ */
+async function filterWinnersByLiveEquity(
+  candidates: LeaderboardRow[],
+  limit: number,
+): Promise<LeaderboardRow[]> {
+  if (candidates.length === 0) return [];
+  const addrs = candidates.map((r) => r.address);
+  const cacheRows = await db()
+    .select({ address: leaderCache.address, accountValue: leaderCache.accountValue })
+    .from(leaderCache)
+    .where(inArray(leaderCache.address, addrs));
+  const liveByAddr = new Map<string, number | null>();
+  for (const row of cacheRows) {
+    const v = row.accountValue !== null ? Number.parseFloat(row.accountValue) : null;
+    liveByAddr.set(row.address, Number.isFinite(v as number) ? (v as number) : null);
+  }
+  const out: LeaderboardRow[] = [];
+  for (const r of candidates) {
+    if (liveByAddr.has(r.address)) {
+      const live = liveByAddr.get(r.address) ?? null;
+      if (live === null || live < MIN_ACCOUNT_VALUE_USD) continue;
+    }
+    out.push(r);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 /**

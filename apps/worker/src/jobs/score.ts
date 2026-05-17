@@ -1,7 +1,8 @@
-import { and, eq, gte, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, or, sql } from 'drizzle-orm';
 import {
   fills,
   fundings,
+  leaderCache,
   ledgerUpdates,
   scores,
   walletTags,
@@ -70,17 +71,29 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   for (const dex of perpDexs.data) if (dex) hip3Dexes.add(dex.name);
 
   // 2. Candidates.
+  //
+  // Equity source: prefer the live `leader_cache.account_value` over the
+  // leaderboard snapshot in `wallets.account_value`. The two can diverge
+  // significantly (leaderboard refreshes lag clearinghouseState, and the
+  // leaderboard snapshot keeps showing peak equity after large withdrawals),
+  // so the gate has to read the freshest number we have to avoid scoring
+  // wallets whose live equity has fallen below the floor since the last
+  // snapshot. The live-tier writers (`leader-cache-poll`, `ws-live-subscriber`)
+  // also call `downgradeIfBelowFloor` for the same reason — see
+  // `apps/worker/src/lib/gate-reconcile.ts`.
   const cutoff = new Date(Date.now() - RECENT_WINDOW_180D_MS);
+  const effectiveAccountValue = sql<string | null>`coalesce(${leaderCache.accountValue}, ${wallets.accountValue})`;
   const candidates = await db()
     .select({
       address: wallets.address,
-      accountValue: wallets.accountValue,
+      accountValue: effectiveAccountValue,
       firstSeenAt: wallets.firstSeenAt,
       // Score v2: profit input reads HL's reported 30d ROI directly — no
       // deposit-base reconstruction in the path anymore.
       hlRoi30d: wallets.hlRoi30d,
     })
     .from(wallets)
+    .leftJoin(leaderCache, eq(leaderCache.address, wallets.address))
     .where(
       and(
         opts.onlyAddress ? eq(wallets.address, opts.onlyAddress) : sql`true`,
@@ -94,8 +107,8 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
         // null equity (the refresh path may not have fetched it yet) — it just
         // won't be listed/curated until it does.
         opts.onlyAddress
-          ? sql`(${wallets.accountValue} is null or ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD})`
-          : sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
+          ? sql`(${effectiveAccountValue} is null or ${effectiveAccountValue} >= ${MIN_ACCOUNT_VALUE_USD})`
+          : sql`${effectiveAccountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
         sql`${wallets.totalVolumeUsd} >= ${MIN_VOLUME_USD}`,
       ),
     );
@@ -139,10 +152,15 @@ async function scoreSingleWallet(args: {
 }): Promise<{ tagsApplied: number; scored: boolean }> {
   const addresses = await collectMasterAndAgents(args.address);
 
+  // Stable, deterministic order. `computeBehavioral` sorts by blockTimeMs but JS
+  // sort is stable — same-ms fill ties (HL packs many into one block) preserve
+  // whatever order Postgres returned, which makes cycle boundaries (and thus
+  // `winRate`) non-deterministic. Tie-break on `tid` (monotonic intra-block).
   const fillsRows = await db()
     .select()
     .from(fills)
-    .where(inArray(fills.userAddress, addresses));
+    .where(inArray(fills.userAddress, addresses))
+    .orderBy(asc(fills.blockTimeMs), asc(fills.tid));
   if (fillsRows.length < MIN_FILLS_FOR_SCORING) return { tagsApplied: 0, scored: false };
 
   const fundingsRows = await db()
@@ -353,7 +371,7 @@ async function scoreSingleWallet(args: {
     sortino: numToStr(sortino),
     psr: numToStr(psr),
     profitFactor: numToStr(pf),
-    winRate: numToStr(wr),
+    winRate: winRateToStr(wr),
     expectancy: numToStr(exp),
     maxDrawdownPct: numToStr(maxDd),
     recoveryTimeDays: recovery,
@@ -505,4 +523,11 @@ function numToStr(value: number | null): string | null {
   if (!Number.isFinite(value)) return null;
   if (Math.abs(value) > RATIO_MAX) return value > 0 ? RATIO_MAX.toFixed(4) : (-RATIO_MAX).toFixed(4);
   return value.toFixed(4);
+}
+
+// win_rate is numeric(10,5) — always in [0, 1], so no clamp needed.
+function winRateToStr(value: number | null): string | null {
+  if (value === null) return null;
+  if (!Number.isFinite(value)) return null;
+  return value.toFixed(5);
 }
