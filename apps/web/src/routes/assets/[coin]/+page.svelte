@@ -368,50 +368,45 @@
     <div class="k-section-head">
       <h2 class="k-section-title">Biggest positions on {asset.symbol}</h2>
     </div>
-    <div class="k-mini-table">
-      <div class="k-mini-table-head k-mini-table-head--stacked">
-        <h3 class="k-mini-table-head-title-line">Top 5 by size · live</h3>
-        <div class="k-mini-table-head-colheads">
-          <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
-          <span class="k-mini-table-head-label k-mini-table-holdings">Trader</span>
-          <span class="k-mini-table-head-label k-mini-table-price">Size</span>
-          <span class="k-mini-table-head-label k-mini-table-chg">Lev</span>
-        </div>
-      </div>
-      {#if topBySize.length === 0}
-        <div class="k-mini-table-empty">
-          None of the tracked traders currently hold {asset.symbol}.
-        </div>
-      {:else}
+    {#if topBySize.length === 0}
+      <p class="k-empty">None of the tracked traders currently hold {asset.symbol}.</p>
+    {:else}
+      <div
+        class="k-card-scroll"
+        aria-label="Top 5 currently-open positions on {asset.symbol} by notional size"
+      >
         {#each topBySize as p (p.address + ':' + p.entryPxUsd)}
-          <a class="k-mini-table-row" href="/trader/{p.address}" aria-label="View trader profile">
-            <img
-              src={coinIconUrl(asset.coin)}
-              alt=""
-              loading="lazy"
-              onerror={hideBrokenAvatar}
-              class="k-coin-icon"
-              class:is-white-bg={coinNeedsWhiteBg(asset.coin)}
-            />
-            <span class="k-mini-table-addr">{truncateAddress(p.address)}</span>
-            <span class="k-mini-table-holdings">
-              <span class="k-side-arrow k-side-{p.side}" aria-label={p.side}
-                >{p.side === 'long' ? '↑' : '↓'}</span
+          <a class="k-roi-card k-asset-trader-card" href="/trader/{p.address}">
+            <div class="k-asset-trader-card-top">
+              <img
+                src={effigyUrl(p.address)}
+                alt=""
+                loading="lazy"
+                onerror={hideBrokenAvatar}
+                class="stripe-avatar stripe-avatar-ring k-roi-card-avatar"
+              />
+              <span class="k-roi-card-addr">{truncateAddress(p.address)}</span>
+            </div>
+            <div class="k-asset-trader-card-stats">
+              <span
+                class="k-asset-trader-card-pnl {p.side === 'long'
+                  ? 'k-pnl-positive'
+                  : 'k-pnl-negative'}"
+                title="{p.side === 'long' ? 'Long' : 'Short'} {formatPnl(p.notionalUsd)}"
               >
-              {formatPnl(p.notionalUsd)}
-            </span>
-            <span
-              class="k-mini-table-price {p.side === 'long' ? 'k-pnl-positive' : 'k-pnl-negative'}"
-            >
-              {p.side === 'long' ? 'LONG' : 'SHORT'}
-            </span>
-            <span class="k-mini-table-chg">
-              {p.leverage > 0 ? `${p.leverage}×` : '—'}
-            </span>
+                <span class="k-side-arrow k-side-{p.side}" aria-hidden="true"
+                  >{p.side === 'long' ? '↑' : '↓'}</span
+                >
+                {formatPnl(p.notionalUsd)}
+              </span>
+              <span class="k-asset-trader-card-roi" aria-label="leverage">
+                {p.leverage > 0 ? `${p.leverage}×` : '—'}
+              </span>
+            </div>
           </a>
         {/each}
-      {/if}
-    </div>
+      </div>
+    {/if}
   </section>
 
   <section class="k-trader-section">
