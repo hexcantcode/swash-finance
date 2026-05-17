@@ -74,6 +74,14 @@ export const wallets = pgTable(
     historyDeepenedAt: timestamp('history_deepened_at', { withTimezone: true }),
     historyOldestMs: bigint('history_oldest_ms', { mode: 'number' }),
 
+    // Live-equity hysteresis: stamped by leader-cache-poll when this wallet's
+    // live equity drops below MIN_ACCOUNT_VALUE_USD. The `tracked_wallets`
+    // view's hysteresis predicate requires a higher equity floor (75k vs 50k)
+    // for any wallet that was below the floor within the last 7 days, so a
+    // wallet bouncing around the threshold doesn't flicker in and out of
+    // lists. Cleared/null = wallet has never (or not recently) been below.
+    lastBelowFloorAt: timestamp('last_below_floor_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

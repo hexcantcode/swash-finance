@@ -75,9 +75,12 @@ export async function runTradesCoinSubscriber(): Promise<void> {
   process.on('SIGTERM', shutdown);
 
   const refreshLeaders = async (): Promise<void> => {
-    // Reads from the `leaders` SQL VIEW — see
-    // packages/db/sql/2026-05-16-leaders-view-and-history.sql.
-    const res = await db().execute<{ address: string }>(drizzleSql`SELECT address FROM leaders`);
+    // Reads from the `tracked_wallets` SQL VIEW — single source of truth
+    // for the wallets we follow/present. See
+    // docs/plans/2026-05-17-tracked-wallets-view-design.md.
+    const res = await db().execute<{ address: string }>(
+      drizzleSql`SELECT address FROM tracked_wallets`,
+    );
     leaders = new Set(res.rows.map((r) => normalizeAddress(r.address)));
     log.debug({ leaders: leaders.size }, 'trades-coin.leaders_refreshed');
   };

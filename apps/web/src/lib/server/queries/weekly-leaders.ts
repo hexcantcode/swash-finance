@@ -64,6 +64,13 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     .orderBy(asc(wallets.winnerRank))
     .limit(limit);
 
+  // NOTE: deliberately NOT joining `tracked_wallets` here. Winners is a
+  // discovery surface — it shows newly-trending top-PnL wallets that may
+  // not be scored yet (`tracked_wallets` requires a score). Live-equity
+  // safety is enforced upstream by `leaderboard-poll.filterWinnersByLiveEquity`
+  // before `wallets.winner` is ever set. See
+  // docs/plans/2026-05-17-tracked-wallets-view-design.md.
+
   const addresses = rows.map((r) => r.address);
   const [alfaByAddress, holdingsByAddress] = await Promise.all([
     listBestAssetsByWinRate(addresses),

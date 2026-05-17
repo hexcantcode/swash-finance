@@ -89,14 +89,15 @@ async function runHip3PollOnce(
   hip3DexNames: string[],
   isStopping: () => boolean,
 ): Promise<void> {
-  // Cohort = leaders ∩ (recent-HIP-3-fill ∪ current-HIP-3-holder). The
-  // holder branch covers wallets that haven't traded HIP-3 in the lookback
-  // window but still hold an open position — without it those positions
-  // would never refresh.
+  // Cohort = tracked_wallets ∩ (recent-HIP-3-fill ∪ current-HIP-3-holder).
+  // The holder branch covers wallets that haven't traded HIP-3 in the
+  // lookback window but still hold an open position — without it those
+  // positions would never refresh. Single source of truth shared with every
+  // list query — see docs/plans/2026-05-17-tracked-wallets-view-design.md.
   const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
   const cohortResp = await db().execute<{ address: string }>(sql`
     select l.address
-    from leaders l
+    from tracked_wallets l
     where exists (
       select 1 from ${fills} f
       where f.user_address = l.address

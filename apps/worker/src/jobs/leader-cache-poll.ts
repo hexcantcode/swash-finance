@@ -5,7 +5,7 @@ import type { ClearinghouseStateResponse } from '@copytrade/hl-client';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
 import { preserveHip3OnMainWrite } from '@copytrade/db';
-import { downgradeIfBelowFloor } from '../lib/gate-reconcile.js';
+import { stampIfBelowFloor } from '../lib/gate-reconcile.js';
 import { log } from '../log.js';
 
 /**
@@ -67,10 +67,11 @@ export async function runLeaderCachePoll(
 async function pollOnce(isStopping: () => boolean): Promise<void> {
   const t0 = Date.now();
 
-  // Cohort = the `leaders` view (~69 today). Single source of truth, shared
-  // with the firehose and hip3-poll. See
-  // packages/db/sql/2026-05-16-leaders-view-and-history.sql.
-  const res = await db().execute<{ address: string }>(sql`SELECT address FROM leaders`);
+  // Cohort = the `tracked_wallets` view (single source of truth shared with
+  // every list query and cohort job — web, firehose, hip3, analytics). See
+  // packages/db/migrations/0006_tracked_wallets_and_floor_hysteresis.sql and
+  // docs/plans/2026-05-17-tracked-wallets-view-design.md.
+  const res = await db().execute<{ address: string }>(sql`SELECT address FROM tracked_wallets`);
   const addresses = res.rows.map((r) => normalizeAddress(r.address));
 
   let ok = 0;
@@ -89,7 +90,7 @@ async function pollOnce(isStopping: () => boolean): Promise<void> {
         const res = await hl().clearinghouseState(addr);
         await upsertLeaderCacheFromClearinghouse(addr, res.data);
         const liveEquity = Number.parseFloat(res.data.marginSummary.accountValue);
-        if (await downgradeIfBelowFloor(addr, Number.isFinite(liveEquity) ? liveEquity : null)) {
+        if (await stampIfBelowFloor(addr, Number.isFinite(liveEquity) ? liveEquity : null)) {
           downgraded += 1;
         }
         ok += 1;

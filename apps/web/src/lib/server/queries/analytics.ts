@@ -106,7 +106,7 @@ export async function getLatestTrades(
   const predicates: ReturnType<typeof sql>[] = [];
   if (scope === 'tracked') {
     predicates.push(
-      sql`COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leaders)`,
+      sql`COALESCE(w.master_address, f.user_address) IN (SELECT address FROM tracked_wallets)`,
     );
   }
   if (coinFilter !== undefined) {

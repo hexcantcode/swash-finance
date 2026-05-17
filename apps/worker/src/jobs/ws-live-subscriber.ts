@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
 import type {
   UserFillsEvent,
@@ -13,16 +13,14 @@ import {
   leaderCache,
   preserveHip3OnMainWrite,
   replaceDexOnHip3Write,
-  wallets,
   type NewFill,
   type NewFunding,
   type NewLedgerUpdate,
 } from '@copytrade/db';
-import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { normalizeAddress } from '@copytrade/shared';
 import { closeDb, db } from '../db.js';
 import { hl } from '../hl.js';
-import { downgradeIfBelowFloor } from '../lib/gate-reconcile.js';
+import { stampIfBelowFloor } from '../lib/gate-reconcile.js';
 import { log } from '../log.js';
 
 /**
@@ -265,24 +263,14 @@ async function reconcileOnce(
   missedCycles: Map<string, number>,
   isStopping: () => boolean,
 ): Promise<void> {
-  // The desired set is the leaderboard listing floor — same one the
-  // home-page table uses (single source of truth): `is_agent = false`,
-  // `account_value >= MIN_ACCOUNT_VALUE_USD`, `hl_pnl_7d_usd IS NOT NULL`,
-  // ranked by HL 7d PnL desc, top `TRACKED_LIMIT`. Catches HIP-3 holders
-  // and other cohort activity that the old `winner = true` (≤10) gate
-  // would miss.
-  const rows = await db()
-    .select({ address: wallets.address })
-    .from(wallets)
-    .where(
-      and(
-        eq(wallets.isAgent, false),
-        isNotNull(wallets.hlPnl7dUsd),
-        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
-      ),
-    )
-    .orderBy(desc(wallets.hlPnl7dUsd))
-    .limit(TRACKED_LIMIT);
+  // The desired set = `tracked_wallets` view — single source of truth
+  // shared with every list query and cohort job. See
+  // docs/plans/2026-05-17-tracked-wallets-view-design.md. TRACKED_LIMIT
+  // acts as a safety cap (250) but the view's quality filters keep the
+  // actual count well below it (~32 today).
+  const rows = (await db().execute<{ address: string }>(
+    sql`SELECT address FROM tracked_wallets LIMIT ${TRACKED_LIMIT}`,
+  )).rows;
   // Use the master address — for v1 we subscribe to masters only.
   // TODO: also subscribe to winners' agent addresses (resolve via extraAgents /
   // `wallets.master_address` links) so agent-only activity is attributed to the
@@ -477,7 +465,7 @@ async function handleWebData2(rawAddress: string, data: WebData2Event): Promise<
   // below the listing floor, downgrade immediately so list queries stop
   // surfacing this wallet within seconds (instead of waiting up to 24h
   // for the next scoring run).
-  await downgradeIfBelowFloor(address, Number.isFinite(accountValue) ? accountValue : null);
+  await stampIfBelowFloor(address, Number.isFinite(accountValue) ? accountValue : null);
 }
 
 /**
@@ -667,17 +655,8 @@ async function runHip3PollOnce(
   // when the trader closes via fills we didn't observe.
   const cutoffMs = Date.now() - HIP3_COHORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
   const cohortResp = await db().execute<{ address: string }>(sql`
-    with tracked as (
-      select address
-      from ${wallets}
-      where ${wallets.isAgent} = false
-        and ${wallets.hlPnl7dUsd} is not null
-        and ${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}
-      order by ${wallets.hlPnl7dUsd} desc nulls last
-      limit ${TRACKED_LIMIT}
-    )
     select t.address
-    from tracked t
+    from tracked_wallets t
     where exists (
       select 1 from ${fills} f
       where f.user_address = t.address

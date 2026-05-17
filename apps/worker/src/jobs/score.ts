@@ -79,7 +79,7 @@ export async function runScoreRecompute(opts: { onlyAddress?: string } = {}): Pr
   // so the gate has to read the freshest number we have to avoid scoring
   // wallets whose live equity has fallen below the floor since the last
   // snapshot. The live-tier writers (`leader-cache-poll`, `ws-live-subscriber`)
-  // also call `downgradeIfBelowFloor` for the same reason — see
+  // also call `stampIfBelowFloor` for the same reason — see
   // `apps/worker/src/lib/gate-reconcile.ts`.
   const cutoff = new Date(Date.now() - RECENT_WINDOW_180D_MS);
   const effectiveAccountValue = sql<string | null>`coalesce(${leaderCache.accountValue}, ${wallets.accountValue})`;

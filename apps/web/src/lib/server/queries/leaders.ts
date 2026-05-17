@@ -1,6 +1,5 @@
-import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { scores, walletTags, wallets } from '@copytrade/db';
-import { MIN_ACCOUNT_VALUE_USD } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
 import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
@@ -91,23 +90,22 @@ export async function listLeaders(args: {
   const { filters, sort, page, limit } = args;
   const offset = (page - 1) * limit;
 
-  const baseFilters = [
-    eq(wallets.isAgent, false),
-    isNotNull(wallets.score),
-    // Listing floor: only wallets with real skin in the game (≥ $25K equity).
-    sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
+  // The `tracked_wallets` view enforces is_agent=false, score IS NOT NULL,
+  // live-equity floor (COALESCE with hysteresis), and the scoring-quality
+  // gates (decay_flag, total_trades, profit_factor, max_drawdown). INNER
+  // JOIN against it replaces those filters in one expression — single
+  // source of truth for "wallets we follow + present." See
+  // docs/plans/2026-05-17-tracked-wallets-view-design.md.
+  const baseFilters: ReturnType<typeof sql>[] = [
+    sql`exists (select 1 from tracked_wallets tw where tw.address = ${wallets.address})`,
   ];
 
   if (filters.minScore !== undefined) {
-    baseFilters.push(gte(wallets.score, filters.minScore));
-  }
-
-  if (filters.curatedOnly) {
-    baseFilters.push(eq(wallets.curated, true));
+    baseFilters.push(sql`${gte(wallets.score, filters.minScore)}`);
   }
 
   if (filters.winnersOnly) {
-    baseFilters.push(eq(wallets.winner, true));
+    baseFilters.push(sql`${eq(wallets.winner, true)}`);
   }
 
   if (filters.search) {

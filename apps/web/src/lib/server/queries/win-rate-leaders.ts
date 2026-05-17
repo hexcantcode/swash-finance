@@ -1,10 +1,6 @@
 import { and, desc, eq, gte, isNotNull, sql } from 'drizzle-orm';
 import { fills, scores, wallets } from '@copytrade/db';
-import {
-  isMarketMakerPattern,
-  MIN_ACCOUNT_VALUE_USD,
-  MIN_ROUND_TRIPS,
-} from '@copytrade/scoring';
+import { isMarketMakerPattern, MIN_ROUND_TRIPS } from '@copytrade/scoring';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
 import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
@@ -73,9 +69,10 @@ export async function listTopWinRate(limit = 5): Promise<WinRateLeaderRow[]> {
     .innerJoin(scores, eq(scores.address, wallets.address))
     .where(
       and(
-        eq(wallets.isAgent, false),
-        isNotNull(wallets.score),
-        sql`${wallets.accountValue} >= ${MIN_ACCOUNT_VALUE_USD}`,
+        // tracked_wallets enforces is_agent=false, score IS NOT NULL, the
+        // live-equity floor, and scoring-quality gates. See
+        // docs/plans/2026-05-17-tracked-wallets-view-design.md.
+        sql`exists (select 1 from tracked_wallets tw where tw.address = ${wallets.address})`,
         isNotNull(scores.winRate),
         gte(scores.totalRoundTrips, MIN_ROUND_TRIPS),
         sql`${scores.computedAt} >= ${latestScoringCutoff}`,

@@ -4,27 +4,21 @@ Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/web` SvelteKit, 
 
 ---
 
-## ⚠️ BLOCKER — DB migration drift (live DB is ahead of `main`)
+## DB migration state (drift resolved 2026-05-17)
 
-The shared Neon DB has **5 migrations applied** (`drizzle.__drizzle_migrations`), but `main`'s `packages/db/migrations/` only contains **3** (`0000`–`0002`). Migrations `0003` and `0004` live **only on the `data-sources` branch / worktree** and were applied to the DB out-of-band:
+Main and the live Neon DB are in sync: 6 migrations applied (`0000`–`0005`), all SQL files committed under `packages/db/migrations/`, all meta snapshots present in `packages/db/migrations/meta/`. `pnpm db:generate` / `db:migrate` / `db:push` are safe to run from main.
 
-- `0003_abandoned_tempest` — `ALTER TABLE scores DROP COLUMN calmar; DROP COLUMN dsr;` + adds `leader_cache.{leverage,margin_used,last_trade_ms,source}`
-- `0004_premium_marten_broadcloak` — adds `wallets.{curated,curated_since}`
+**Loose ends from the old drift, still in the DB:**
+- `scores.calmar` and `scores.dsr` columns still exist in the live DB but are not referenced by any code on main. Migration `0003_abandoned_tempest` dropped them; they were manually re-added at the time as a stopgap when main code still read them, then main was cleaned up but the columns weren't dropped again. Safe to drop in a future migration; harmless if left.
 
-### Rules while working on `main`
+**`data-sources` branch is stale** (~140 commits behind main) — do **not** merge it. Its only unique contribution was migrations `0003`/`0004`, which have since landed on main directly. If anything on `data-sources` is still wanted, cherry-pick the specific commits rather than merging.
 
-1. **Do NOT run `pnpm db:migrate` / `db:generate` / `db:push` from `main`.** Drizzle compares the schema against the stale local snapshots in `packages/db/migrations/meta/` and a journal that doesn't match the live DB — it will emit wrong and/or destructive diffs.
-2. `main`'s code still references `scores.calmar` and `scores.dsr` (in `packages/db/src/schema.ts`, `apps/web/src/lib/server/queries/leader-detail.ts`, `apps/worker/src/jobs/score.ts`, `packages/scoring`). The `data-sources` branch removed them. **Stopgap already applied:** those two columns were manually re-added to the live DB —
-   ```sql
-   ALTER TABLE scores ADD COLUMN IF NOT EXISTS calmar numeric(10,4);
-   ALTER TABLE scores ADD COLUMN IF NOT EXISTS dsr    numeric(10,4);
-   ```
-   so `main`'s trader page (`/trader/<address>`) and worker scoring keep working. Don't be surprised those columns exist even though migration `0003` drops them.
-3. Don't introduce new schema/DB skew. If you genuinely need a schema change, do it on a branch and coordinate — the migration story has to be untangled first.
+### Out-of-band SQL applies
 
-### Resolution
+One SQL file in `packages/db/sql/` was applied via Neon MCP outside Drizzle:
+- `packages/db/sql/2026-05-16-leaders-view-and-history.sql` — creates the `leaders` view and adds `wallets.history_deepened_at` / `history_oldest_ms`.
 
-Merge `data-sources` → `main`. It brings `0003`/`0004` and removes `calmar`/`dsr` from the code. Migrations `0003`/`0004` are already recorded as applied in `__drizzle_migrations`, so they won't re-run; the manually re-added columns become harmless leftovers (or can be dropped deliberately afterward).
+New SQL should go through Drizzle (`pnpm db:generate` then `db:migrate`). For DDL Drizzle can't autogenerate (views, complex triggers), hand-edit the generated migration file to append the SQL.
 
 ---
 
