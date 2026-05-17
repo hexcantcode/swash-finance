@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { fills, leaderCache, wallets } from '@copytrade/db';
-import { coinCategory } from '$lib/utils/coin';
+import { coinCategory, HIP3_CRYPTO_DEXES } from '$lib/utils/coin';
 import { db } from '../db.js';
 import { resolveCoins } from '../spot-aliases';
 import { listAllAssetsRaw } from './assets.js';
@@ -82,17 +82,51 @@ export async function getLatestTrades(
     limit?: number;
     scope?: 'tracked' | 'all';
     aggregation?: 'order' | 'session';
+    /** Pre-filter fills by coarse category before aggregation so each panel
+     *  bucket can fetch independently. The canonical `panelCategory` helper
+     *  still owns the final classification — this just narrows the SQL
+     *  window so the stocks bucket isn't drowned out by crypto fill volume.
+     *  Approximation rule:
+     *    - 'stocks': colon-prefixed coins not on a crypto-native HIP-3 dex.
+     *    - 'crypto': bare coins, plus colon-prefixed coins on the crypto
+     *               HIP-3 dexes (`hyna:HYPE`, …).
+     *  Index symbols on the main dex (BTCD, TOTAL2, …) fall under 'crypto'
+     *  here; `panelCategory` will re-route them on the way out. */
+    coinFilter?: 'stocks' | 'crypto';
   } = {},
 ): Promise<LatestTrade[]> {
   const limit = opts.limit ?? 10;
   const scope = opts.scope ?? 'tracked';
   const aggregation = opts.aggregation ?? 'order';
-  // `WHERE` is an expression we inline conditionally — `sql` empty fragment
-  // when scope = 'all' so the SQL stays grammatically valid either way.
-  const scopeFilter =
-    scope === 'tracked'
-      ? sql`WHERE COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leaders)`
-      : sql``;
+  const coinFilter = opts.coinFilter;
+
+  // Compose WHERE clause. Each predicate is its own `sql` fragment so an
+  // empty list collapses to no WHERE (the SQL must stay grammatical when no
+  // filters apply, e.g. scope='all' without a coin filter).
+  const predicates: ReturnType<typeof sql>[] = [];
+  if (scope === 'tracked') {
+    predicates.push(
+      sql`COALESCE(w.master_address, f.user_address) IN (SELECT address FROM leaders)`,
+    );
+  }
+  if (coinFilter !== undefined) {
+    const hip3CryptoList = sql.join(
+      Array.from(HIP3_CRYPTO_DEXES).map((d) => sql`${d}`),
+      sql`, `,
+    );
+    if (coinFilter === 'stocks') {
+      predicates.push(
+        sql`f.coin LIKE '%:%' AND split_part(f.coin, ':', 1) NOT IN (${hip3CryptoList})`,
+      );
+    } else {
+      predicates.push(
+        sql`(f.coin NOT LIKE '%:%' OR split_part(f.coin, ':', 1) IN (${hip3CryptoList}))`,
+      );
+    }
+  }
+  const whereSql = predicates.length
+    ? sql`WHERE ${sql.join(predicates, sql` AND `)}`
+    : sql``;
 
   // Aggregation key:
   //   - 'order'   → COALESCE(f.oid::text, 'tid:' || f.tid::text). Distinct
@@ -130,7 +164,7 @@ export async function getLatestTrades(
       COUNT(*)                                    AS fill_count
     FROM fills f
     LEFT JOIN wallets w ON w.address = f.user_address
-    ${scopeFilter}
+    ${whereSql}
     GROUP BY COALESCE(w.master_address, f.user_address), f.coin, f.side, ${groupKeyExpr}
     ORDER BY MAX(f.block_time_ms) DESC
     LIMIT ${limit}
@@ -205,8 +239,14 @@ export async function getLatestTrades(
  * `stocks` (HIP-3 builder dexes that aren't on the crypto whitelist, plus
  * the index symbols) on the left, `crypto` on the right. Same shape as
  * `getCategoryPositionBreakdown`'s buckets so the two panels classify
- * consistently. Over-fetches so we can deliver `perCategory` rows in each
- * bucket even when the data is heavily skewed toward one side.
+ * consistently.
+ *
+ * Fills are heavily crypto-skewed (~95% of recent flow), so a single
+ * over-fetch + JS split would surface only crypto and leave the stocks
+ * panel empty. Each bucket runs as its own SQL query with a coarse
+ * coin-pattern predicate; the canonical `panelCategory` is then re-applied
+ * to enforce the final rule (catches index-on-main coins routed to the
+ * stocks side, and HIP-3 crypto-dex coins routed to the crypto side).
  */
 export interface CategorizedLatestTrades {
   stocks: LatestTrade[];
@@ -216,15 +256,19 @@ export async function getLatestTradesByCategory(
   opts: { perCategory?: number; scope?: 'tracked' | 'all' } = {},
 ): Promise<CategorizedLatestTrades> {
   const perCategory = opts.perCategory ?? 10;
-  // Over-fetch — fills are heavily crypto-skewed, so we need a wide enough
-  // window to reliably surface `perCategory` stocks rows. 200 is generous
-  // and the query cost is dominated by the GROUP BY, not by the row count.
-  const trades = await getLatestTrades(
-    opts.scope !== undefined
-      ? { limit: perCategory * 20, scope: opts.scope }
-      : { limit: perCategory * 20 },
-  );
-  return splitTradesByCategory(trades, perCategory);
+  const scope = opts.scope;
+  // Modest over-fetch on each side: enough headroom for `panelCategory` to
+  // drop the rare misclassified edge case, without pulling more rows than
+  // necessary into JS.
+  const overFetch = perCategory * 3;
+  const baseOpts = scope !== undefined ? { limit: overFetch, scope } : { limit: overFetch };
+  const [stocksRaw, cryptoRaw] = await Promise.all([
+    getLatestTrades({ ...baseOpts, coinFilter: 'stocks' }),
+    getLatestTrades({ ...baseOpts, coinFilter: 'crypto' }),
+  ]);
+  const stocks = stocksRaw.filter((t) => panelCategory(t.coin) === 'stocks').slice(0, perCategory);
+  const crypto = cryptoRaw.filter((t) => panelCategory(t.coin) === 'crypto').slice(0, perCategory);
+  return { stocks, crypto };
 }
 
 function splitTradesByCategory<T extends { coin: string }>(

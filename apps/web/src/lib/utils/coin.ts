@@ -136,7 +136,7 @@ export function coinIsExcluded(coin: string): boolean {
  */
 export type CoinCategory = 'crypto' | 'stocks' | 'index';
 
-const HIP3_CRYPTO_DEXES: ReadonlySet<string> = new Set(['hyna', 'abcd', 'para']);
+export const HIP3_CRYPTO_DEXES: ReadonlySet<string> = new Set(['hyna', 'abcd', 'para']);
 
 const COIN_INDEX_SYMBOLS: ReadonlySet<string> = new Set([
   // Broad country / region indices
