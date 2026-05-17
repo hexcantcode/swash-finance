@@ -399,8 +399,15 @@
                 >
                 {formatPnl(p.notionalUsd)}
               </span>
-              <span class="k-asset-trader-card-roi" aria-label="leverage">
-                {p.leverage > 0 ? `${p.leverage}×` : '—'}
+              <span
+                class="k-asset-trader-card-roi {p.side === 'long'
+                  ? 'k-pnl-positive'
+                  : 'k-pnl-negative'}"
+                aria-label="{p.side === 'long' ? 'long' : 'short'} {p.leverage > 0
+                  ? p.leverage + 'x leverage'
+                  : ''}"
+              >
+                {p.side === 'long' ? 'LONG' : 'SHORT'}{p.leverage > 0 ? ` ${p.leverage}×` : ''}
               </span>
             </div>
           </a>
