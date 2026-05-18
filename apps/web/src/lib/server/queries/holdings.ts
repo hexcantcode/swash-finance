@@ -19,7 +19,7 @@ export interface HoldingsByAddress {
  * Fetches each address's currently-open positions from
  * `leader_cache.positions_json` and returns the top-N by absolute notional.
  * One round-trip for the whole address set. Used by the traders-page leader
- * queries (`listTopEarners7d`, `listTopWinRate`, `listLeaders`) to surface
+ * queries (`listTopEarners7d`, `listTopMonthlyPnl`, `listLeaders`) to surface
  * a compact Holdings cell — top-3 coin icons + `+N` for any overflow.
  *
  * Sorting by abs(notional) keeps short positions visible alongside longs

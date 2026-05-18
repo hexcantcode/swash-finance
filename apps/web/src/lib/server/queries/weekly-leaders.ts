@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { scores, wallets } from '@copytrade/db';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
@@ -88,6 +88,69 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
     roi_7d: numOrNull(r.roi_7d),
     pnl_7d_usd: numOrNull(r.pnl_7d_usd),
     volume_7d_usd: numOrNull(r.volume_7d_usd),
+    account_value_usd: numOrNull(r.account_value_usd),
+    last_active_at: r.last_active_at?.toISOString() ?? null,
+    alfa_coin: alfaByAddress.get(r.address) ?? null,
+    holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
+  }));
+}
+
+export interface MonthlyLeaderRow {
+  address: string;
+  primary_tag: string | null;
+  score: number | null;
+  roi_30d: number | null;
+  pnl_30d_usd: number | null;
+  account_value_usd: number | null;
+  last_active_at: string | null;
+  /** "Alfa" — coin this trader has the highest fill-level win rate on with
+   *  ≥ 5 trades on that coin. Null when no coin clears the sample floor. */
+  alfa_coin: string | null;
+  /** Currently-open positions snapshot — top 3 by notional + total count.
+   *  Drives the Holdings cell. Empty top + total=0 when the wallet has no
+   *  open positions in `leader_cache`. */
+  holdings: HoldingsByAddress;
+}
+
+/**
+ * "1mo PnL" strip on /traders — top tracked wallets by HL's reported 30d
+ * realized PnL. Constrains to `tracked_wallets` (score ≥ live floor +
+ * quality gates) so the strip is a recommendation surface, not a discovery
+ * one — different intent from `listTopEarners7d` which deliberately
+ * includes unscored top-PnL wallets for discovery. Wallets without an HL
+ * 30d snapshot are excluded.
+ */
+export async function listTopMonthlyPnl(limit = 5): Promise<MonthlyLeaderRow[]> {
+  const rows = await db()
+    .select({
+      address: wallets.address,
+      primary_tag: wallets.primaryTag,
+      score: wallets.score,
+      roi_30d: wallets.hlRoi30d,
+      pnl_30d_usd: wallets.hlPnl30dUsd,
+      account_value_usd: wallets.accountValue,
+      last_active_at: scores.lastTradeAt,
+    })
+    .from(wallets)
+    .leftJoin(scores, eq(scores.address, wallets.address))
+    .where(
+      sql`${isNotNull(wallets.hlPnl30dUsd)} and exists (select 1 from tracked_wallets tw where tw.address = ${wallets.address})`,
+    )
+    .orderBy(desc(wallets.hlPnl30dUsd))
+    .limit(limit);
+
+  const addresses = rows.map((r) => r.address);
+  const [alfaByAddress, holdingsByAddress] = await Promise.all([
+    listBestAssetsByWinRate(addresses),
+    listHoldingsByAddress(addresses),
+  ]);
+
+  return rows.map((r) => ({
+    address: r.address,
+    primary_tag: r.primary_tag,
+    score: r.score,
+    roi_30d: numOrNull(r.roi_30d),
+    pnl_30d_usd: numOrNull(r.pnl_30d_usd),
     account_value_usd: numOrNull(r.account_value_usd),
     last_active_at: r.last_active_at?.toISOString() ?? null,
     alfa_coin: alfaByAddress.get(r.address) ?? null,

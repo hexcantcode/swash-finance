@@ -1,22 +1,103 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
   import LeaderTable, { type SortKey } from '$lib/components/LeaderTable.svelte';
   import TradeTicker from '$lib/components/TradeTicker.svelte';
-  import WinLossPills from '$lib/components/WinLossPills.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
   import {
     effigyUrl,
-    formatPct,
     formatPnl,
     pnlSignClass,
   } from '$lib/utils/format';
+  import type { HoldingsByAddress } from '$lib/server/queries/holdings';
   import type { PageData } from './$types';
 
   interface Props {
     data: PageData;
   }
   let { data }: Props = $props();
+
+  // Live-refreshed holdings keyed by address. Seeded from the loader, then
+  // refreshed every POLL_MS via /api/holdings so the column reads the same
+  // leader_cache snapshot the trader page polls. Each rendered row reads
+  // `liveHoldings.get(addr) ?? row.holdings` so a missing entry safely
+  // falls back to the load-time value.
+  function seedHoldings(d: PageData): Map<string, HoldingsByAddress> {
+    const m = new Map<string, HoldingsByAddress>();
+    for (const r of d.winners) m.set(r.address, r.holdings);
+    for (const r of d.topMonthly) m.set(r.address, r.holdings);
+    for (const r of d.topLeaders) m.set(r.address, r.holdings);
+    return m;
+  }
+  let liveHoldings = $state<Map<string, HoldingsByAddress>>(seedHoldings(data));
+
+  // Re-seed when the loader returns a new data set (navigation, sort change,
+  // pagination). $effect runs on data changes; reassign the map so $derived
+  // rows recompute.
+  $effect(() => {
+    liveHoldings = seedHoldings(data);
+  });
+
+  const POLL_MS = 8_000;
+  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  let pollStopped = false;
+
+  function allDisplayedAddresses(): string[] {
+    const set = new Set<string>();
+    for (const r of data.winners) set.add(r.address);
+    for (const r of data.topMonthly) set.add(r.address);
+    for (const r of data.topLeaders) set.add(r.address);
+    return [...set];
+  }
+
+  async function pollHoldings() {
+    if (pollStopped) return;
+    if (document.visibilityState !== 'visible') {
+      pollTimer = setTimeout(pollHoldings, POLL_MS);
+      return;
+    }
+    try {
+      const addrs = allDisplayedAddresses();
+      if (addrs.length > 0) {
+        const qs = new URLSearchParams();
+        for (const a of addrs) qs.append('address', a);
+        const res = await fetch(`/api/holdings?${qs.toString()}`);
+        if (res.ok) {
+          const next = (await res.json()) as Record<string, HoldingsByAddress>;
+          const m = new Map<string, HoldingsByAddress>();
+          for (const [addr, h] of Object.entries(next)) m.set(addr, h);
+          liveHoldings = m;
+        }
+      }
+    } catch {
+      // Network blip — keep last good map.
+    }
+    if (!pollStopped) pollTimer = setTimeout(pollHoldings, POLL_MS);
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      if (pollTimer) clearTimeout(pollTimer);
+      pollHoldings();
+    }
+  }
+
+  onMount(() => {
+    pollTimer = setTimeout(pollHoldings, POLL_MS);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  });
+  onDestroy(() => {
+    pollStopped = true;
+    if (pollTimer) clearTimeout(pollTimer);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }
+  });
+
+  function withLiveHoldings<T extends { address: string; holdings: HoldingsByAddress }>(rows: T[]): T[] {
+    return rows.map((r) => ({ ...r, holdings: liveHoldings.get(r.address) ?? r.holdings }));
+  }
 
   function setParam(key: string, value: string | undefined): void {
     const params = new URLSearchParams($page.url.searchParams);
@@ -47,11 +128,14 @@
 
   // Top 5 by 7d PnL desc → "Winners". The list comes pre-ranked by
   // `winnerRank` (= 7d PnL desc) from the loader.
-  const winnerRows = $derived(data.winners.slice(0, 5));
+  const winnerRows = $derived(withLiveHoldings(data.winners.slice(0, 5)));
 
-  // Top 5 by win rate desc → "Win Rate". Already ranked + sample-floored
-  // (≥ MIN_ROUND_TRIPS) by `listTopWinRate`.
-  const winRateRows = $derived(data.topWinRate);
+  // Top 5 by HL 30d realized PnL → "1mo PnL". Already ranked by
+  // `listTopMonthlyPnl` (tracked wallets only, ordered by hl_pnl_30d_usd desc).
+  const monthlyRows = $derived(withLiveHoldings(data.topMonthly));
+
+  // Main leaderboard rows with patched holdings.
+  const topLeadersLive = $derived(withLiveHoldings(data.topLeaders));
 
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.limit)));
 </script>
@@ -61,6 +145,7 @@
 </svelte:head>
 
 <main id="main-content" class="stripe-content">
+  <h1 class="sr-only">Traders</h1>
   <section class="k-trader-section" style="margin-top: 0; margin-bottom: var(--space-6);">
     <TradeTicker trades={data.recentTrades} />
   </section>
@@ -139,19 +224,19 @@
       </div>
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head--stacked">
-          <h3 class="k-mini-table-head-title-line">Win Rate</h3>
+          <h3 class="k-mini-table-head-title-line">1mo PnL</h3>
           <div class="k-mini-table-head-colheads">
             <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
             <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
             <span class="k-mini-table-head-label k-mini-table-alfa">Alfa</span>
-            <span class="k-mini-table-head-label k-mini-table-price">Rate</span>
-            <span class="k-mini-table-head-label k-mini-table-chg k-mini-table-pills">Last 5</span>
+            <span class="k-mini-table-head-label k-mini-table-price">30d PnL</span>
+            <span class="k-mini-table-head-label k-mini-table-chg">ROI</span>
           </div>
         </div>
-        {#if winRateRows.length === 0}
+        {#if monthlyRows.length === 0}
           <div class="k-empty">no scored traders yet</div>
         {:else}
-          {#each winRateRows as t (t.address)}
+          {#each monthlyRows as t (t.address)}
             <a class="k-mini-table-row" href="/trader/{t.address}" aria-label="View trader profile">
               <img
                 src={effigyUrl(t.address)}
@@ -197,16 +282,10 @@
                   —
                 {/if}
               </span>
-              <span
-                class="k-mini-table-price k-pnl-positive"
-                title="{formatPct(t.win_rate, 0)} win rate across {t.total_round_trips} completed round trips"
-              >
-                {formatPct(t.win_rate, 0)}
-                <span class="k-mini-table-trade-count">({t.total_round_trips})</span>
+              <span class="k-mini-table-price {pnlSignClass(t.pnl_30d_usd)}">
+                {formatPnl(t.pnl_30d_usd)}
               </span>
-              <span class="k-mini-table-chg k-mini-table-pills">
-                <WinLossPills results={t.last_closed} />
-              </span>
+              <span class="k-mini-table-chg {pnlSignClass(t.roi_30d)}">{formatRoi(t.roi_30d)}</span>
             </a>
           {/each}
         {/if}
@@ -220,7 +299,7 @@
     </div>
 
     <LeaderTable
-      rows={data.topLeaders}
+      rows={topLeadersLive}
       serverSorted
       sort={data.sort as SortKey}
       onSortChange={setSort}

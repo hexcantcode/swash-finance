@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { listLeaders, type BrowseFilters } from '$lib/server/queries/leaders';
 import { listRecentTrades } from '$lib/server/queries/recent-trades';
-import { listTopEarners7d } from '$lib/server/queries/weekly-leaders';
-import { listTopWinRate } from '$lib/server/queries/win-rate-leaders';
+import { listTopEarners7d, listTopMonthlyPnl } from '$lib/server/queries/weekly-leaders';
 import type { PageServerLoad } from './$types';
 
 const ALLOWED_SORTS = ['score', 'pnl', 'equity', 'frequency'] as const;
@@ -36,10 +35,10 @@ export const load: PageServerLoad = async ({ url }) => {
   const page = params.page ?? 1;
   const limit = params.limit ?? 25;
 
-  const [leaders, topEarners, topWinRate, recentTrades] = await Promise.all([
+  const [leaders, topEarners, topMonthly, recentTrades] = await Promise.all([
     listLeaders({ filters, sort, page, limit }),
     listTopEarners7d(10),
-    listTopWinRate(5),
+    listTopMonthlyPnl(5),
     listRecentTrades(40),
   ]);
 
@@ -66,7 +65,7 @@ export const load: PageServerLoad = async ({ url }) => {
     sort,
     appliedFilters: filters,
     winners,
-    topWinRate,
+    topMonthly,
     recentTrades,
   };
 };
