@@ -84,6 +84,12 @@ export const COIN_LOGO_ALIASES: ReadonlyMap<string, string> = new Map([
   // WTI crude oil → use HL's other crude listing (`xyz:CL`) which the CDN does
   // host. Same commodity, both barrel logos look identical on HL.
   ['WTI', 'xyz:CL'],
+  // PURRDAT (xyz HIP-3 listing) has no CDN logo — reuse the PURR mascot since
+  // the name is PURR-themed.
+  ['PURRDAT', 'PURR'],
+  // SPACEX logo only exists on the `vntl:` listing — alias the bare symbol so
+  // any other dex prefix (e.g. `xyz:SPACEX`) picks up the working asset.
+  ['SPACEX', 'vntl:SPACEX'],
 ]);
 
 /**
