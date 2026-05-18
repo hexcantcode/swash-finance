@@ -67,8 +67,44 @@ function toRow(coin: string, symbol: string, dex: string | null, u: UniverseItem
  * the `/assets` index) and `listAllAssetsRaw()` (un-deduped, for the
  * analytics position matrix that needs to match `leader_cache` positions
  * keyed by the qualified coin) call into this.
+ *
+ * Cached in-process for `ASSET_ROWS_TTL_MS` (default 30s). Reason: a single
+ * call hits HL with ~9 × `metaAndAssetCtxs` requests (weight 20 each =
+ * ~180/load) for main + every HIP-3 dex. Without caching, opening `/feed`
+ * and `/assets` from a browser tab or two saturates HL's 1200/min budget
+ * within seconds — the worker processes also need that budget. 30s of
+ * staleness on mark prices / volume is acceptable for the analytics
+ * overview; callers needing fresh data can pass `bypassCache: true`.
+ *
+ * Cache is per-process (no shared store). On multi-instance hosts each
+ * web instance maintains its own — fine, since the cached value is just a
+ * read-through of HL's own response.
  */
-async function fetchAllAssetRows(): Promise<AssetRow[]> {
+const ASSET_ROWS_TTL_MS = 30_000;
+let assetRowsCache: { data: AssetRow[]; expiresAt: number } | null = null;
+let assetRowsInflight: Promise<AssetRow[]> | null = null;
+
+async function fetchAllAssetRows(opts: { bypassCache?: boolean } = {}): Promise<AssetRow[]> {
+  if (!opts.bypassCache && assetRowsCache && assetRowsCache.expiresAt > Date.now()) {
+    return assetRowsCache.data;
+  }
+  // De-dupe concurrent misses — a burst of `/feed` + `/assets` loads on a
+  // cold cache shouldn't all fire the upstream calls in parallel.
+  if (!opts.bypassCache && assetRowsInflight) return assetRowsInflight;
+  const promise = fetchAllAssetRowsUncached();
+  if (!opts.bypassCache) assetRowsInflight = promise;
+  try {
+    const data = await promise;
+    if (!opts.bypassCache) {
+      assetRowsCache = { data, expiresAt: Date.now() + ASSET_ROWS_TTL_MS };
+    }
+    return data;
+  } finally {
+    if (assetRowsInflight === promise) assetRowsInflight = null;
+  }
+}
+
+async function fetchAllAssetRowsUncached(): Promise<AssetRow[]> {
   const client = hl();
   const [mainRes, dexsRes] = await Promise.all([
     client.metaAndAssetCtxs(),

@@ -125,7 +125,7 @@
     const tickSentiment = async () => {
       if (cancelled) return;
       try {
-        const r = await fetch('/api/analytics/sentiment');
+        const r = await fetch('/api/feed/sentiment');
         if (!r.ok) return;
         const j = (await r.json()) as {
           ok: boolean;
@@ -141,7 +141,7 @@
     const tickLatestTrades = async () => {
       if (cancelled) return;
       try {
-        const r = await fetch('/api/analytics/latest-trades');
+        const r = await fetch('/api/feed/latest-trades');
         if (!r.ok) return;
         const j = (await r.json()) as {
           ok: boolean;
@@ -162,7 +162,7 @@
     const tickTopOpenPositions = async () => {
       if (cancelled) return;
       try {
-        const r = await fetch('/api/analytics/top-open-positions');
+        const r = await fetch('/api/feed/top-open-positions');
         if (!r.ok) return;
         const j = (await r.json()) as {
           ok: boolean;
@@ -183,7 +183,7 @@
     const tickMatrix = async () => {
       if (cancelled) return;
       try {
-        const r = await fetch('/api/analytics/position-matrix');
+        const r = await fetch('/api/feed/position-matrix');
         if (!r.ok) return;
         const j = (await r.json()) as { ok: boolean; matrix: typeof data.matrix };
         if (
