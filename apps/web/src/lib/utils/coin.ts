@@ -87,9 +87,13 @@ export const COIN_LOGO_ALIASES: ReadonlyMap<string, string> = new Map([
   // PURRDAT (xyz HIP-3 listing) has no CDN logo — reuse the PURR mascot since
   // the name is PURR-themed.
   ['PURRDAT', 'PURR'],
-  // SPACEX logo only exists on the `vntl:` listing — alias the bare symbol so
-  // any other dex prefix (e.g. `xyz:SPACEX`) picks up the working asset.
+  // SpaceX exposure trades under two tickers on different dexes: `vntl:SPACEX`
+  // and `xyz:SPCX`. HL's CDN only hosts the rocket logo at the vntl path, so
+  // both bare symbols alias to that. We surface only `xyz:SPCX` on the page
+  // (see COIN_EXCLUDE_COINS below) — the SPACEX alias still resolves the icon
+  // for any legacy fills/positions that reference the vntl listing.
   ['SPACEX', 'vntl:SPACEX'],
+  ['SPCX', 'vntl:SPACEX'],
 ]);
 
 /**
@@ -122,9 +126,22 @@ export const COIN_EXCLUDE_SYMBOLS: ReadonlySet<string> = new Set([
   'SOY',
 ]);
 
+/**
+ * Coin-level exclusions (full `dex:SYMBOL` keys). Used when one dex hosts a
+ * duplicate listing we don't want to surface but we DO want to keep the same
+ * symbol on a different dex. Bare-symbol exclusion above would drop every
+ * dex's variant; this targets a specific listing.
+ */
+export const COIN_EXCLUDE_COINS: ReadonlySet<string> = new Set([
+  // SpaceX exposure: `vntl:SPACEX` duplicates `xyz:SPCX`. Keep xyz, drop vntl
+  // (which has thinner depth). Logo for both still resolves via the SPACEX /
+  // SPCX entries in COIN_LOGO_ALIASES above.
+  'vntl:SPACEX',
+]);
+
 /** Whether this coin should be omitted from the assets table. */
 export function coinIsExcluded(coin: string): boolean {
-  return COIN_EXCLUDE_SYMBOLS.has(bareSymbol(coin));
+  return COIN_EXCLUDE_SYMBOLS.has(bareSymbol(coin)) || COIN_EXCLUDE_COINS.has(coin);
 }
 
 /**

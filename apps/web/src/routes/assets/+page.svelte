@@ -211,7 +211,7 @@
         {#each winners as a (a.coin)}
           {@const f = rowFlashes[a.coin]}
           <a
-            class="k-mini-table-row"
+            class="k-mini-table-row k-mini-table-row--mover"
             class:k-row-flash-up={f?.dir === 'up'}
             class:k-row-flash-down={f?.dir === 'down'}
             data-flash-tick={f?.n ?? 0}
@@ -240,7 +240,7 @@
         {#each losers as a (a.coin)}
           {@const f = rowFlashes[a.coin]}
           <a
-            class="k-mini-table-row"
+            class="k-mini-table-row k-mini-table-row--mover"
             class:k-row-flash-up={f?.dir === 'up'}
             class:k-row-flash-down={f?.dir === 'down'}
             data-flash-tick={f?.n ?? 0}

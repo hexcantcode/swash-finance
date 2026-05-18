@@ -2102,7 +2102,7 @@ body {
  * `.k-mini-table-alfa` is `display: none` and its auto-column collapses
  * to 0). Analytics's `--split` rows (Latest trades / Winning Trades)
  * and `--coin` rows (Most Held coin list) keep the flex base above. */
-.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--coin),
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--coin):not(.k-mini-table-row--mover),
 .k-mini-table-head-colheads {
   display: grid;
   grid-template-columns: 20px 1fr 96px auto 80px 96px;
@@ -2110,25 +2110,39 @@ body {
   column-gap: var(--space-3);
   row-gap: 0;
 }
-.k-mini-table-row:not(.k-mini-table-row--split) > .stripe-avatar,
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) > .stripe-avatar,
 .k-mini-table-head-avatar-spacer {
   grid-column: 1;
 }
-.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-holdings,
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-holdings,
 .k-mini-table-head-colheads .k-mini-table-holdings {
   grid-column: 3;
 }
-.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-alfa,
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-alfa,
 .k-mini-table-head-colheads .k-mini-table-alfa {
   grid-column: 4;
 }
-.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-price,
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-price,
 .k-mini-table-head-colheads .k-mini-table-price {
   grid-column: 5;
 }
-.k-mini-table-row:not(.k-mini-table-row--split) .k-mini-table-chg,
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-chg,
 .k-mini-table-head-colheads .k-mini-table-chg {
   grid-column: 6;
+}
+
+/* /assets Top Gainers/Losers rows — opt out of the /traders 6-column grid
+ * (which reserves space for Holdings/Alfa columns these rows don't use).
+ * Falls through to the base `.k-mini-table-row` flex layout, so the
+ * symbol column (`.k-coin-sym` with `flex: 1; min-width: 0`) actually gets
+ * the leftover space instead of being squeezed below an empty 96px slot
+ * on mobile. */
+.k-mini-table-row--mover {
+  display: flex;
+}
+.k-mini-table-row--mover .k-mini-table-price,
+.k-mini-table-row--mover .k-mini-table-chg {
+  min-width: 0;
 }
 
 /* Lock the leading icon to 20×20 in mini-table rows so the Winners (trader
