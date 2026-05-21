@@ -161,17 +161,21 @@
       <div class="m-company-row safe-x">
         {#each featured as f (f.coin)}
           <a class="m-company-card tappable" href={`/assets/${encodeURIComponent(f.coin)}`}>
-            <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
-              {#if coinIconUrl(f.coin)}
-                <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
-              {/if}
+            <div class="m-company-head">
+              <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
+                {#if coinIconUrl(f.coin)}
+                  <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
+                {/if}
+              </div>
+              <span class="m-company-name">{f.label}</span>
             </div>
-            <div class="m-company-name">{f.label}</div>
-            <div class="m-company-price">
-              {formatUsd(f.asset.price, { precise: (f.asset.price ?? 0) < 100 })}
-            </div>
-            <div class="m-company-change {pnlSignClass(f.asset.change24h)}">
-              {formatPct(f.asset.change24h)}
+            <div class="m-company-figs">
+              <span class="m-company-price">
+                {formatUsd(f.asset.price, { precise: (f.asset.price ?? 0) < 100 })}
+              </span>
+              <span class="m-company-change {pnlSignClass(f.asset.change24h)}">
+                {formatPct(f.asset.change24h)}
+              </span>
             </div>
           </a>
         {/each}
@@ -280,15 +284,15 @@
     align-items: center;
   }
 
-  /* Segmented control (1d / 7d / 1m) — squarish, border+text selection. */
+  /* Segmented control (1d / 7d / 1m) — small, compact, squarish. */
   .m-seg {
     display: inline-flex;
-    gap: var(--space-1);
+    gap: 4px;
   }
   .m-seg-btn {
-    min-height: 32px;
-    padding: 5px 12px;
-    border-radius: var(--radius-md);
+    min-height: 26px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
     background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
@@ -296,7 +300,7 @@
     box-shadow: var(--glass-highlight);
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--type-caption);
+    font-size: 11px;
     cursor: pointer;
   }
   .m-seg-btn.is-active {
@@ -304,14 +308,23 @@
     border-color: var(--stripe-accent);
   }
 
-  /* Horizontal trader-card strip. */
+  /* Horizontal trader-card strip. Explicit side insets (not the .safe-x
+     utility) so the first card's left edge lines up at 16px with the section
+     titles, featured cards, and assets list — overflow containers don't honor
+     the utility's padding reliably. */
   .m-tcard-scroll {
     display: flex;
     gap: var(--space-3);
     overflow-x: auto;
     scroll-snap-type: x proximity;
+    /* Without this, snap aligns the first card to the scrollport edge on load,
+       scrolling the left padding out of view (card lands at L=0). Matching the
+       inset keeps it lined up at 16px with the rest of the page. */
+    scroll-padding-left: max(var(--safe-left), var(--space-4));
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    padding-left: max(var(--safe-left), var(--space-4));
+    padding-right: max(var(--safe-right), var(--space-4));
     padding-bottom: var(--space-1);
   }
   .m-tcard-scroll::-webkit-scrollbar {
@@ -330,17 +343,21 @@
     gap: var(--space-3);
     overflow-x: auto;
     scrollbar-width: none;
+    padding-left: max(var(--safe-left), var(--space-4));
+    padding-right: max(var(--safe-right), var(--space-4));
   }
   .m-company-row::-webkit-scrollbar {
     display: none;
   }
+  /* Narrow, portrait cards: row 1 = icon + ticker, row 2 = price + change. */
   .m-company-card {
-    flex: 1 1 0;
-    min-width: 100px;
+    flex: 0 0 auto;
+    width: 116px;
+    min-height: 104px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    justify-content: space-between;
+    gap: var(--space-3);
     padding: var(--space-3);
     text-decoration: none;
     color: inherit;
@@ -348,17 +365,23 @@
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--stripe-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     box-shadow: var(--glass-highlight), var(--glass-shadow);
   }
+  .m-company-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
   .m-company-icon {
-    width: 28px;
-    height: 28px;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     border: 1px solid var(--stripe-border-light);
     overflow: hidden;
-    margin-bottom: 2px;
   }
   .m-company-icon.is-white {
     background: #fff;
@@ -373,11 +396,20 @@
     font-size: var(--type-footnote);
     font-weight: 600;
     color: var(--stripe-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-company-figs {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 6px;
   }
   .m-company-price {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--type-callout);
+    font-size: var(--type-footnote);
     color: var(--stripe-text-primary);
   }
   .m-company-change {
@@ -393,12 +425,15 @@
     color: var(--stripe-danger);
   }
 
-  /* Asset filter row — horizontally scrollable, one line. */
+  /* Asset filter row — horizontally scrollable, one line. Explicit insets to
+     match the rest (see .m-tcard-scroll note). */
   .m-filter-row {
     display: flex;
     gap: var(--space-2);
     overflow-x: auto;
     scrollbar-width: none;
+    padding-left: max(var(--safe-left), var(--space-4));
+    padding-right: max(var(--safe-right), var(--space-4));
     margin-bottom: var(--space-3);
   }
   .m-filter-row::-webkit-scrollbar {
