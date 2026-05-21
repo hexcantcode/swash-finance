@@ -113,7 +113,7 @@ export interface MonthlyLeaderRow {
 }
 
 /**
- * "1mo PnL" strip on /traders — top tracked wallets by HL's reported 30d
+ * "Monthly Winners" strip on /traders — top tracked wallets by HL's reported 30d
  * realized PnL. Constrains to `tracked_wallets` (score ≥ live floor +
  * quality gates) so the strip is a recommendation surface, not a discovery
  * one — different intent from `listTopEarners7d` which deliberately
@@ -162,4 +162,73 @@ function numOrNull(value: string | null): number | null {
   if (value === null) return null;
   const n = Number.parseFloat(value);
   return Number.isFinite(n) ? n : null;
+}
+
+/** Rolling-window key for the home-screen Top Traders strip. */
+export type LeaderWindow = '1d' | '7d' | '30d';
+
+export interface TopTraderRow {
+  address: string;
+  primary_tag: string | null;
+  score: number | null;
+  /** HL-reported realized PnL over the window (USD). */
+  pnl_usd: number | null;
+  /** HL-reported ROI over the window (signed decimal; 0.05 = +5%). */
+  roi: number | null;
+  account_value_usd: number | null;
+  /** "Alfa" — best win-rate coin (≥5 trades). Null below the sample floor. */
+  alfa_coin: string | null;
+  holdings: HoldingsByAddress;
+}
+
+/**
+ * Top tracked traders ranked by HL-reported realized PnL over a rolling window
+ * (1d / 7d / 30d). Powers the mobile home-screen strip. Constrained to
+ * `tracked_wallets` (score ≥ live floor + quality gates) so it's a
+ * recommendation surface, like `listTopMonthlyPnl`. Wallets without an HL
+ * snapshot for the window are excluded (the 1d bucket backfills one poll cycle
+ * after the column was added).
+ */
+export async function listTopTradersByWindow(
+  window: LeaderWindow,
+  limit = 12,
+): Promise<TopTraderRow[]> {
+  const pnlCol =
+    window === '1d' ? wallets.hlPnl1dUsd : window === '7d' ? wallets.hlPnl7dUsd : wallets.hlPnl30dUsd;
+  const roiCol =
+    window === '1d' ? wallets.hlRoi1d : window === '7d' ? wallets.hlRoi7d : wallets.hlRoi30d;
+
+  const rows = await db()
+    .select({
+      address: wallets.address,
+      primary_tag: wallets.primaryTag,
+      score: wallets.score,
+      pnl_usd: pnlCol,
+      roi: roiCol,
+      account_value_usd: wallets.accountValue,
+    })
+    .from(wallets)
+    .leftJoin(scores, eq(scores.address, wallets.address))
+    .where(
+      sql`${isNotNull(pnlCol)} and exists (select 1 from tracked_wallets tw where tw.address = ${wallets.address})`,
+    )
+    .orderBy(desc(pnlCol))
+    .limit(limit);
+
+  const addresses = rows.map((r) => r.address);
+  const [alfaByAddress, holdingsByAddress] = await Promise.all([
+    listBestAssetsByWinRate(addresses),
+    listHoldingsByAddress(addresses),
+  ]);
+
+  return rows.map((r) => ({
+    address: r.address,
+    primary_tag: r.primary_tag,
+    score: r.score,
+    pnl_usd: numOrNull(r.pnl_usd),
+    roi: numOrNull(r.roi),
+    account_value_usd: numOrNull(r.account_value_usd),
+    alfa_coin: alfaByAddress.get(r.address) ?? null,
+    holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
+  }));
 }

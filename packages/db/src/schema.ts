@@ -43,6 +43,9 @@ export const wallets = pgTable(
 
     // HL leaderboard snapshot — populated by `leaderboard-ingest` job.
     // ROI fields are signed decimals (0.05 = +5%).
+    hlPnl1dUsd: numeric('hl_pnl_1d_usd', { precision: 30, scale: 8 }),
+    hlRoi1d: numeric('hl_roi_1d', { precision: 20, scale: 8 }),
+    hlVolume1dUsd: numeric('hl_volume_1d_usd', { precision: 30, scale: 8 }),
     hlPnl7dUsd: numeric('hl_pnl_7d_usd', { precision: 30, scale: 8 }),
     hlRoi7d: numeric('hl_roi_7d', { precision: 20, scale: 8 }),
     hlVolume7dUsd: numeric('hl_volume_7d_usd', { precision: 30, scale: 8 }),

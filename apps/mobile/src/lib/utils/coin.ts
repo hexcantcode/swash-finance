@@ -152,14 +152,26 @@ export function coinIsExcluded(coin: string): boolean {
  *   (BIOTECH, ROBOT, …), and crypto market-cap indices (BTCD, TOTAL2,
  *   OTHERS). Matched by an explicit symbol set so it overrides any
  *   per-dex default.
+ * - `commodity`: physical commodities + energy/metals/ags futures (GOLD,
+ *   SILVER, COPPER, NATGAS, crude oil, WHEAT, …). Matched by an explicit
+ *   symbol set so it overrides the per-dex `stocks` default.
  * - `crypto`: main HL perp dex + crypto-native HIP-3 dexes (hyna, abcd),
  *   minus anything caught by the index set above.
- * - `stocks`: everything else — individual TradFi tickers (TSLA, NVDA, …),
- *   commodities (GOLD, COPPER, NATGAS, …) and FX (EUR, JPY).
+ * - `stocks`: everything else — individual TradFi tickers (TSLA, NVDA, …)
+ *   and FX (EUR, JPY).
  */
-export type CoinCategory = 'crypto' | 'stocks' | 'index';
+export type CoinCategory = 'crypto' | 'stocks' | 'commodity' | 'index';
 
 export const HIP3_CRYPTO_DEXES: ReadonlySet<string> = new Set(['hyna', 'abcd', 'para']);
+
+const COIN_COMMODITY_SYMBOLS: ReadonlySet<string> = new Set([
+  // Metals
+  'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM', 'COPPER',
+  // Energy
+  'NATGAS', 'GAS', 'CL', 'WTI', 'BRENTOIL', 'OIL',
+  // Agriculture
+  'WHEAT', 'CORN', 'SOY', 'SOYBEAN',
+]);
 
 const COIN_INDEX_SYMBOLS: ReadonlySet<string> = new Set([
   // Broad country / region indices
@@ -177,7 +189,9 @@ const COIN_INDEX_SYMBOLS: ReadonlySet<string> = new Set([
 ]);
 
 export function coinCategory(coin: string, dex: string | null): CoinCategory {
-  if (COIN_INDEX_SYMBOLS.has(bareSymbol(coin))) return 'index';
+  const sym = bareSymbol(coin);
+  if (COIN_INDEX_SYMBOLS.has(sym)) return 'index';
+  if (COIN_COMMODITY_SYMBOLS.has(sym)) return 'commodity';
   if (dex === null || HIP3_CRYPTO_DEXES.has(dex)) return 'crypto';
   return 'stocks';
 }

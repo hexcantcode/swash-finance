@@ -5,8 +5,10 @@
 
   interface Props {
     asset: Asset;
+    /** Home-screen table hides volume (just leverage in the meta line). */
+    showVolume?: boolean;
   }
-  let { asset }: Props = $props();
+  let { asset, showVolume = true }: Props = $props();
 
   const name = $derived(coinDisplayName(asset.coin));
   const icon = $derived(coinIconUrl(asset.coin));
@@ -26,9 +28,13 @@
   <div class="m-asset-main">
     <div class="m-asset-name">{name}</div>
     <div class="m-asset-meta">
-      Vol {formatUsd(asset.volume24h)}
-      {#if asset.maxLeverage}
-        <span class="m-asset-sep">·</span>
+      {#if showVolume}
+        Vol {formatUsd(asset.volume24h)}
+        {#if asset.maxLeverage}
+          <span class="m-asset-sep">·</span>
+          <span>{asset.maxLeverage}x</span>
+        {/if}
+      {:else if asset.maxLeverage}
         <span>{asset.maxLeverage}x</span>
       {/if}
     </div>

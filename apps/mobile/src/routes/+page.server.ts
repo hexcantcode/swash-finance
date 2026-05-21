@@ -1,15 +1,4 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-
-/**
- * Mobile entry point. The leaderboard is the only screen wired up in this
- * slice, so `/` redirects there. When `/assets` and `/feed` land, this can
- * shift to whichever screen is the natural mobile landing.
- *
- * 308 (permanent) so browser history rewrites cleanly. Will be removed
- * when the app switches to adapter-static for the Capacitor build —
- * adapter-static prerenders and can't run a server load on every visit.
- */
-export const load: PageServerLoad = () => {
-  throw redirect(308, '/traders');
-};
+/** Home screen is loaded client-side (top traders, featured markets, assets
+ *  table all come from apps/web's /api/*). Stub stays so SvelteKit treats `/`
+ *  as having no server load — same client-only pattern as the other screens. */
+export const prerender = false;

@@ -5,17 +5,14 @@
   let { children } = $props();
 
   const path = $derived($page.url.pathname);
+  const homeActive = $derived(path === '/');
   const tradersActive = $derived(path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
   const feedActive = $derived(path.startsWith('/feed'));
 
-  function connectWallet() {
-    // TODO: wire to wallet provider
-    console.log('connect wallet — TODO');
-  }
-
   // Bottom-nav icons. Inline SVG paths so we avoid the icon-library import
   // (and the Capacitor bundle ships fewer bytes).
+  const ICON_HOME = 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10';
   const ICON_TRADERS =
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
   const ICON_ASSETS = 'M3 3v18h18 M18 17V9 M13 17V5 M8 17v-3';
@@ -38,15 +35,32 @@
     <a href="/" class="m-header-brand" aria-label="Swash — home">
       <img src="/logotext.png" alt="" aria-hidden="true" />
     </a>
-    <button type="button" class="m-header-cta tappable" onclick={connectWallet}>
-      Connect Wallet
-    </button>
   </header>
 
   {@render children?.()}
 
   <nav class="m-bottomnav safe-bottom" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
+      <a
+        href="/"
+        class="m-bottomnav-item tappable"
+        class:is-active={homeActive}
+        aria-current={homeActive ? 'page' : undefined}
+      >
+        <svg
+          class="m-bottomnav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d={ICON_HOME} />
+        </svg>
+        <span class="m-bottomnav-label">Home</span>
+      </a>
       <a
         href="/assets"
         class="m-bottomnav-item tappable"
@@ -144,29 +158,6 @@
     display: block;
   }
 
-  .m-header-cta {
-    height: 38px;
-    padding: 0 16px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent-light);
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    border: 1px solid var(--stripe-border-focus);
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-highlight);
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .m-header-cta:hover,
-  .m-header-cta:active {
-    color: #06231d;
-    background: var(--stripe-accent);
-    border-color: var(--stripe-accent);
-  }
-
   /* Bottom navigation — sticks to the bottom safe-area, never scrolls. */
   .m-bottomnav {
     position: fixed;
@@ -184,7 +175,7 @@
 
   .m-bottomnav-inner {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     height: 56px;
   }
 
