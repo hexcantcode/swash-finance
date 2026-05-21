@@ -200,13 +200,18 @@
   }
 
   .m-back {
-    width: var(--touch-min);
-    height: var(--touch-min);
-    border-radius: var(--radius-full);
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-md);
     color: var(--stripe-text-primary);
     text-decoration: none;
-    background: transparent;
-    border: none;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--stripe-border);
+    box-shadow: var(--glass-highlight);
   }
 
   .m-asset-hero {
@@ -223,6 +228,8 @@
     height: 64px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
+    border: 1.5px solid var(--stripe-border-light);
+    box-shadow: var(--glass-shadow);
     overflow: hidden;
     margin-bottom: var(--space-2);
   }
@@ -280,8 +287,11 @@
 
   .m-chart-frame {
     border: 1px solid var(--stripe-border);
-    border-radius: var(--radius-md);
-    background: var(--stripe-bg-secondary);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
     padding: var(--space-3);
     transition: opacity var(--motion-fast) var(--motion-ease);
   }
@@ -305,18 +315,21 @@
     min-width: 56px;
     min-height: 36px;
     padding: 6px 12px;
-    background: var(--stripe-bg-secondary);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     color: var(--stripe-text-secondary);
-    border: 0.5px solid var(--stripe-border);
+    border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
+    box-shadow: var(--glass-highlight);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     cursor: pointer;
   }
 
+  /* Selected = teal border + text only; fill stays unchanged. */
   .m-range-chip.is-active {
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
+    color: var(--stripe-accent-light);
     border-color: var(--stripe-accent);
   }
 
@@ -329,9 +342,12 @@
   }
 
   .m-stat {
-    background: var(--stripe-bg-secondary);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
     padding: var(--space-3);
     min-height: 64px;
   }

@@ -210,13 +210,18 @@
   }
 
   .m-back {
-    width: var(--touch-min);
-    height: var(--touch-min);
-    border-radius: var(--radius-full);
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-md);
     color: var(--stripe-text-primary);
     text-decoration: none;
-    background: transparent;
-    border: none;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--stripe-border);
+    box-shadow: var(--glass-highlight);
   }
 
   .m-detail-hero {
@@ -233,6 +238,8 @@
     height: 72px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
+    border: 1.5px solid var(--stripe-border-light);
+    box-shadow: var(--glass-shadow);
   }
 
   .m-detail-identity {
@@ -256,17 +263,24 @@
     text-transform: capitalize;
     font-family: var(--font-mono);
     font-size: var(--type-caption);
-    color: var(--stripe-accent);
-    background: var(--stripe-accent-subtle);
+    color: var(--stripe-text-secondary);
+    background: var(--stripe-bg-secondary);
+    border: 1px solid var(--stripe-border);
     padding: 2px 8px;
     border-radius: var(--radius-md);
   }
 
+  /* Composite score = the one teal-accented surface on the page. */
   .m-detail-score {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: var(--space-2);
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    background: var(--stripe-accent-subtle);
+    border: 1px solid var(--stripe-border-focus);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight);
   }
 
   .m-detail-score-num {
@@ -274,8 +288,8 @@
     font-variant-numeric: tabular-nums;
     font-size: 48px;
     line-height: 1;
-    color: var(--stripe-accent);
-    font-weight: 600;
+    color: var(--stripe-accent-light);
+    font-weight: 700;
   }
 
   .m-detail-score-label {
@@ -296,9 +310,12 @@
   }
 
   .m-stat {
-    background: var(--stripe-bg-secondary);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
     padding: var(--space-3);
     min-height: 64px;
   }
@@ -348,6 +365,13 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--stripe-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    overflow: hidden;
   }
   .m-position-list > li + li {
     border-top: 1px solid var(--stripe-border);
@@ -357,7 +381,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3) 0;
+    padding: var(--space-3) var(--space-4);
     min-height: var(--touch-comfortable);
   }
 
@@ -367,6 +391,8 @@
     height: 32px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
+    border: 1px solid var(--stripe-border-light);
+    box-shadow: var(--glass-shadow);
     overflow: hidden;
   }
   .m-position-icon img {
