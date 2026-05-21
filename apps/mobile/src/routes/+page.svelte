@@ -156,27 +156,23 @@
   {#if featured.length > 0}
     <section class="m-home-section">
       <header class="m-section-head safe-x">
-        <h2 class="m-section-title">Featured</h2>
+        <h2 class="m-section-title">Pre-IPOs</h2>
       </header>
       <div class="m-company-row safe-x">
         {#each featured as f (f.coin)}
           <a class="m-company-card tappable" href={`/assets/${encodeURIComponent(f.coin)}`}>
-            <div class="m-company-head">
-              <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
-                {#if coinIconUrl(f.coin)}
-                  <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
-                {/if}
-              </div>
-              <span class="m-company-name">{f.label}</span>
+            <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
+              {#if coinIconUrl(f.coin)}
+                <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
+              {/if}
             </div>
-            <div class="m-company-figs">
-              <span class="m-company-price">
-                {formatUsd(f.asset.price, { precise: (f.asset.price ?? 0) < 100 })}
-              </span>
-              <span class="m-company-change {pnlSignClass(f.asset.change24h)}">
-                {formatPct(f.asset.change24h)}
-              </span>
-            </div>
+            <span class="m-company-name">{f.label}</span>
+            <span class="m-company-price">
+              {formatUsd(f.asset.price, { precise: (f.asset.price ?? 0) < 100 })}
+            </span>
+            <span class="m-company-change {pnlSignClass(f.asset.change24h)}">
+              {formatPct(f.asset.change24h)}
+            </span>
           </a>
         {/each}
       </div>
@@ -349,16 +345,14 @@
   .m-company-row::-webkit-scrollbar {
     display: none;
   }
-  /* Narrow, portrait cards: row 1 = icon + ticker, row 2 = price + change. */
+  /* Single-line pill cards: icon · ticker · price · change, all on one row.
+     Width sizes to content so the card stays short and compact. */
   .m-company-card {
     flex: 0 0 auto;
-    width: 116px;
-    min-height: 104px;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-3);
+    align-items: center;
+    gap: var(--space-2);
+    padding: 7px 12px;
     text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
@@ -367,17 +361,12 @@
     border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
     box-shadow: var(--glass-highlight), var(--glass-shadow);
-  }
-  .m-company-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-width: 0;
+    white-space: nowrap;
   }
   .m-company-icon {
-    flex: 0 0 24px;
-    width: 24px;
-    height: 24px;
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     border: 1px solid var(--stripe-border-light);
@@ -396,15 +385,6 @@
     font-size: var(--type-footnote);
     font-weight: 600;
     color: var(--stripe-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .m-company-figs {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 2px 6px;
   }
   .m-company-price {
     font-family: var(--font-mono);
