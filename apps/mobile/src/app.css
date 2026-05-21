@@ -1,0 +1,3133 @@
+@import 'tailwindcss';
+@import './lib/styles/mobile.css';
+
+/*
+ * ===========================================
+ * SWASH DESIGN SYSTEM — Mobile (parliament navy)
+ * Deep navy backgrounds, frosted-glass chrome, teal accent (#6ADCC5).
+ * Dark mode only. Sora + Space Mono. Layered by elevation.
+ *
+ * Mobile-specific tokens (touch sizing, safe-area, motion) live in
+ * lib/styles/mobile.css and layer on top of the shared system.
+ * ===========================================
+ */
+
+@theme {
+  /* Spacing (4px base) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+
+  /* Color tokens — near-black base with a faint navy cast; grey surfaces above. */
+  --color-bg-deep: #080B12;
+  --color-bg-primary: #12151B;
+  --color-bg-secondary: #1A1E25;
+  --color-bg-tertiary: #242931;
+  --color-bg-elevated: #2D333D;
+  --color-bg-hover: #363D48;
+
+  /* Brand accent — ranking highlights, scoring, ticker live pulse, buttons. */
+  --color-accent: #6ADCC5;
+  --color-accent-light: #9BE8D8;
+  --color-accent-dark: #3FA98F;
+  --color-accent-subtle: rgba(106, 220, 197, 0.16);
+  --color-accent-muted: rgba(106, 220, 197, 0.10);
+
+  /* Positive financial outcomes — PnL, ROI, buy side in ticker. */
+  --color-success: #2BE3B5;
+  --color-danger: #FF6B6B;
+  --color-warning: #f5a623;
+
+  --color-text-primary: rgba(255, 255, 255, 0.95);
+  --color-text-secondary: rgba(255, 255, 255, 0.72);
+  --color-text-tertiary: rgba(255, 255, 255, 0.50);
+  --color-text-muted: rgba(255, 255, 255, 0.34);
+
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-light: rgba(255, 255, 255, 0.14);
+
+  --font-sans: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 13px;
+  --radius-full: 9999px;
+
+  /* ── Canonical responsive breakpoints (px) ──────────────────────
+     CSS variables can't be substituted inside `@media (max-width: …)`
+     queries, so these stay as a *convention* — any new component
+     stylesheet should pick from this set instead of inventing its own
+     px value. Keeps switch points predictable across pages.
+
+         560   small-phone polish (tighter padding, smaller fills)
+         720   tablet two-column → one-column
+        1023   max for mobile chrome (header + bottom-nav)
+        1024   sidenav appears, page shifts to viewport − 200px
+
+     If you find yourself wanting an extra step (e.g. 900, 960), it's a
+     hint that the layout depends on the sidenav transition — align with
+     1024 instead. */
+}
+
+:root {
+  --stripe-bg-deep: #080B12;
+  --stripe-bg-primary: #12151B;
+  --stripe-bg-secondary: #1A1E25;
+  --stripe-bg-tertiary: #242931;
+  --stripe-bg-elevated: #2D333D;
+  --stripe-bg-hover: #363D48;
+
+  /* Brand accent — ranking highlights, scoring, ticker live pulse, buttons. */
+  --stripe-accent: #6ADCC5;
+  --stripe-accent-light: #9BE8D8;
+  --stripe-accent-dark: #3FA98F;
+  --stripe-accent-subtle: rgba(106, 220, 197, 0.16);
+  --stripe-accent-muted: rgba(106, 220, 197, 0.10);
+
+  /* Positive financial outcomes — PnL, ROI, buy side in ticker. (Red = downside.) */
+  --stripe-success: #2BE3B5;
+  --stripe-success-subtle: rgba(43, 227, 181, 0.16);
+  --stripe-danger: #FF6B6B;
+  --stripe-danger-subtle: rgba(255, 107, 107, 0.16);
+  --stripe-warning: #f5a623;
+  --stripe-warning-subtle: rgba(245, 166, 35, 0.14);
+
+  --stripe-text-primary: rgba(255, 255, 255, 0.95);
+  --stripe-text-secondary: rgba(255, 255, 255, 0.72);
+  --stripe-text-tertiary: rgba(255, 255, 255, 0.50);
+  --stripe-text-muted: rgba(255, 255, 255, 0.34);
+
+  --stripe-border: rgba(255, 255, 255, 0.09);
+  --stripe-border-light: rgba(255, 255, 255, 0.14);
+  --stripe-border-focus: rgba(106, 220, 197, 0.45);
+
+  /* ── Frosted-glass tokens ──────────────────────────────────
+     Neutral-grey translucency over the near-black base. Applied to
+     framing surfaces only (fixed chrome + container panels), never to
+     every row — keeps backdrop-filter cost low. */
+  --glass-bg: rgba(26, 30, 37, 0.62);
+  --glass-bg-strong: rgba(12, 15, 20, 0.82);
+  --glass-blur: blur(18px) saturate(120%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.24), 0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-focus: 0 0 0 3px var(--stripe-border-focus);
+
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Accessibility: when the OS asks for reduced transparency, collapse the glass
+ * tokens to solid navy + no blur. Every frosted surface reads these tokens, so
+ * this one block removes translucency app-wide without per-selector overrides.
+ * Placed after :root so it wins the cascade at equal specificity. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: var(--stripe-bg-primary);
+    --glass-bg-strong: var(--stripe-bg-deep);
+    --glass-blur: none;
+    --glass-highlight: 0 0 0 0 transparent;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--stripe-bg-deep);
+  color: var(--stripe-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+::selection {
+  background: var(--stripe-accent);
+  color: #000;
+}
+
+/* Background atmosphere */
+.bg-noise::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.05) 50%,
+    rgba(0, 0, 0, 0.05)
+  );
+  background-size: 100% 4px;
+}
+
+.bg-glow {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 760px;
+  height: 760px;
+  background: rgba(106, 220, 197, 0.07);
+  filter: blur(150px);
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(150, 190, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 190, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── App shell ────────────────────────────────────────────── */
+.stripe-app {
+  min-height: 100vh;
+  background: var(--stripe-bg-deep);
+  color: var(--stripe-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Default = mobile shell. Header is fixed-top, bottom-nav is fixed-bottom,
+   so reserve vertical room for both around the page content. Desktop
+   overrides below shift this to a sidebar layout. */
+.stripe-content {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding:
+    calc(56px + var(--space-5))
+    var(--space-6)
+    calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  .stripe-content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}
+
+/* ── Typography ──────────────────────────────────────────── */
+.stripe-heading-xl {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.stripe-heading-lg {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.stripe-heading-md {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.stripe-heading-sm {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.stripe-body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.stripe-body-sm {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.stripe-caption {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+.stripe-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stripe-text-primary {
+  color: var(--stripe-text-primary);
+}
+.stripe-text-secondary {
+  color: var(--stripe-text-secondary);
+}
+.stripe-text-tertiary {
+  color: var(--stripe-text-tertiary);
+}
+.stripe-text-muted {
+  color: var(--stripe-text-muted);
+}
+.stripe-text-accent {
+  color: var(--stripe-accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAV SHELL — mobile-first with one breakpoint at 1024px.
+
+   Mobile (default):                   Desktop (≥ 1024px):
+     .k-mobile-header  (top, 56h)        .k-sidenav   (left, 200w, full h)
+     .k-bottomnav      (bottom, 56h)     .k-topbar    (top right of sidebar)
+
+   The opposite-breakpoint surfaces collapse via `display: none`. Both the
+   page content and the site footer get `margin-left: 200px` on desktop so
+   they line up next to the sidebar.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Mobile header (default) ─────────────────────────────── */
+.k-mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  gap: var(--space-3);
+  background: rgba(31, 31, 31, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+
+.k-mobile-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+
+.k-mobile-header-brand img {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+
+.k-mobile-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+/* On mobile, let the expanded search consume whatever width is left in the
+   right cluster instead of holding its desktop 260px fixed width — which
+   would overflow on 360-px-wide phones. */
+@media (max-width: 1023px) {
+  .k-mobile-header-right .k-topnav-search-form.is-expanded {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+/* ── Sidebar (desktop, hidden by default) ────────────────── */
+.k-sidenav {
+  display: none;
+}
+
+.k-sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--space-5);
+  height: 56px;
+  text-decoration: none;
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+
+.k-sidenav-brand img {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+
+.k-sidenav-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  margin: 0;
+}
+
+.k-sidenav-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  color: var(--stripe-text-primary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.k-sidenav-item:hover {
+  color: var(--stripe-text-secondary);
+}
+
+.k-sidenav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.k-sidenav-item.is-active,
+.k-sidenav-item.is-active:hover {
+  color: var(--stripe-accent-dark);
+  background: var(--stripe-accent-muted);
+}
+
+/* ── Top bar (desktop, hidden by default) ────────────────── */
+.k-topbar {
+  display: none;
+}
+
+/* ── Bottom nav (default = mobile) ───────────────────────── */
+.k-bottomnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(31, 31, 31, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid var(--stripe-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.k-bottomnav-inner {
+  display: flex;
+  align-items: stretch;
+  max-width: 480px;
+  height: 56px;
+  margin: 0 auto;
+}
+
+.k-bottomnav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--stripe-text-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.k-bottomnav-item:hover {
+  color: var(--stripe-text-secondary);
+}
+
+.k-bottomnav-item:focus-visible {
+  outline: none;
+  color: var(--stripe-text-primary);
+}
+
+.k-bottomnav-item.is-active,
+.k-bottomnav-item.is-active:hover {
+  color: var(--stripe-accent-dark);
+}
+
+.k-bottomnav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.k-bottomnav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Desktop breakpoint ──────────────────────────────────── */
+@media (min-width: 1024px) {
+  .k-mobile-header,
+  .k-bottomnav {
+    display: none;
+  }
+
+  .k-sidenav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200px;
+    height: 100vh;
+    z-index: 100;
+    background: var(--stripe-bg-deep);
+    border-right: 0.5px solid var(--stripe-border);
+  }
+
+  .k-topbar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 200px;
+    right: 0;
+    height: 56px;
+    z-index: 90;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: 0 var(--space-6);
+    background: var(--stripe-bg-deep);
+    border-bottom: 0.5px solid var(--stripe-border);
+  }
+
+  /* Page + footer occupy the viewport-minus-sidebar zone and center their
+     children inside it. Layout pattern from cream-hl's stripe-content. */
+  .stripe-content,
+  .k-site-footer {
+    margin-left: 200px;
+    width: calc(100vw - 200px);
+    max-width: none;
+    margin-right: 0;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .stripe-content {
+    padding-top: calc(56px + var(--space-5));
+  }
+
+  /* Main content spans up to 1200px, centered inside the available zone. */
+  .stripe-content > * {
+    width: 100%;
+    max-width: 1200px;
+  }
+
+  /* Footer is intentionally narrower than content so it doesn't dominate. */
+  .k-site-footer > * {
+    width: 100%;
+    max-width: 720px;
+  }
+}
+
+/* ── Shared search form (mobile-header + desktop topbar) ─── */
+.k-topnav-search-form {
+  position: relative;
+  height: 36px;
+  background: var(--stripe-bg-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 0.5px var(--stripe-border);
+  overflow: hidden;
+  transition:
+    width 180ms ease,
+    box-shadow 120ms ease;
+}
+
+.k-topnav-search-form.is-collapsed {
+  width: 36px;
+}
+
+.k-topnav-search-form.is-expanded {
+  width: 260px;
+}
+
+.k-topnav-search-form:focus-within {
+  box-shadow: inset 0 0 0 0.5px var(--stripe-border-focus);
+}
+
+.k-topnav-search-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--stripe-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.k-topnav-search-toggle:hover {
+  color: var(--stripe-text-primary);
+}
+
+.k-topnav-search-toggle:focus-visible {
+  outline: none;
+  color: var(--stripe-text-primary);
+}
+
+/* Input fills the form; right padding reserves space for the absolutely-positioned icon button. */
+.k-topnav-search-input {
+  position: absolute;
+  inset: 0 36px 0 0;
+  width: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0 8px 0 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 36px;
+  color: var(--stripe-text-primary);
+  transition: opacity 120ms ease;
+}
+
+.k-topnav-search-input::placeholder {
+  color: var(--stripe-text-tertiary);
+  opacity: 1;
+}
+
+.k-topnav-search-input::-webkit-search-cancel-button,
+.k-topnav-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+
+.k-topnav-search-form.is-collapsed .k-topnav-search-input {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.k-topnav-search-input:focus {
+  outline: none;
+  border-color: transparent;
+}
+
+.k-connect-wallet {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  background: var(--stripe-bg-secondary);
+  color: var(--stripe-accent);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.k-connect-wallet:hover {
+  color: var(--stripe-accent-light);
+  border-color: var(--stripe-border-focus);
+}
+
+.k-connect-wallet:active {
+  transform: translateY(1px);
+}
+
+.k-connect-wallet:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* ── Header / footer ─────────────────────────────────────── */
+.k-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.k-brand {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--stripe-text-primary);
+}
+
+.k-tagline {
+  color: var(--stripe-text-tertiary);
+  font-size: 13px;
+}
+
+.k-footer {
+  margin-top: var(--space-12);
+  padding: var(--space-5) var(--space-6);
+  border-top: 0.5px solid var(--stripe-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--stripe-text-tertiary);
+  font-size: 12px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.k-footer a {
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.k-footer a:hover {
+  color: var(--stripe-accent);
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn-poly {
+  font-size: 12px;
+  padding: 8px 16px;
+  letter-spacing: 0.05em;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+
+.btn-poly:hover:not(:disabled),
+.btn-poly:active:not(:disabled) {
+  color: #06231d;
+  background: var(--stripe-accent);
+  border-color: var(--stripe-accent);
+}
+
+.btn-poly:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-poly:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.btn-poly:focus-visible {
+  outline: 2px solid var(--stripe-accent);
+  outline-offset: 2px;
+}
+
+.btn-poly.btn-cream {
+  background: rgba(106, 220, 197, 0.05);
+  border: 1px solid rgba(106, 220, 197, 0.2);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ── Badges / chips ──────────────────────────────────────── */
+.stripe-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+}
+.stripe-badge-accent {
+  background: var(--stripe-accent-subtle);
+  color: var(--stripe-accent-light);
+}
+.stripe-badge-warning {
+  background: var(--stripe-warning-subtle);
+  color: var(--stripe-warning);
+}
+.stripe-badge-neutral {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-secondary);
+}
+.stripe-badge-danger {
+  background: var(--stripe-danger-subtle);
+  color: var(--stripe-danger);
+}
+
+/* Profile chips — the 5 trader archetypes. Same shape as stripe-badge. */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.tag-alpha {
+  background: rgba(106, 220, 197, 0.12);
+  color: #59A0AC;
+}
+.tag-veteran {
+  background: rgba(76, 184, 255, 0.12);
+  color: #4cb8ff;
+}
+.tag-rising_star {
+  background: rgba(245, 166, 35, 0.12);
+  color: #f5a623;
+}
+.tag-specialist {
+  background: rgba(180, 130, 255, 0.12);
+  color: #b482ff;
+}
+.tag-allrounder {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-secondary);
+}
+.tag-neutral {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-tertiary);
+}
+
+/* Filter chips above the assets-page main table. Two toggle buttons:
+   Crypto / Stocks & Commodities. Active state outlined in teal. */
+.k-asset-filters {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.k-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--stripe-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.k-filter-chip:hover {
+  color: var(--stripe-text-secondary);
+  border-color: var(--stripe-border-light);
+}
+
+.k-filter-chip.is-active {
+  color: var(--stripe-accent-light);
+  border-color: var(--stripe-accent);
+  background: var(--stripe-accent-subtle);
+}
+
+.k-filter-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--stripe-text-muted);
+}
+
+.k-filter-chip.is-active .k-filter-chip-count {
+  color: var(--stripe-accent-light);
+}
+
+/* ── Tabs ────────────────────────────────────────────────── */
+.stripe-tabs {
+  display: inline-flex;
+  background: transparent;
+  border: 1px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.stripe-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--stripe-text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-sans);
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+
+.stripe-tab:hover {
+  color: var(--stripe-text-secondary);
+}
+
+.stripe-tab-active {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Empty / loading ─────────────────────────────────────── */
+.stripe-empty {
+  text-align: center;
+  padding: var(--space-16) var(--space-6);
+}
+
+.stripe-empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--stripe-bg-tertiary);
+  color: var(--stripe-text-tertiary);
+}
+
+.stripe-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.stripe-empty-text {
+  font-size: 13px;
+  color: var(--stripe-text-tertiary);
+}
+
+/* ── Table ───────────────────────────────────────────────── */
+.k-table-wrap {
+  overflow-x: auto;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-lg);
+  background: var(--stripe-bg-primary);
+}
+
+.stripe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  min-width: 640px;
+  /* default cell color — set here (not on td) so per-cell utility classes
+     (e.g. .k-pnl-positive / .k-pnl-negative) win via a direct match on the td. */
+  color: var(--stripe-text-secondary);
+}
+
+.stripe-table th {
+  text-align: center;
+  padding: 14px var(--space-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--stripe-text-tertiary);
+  border-bottom: 1px solid var(--stripe-border);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.stripe-table td {
+  padding: 14px var(--space-3);
+  font-size: 13px;
+  border-bottom: 1px solid var(--stripe-border);
+  text-align: center;
+}
+
+.stripe-table tr:last-child td {
+  border-bottom: none;
+}
+
+.stripe-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stripe-table-numeric {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.stripe-table-trader {
+  font-family: var(--font-mono);
+  color: var(--stripe-text-primary);
+  text-align: left !important;
+  padding-left: var(--space-5) !important;
+}
+
+/* "Holdings" leaderboard column — top 3 currently-open position icons,
+ * with a `+N` chip for any overflow. Sits between Trader (avatar only)
+ * and Alfa. Left-aligned inside the cell so the icons stack against the
+ * Trader column without an awkward gap. */
+.stripe-table-holdings {
+  text-align: left;
+  white-space: nowrap;
+}
+.k-holdings-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.k-holdings-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-holdings-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-holdings-icon.is-short {
+  border-color: var(--stripe-danger);
+}
+.k-holdings-more {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-tertiary);
+  margin-left: 2px;
+}
+
+/* Alfa columns hidden site-wide — reversible toggle. Drop this block to
+ * re-show. Server queries still enrich `alfa_coin`; only the rendering
+ * is suppressed, so re-enabling is a CSS-only change. */
+.stripe-table-alfa,
+.k-mini-table-alfa {
+  display: none !important;
+}
+
+/* "Alfa" leaderboard column — coin the trader has the best win rate on. Compact
+ * mono cell sitting between Trader and PnL; matches the mini-table treatment. */
+.stripe-table-alfa {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+/* Inner wrapper carries the inline flex so the icon + label stay aligned;
+ * the `<td>` itself can't be flex without changing table layout. */
+.k-alfa-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.k-alfa-cell .k-coin-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.k-trader-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+
+.k-trader-link:hover {
+  color: var(--stripe-accent);
+}
+
+.k-trader-link:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.k-th-sort-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  transition: color var(--transition-fast);
+  min-height: 24px;
+}
+
+.k-th-sort-button:hover {
+  color: var(--stripe-text-secondary);
+}
+
+.k-th-sort-button.is-active {
+  color: var(--stripe-accent);
+}
+
+.k-th-sort-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+.stripe-th-sort-indicator {
+  display: inline-block;
+  width: 10px;
+  margin-left: 4px;
+  font-size: 9px;
+  opacity: 0.7;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Score column / card cell: a tiny bonding-curve sparkline + the number. */
+/* Score cell: the number + a ten-bar meter (one lit bar per 10 points). */
+.k-score-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.k-score-bars {
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* Empty/placeholder rows that pad a short result set to a fixed height */
+.k-row-ghost td {
+  color: var(--stripe-text-muted);
+}
+.k-row-ghost:hover td {
+  background: transparent;
+}
+.k-avatar-ghost {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--stripe-bg-elevated);
+}
+
+.k-pnl-positive {
+  color: var(--stripe-success);
+}
+.k-pnl-negative {
+  color: var(--stripe-danger);
+}
+
+/* Composite score column gets a hint of color depending on bucket. */
+.k-score-strong {
+  color: var(--stripe-accent);
+  font-weight: 700;
+}
+.k-score-mid {
+  color: var(--stripe-text-primary);
+}
+.k-score-weak {
+  color: var(--stripe-text-tertiary);
+}
+
+/* ── Avatar ──────────────────────────────────────────────── */
+.stripe-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--stripe-bg-secondary);
+  flex-shrink: 0;
+  box-shadow: var(--glass-shadow);
+}
+
+.stripe-avatar-xs {
+  width: 18px;
+  height: 18px;
+}
+.stripe-avatar-sm {
+  width: 24px;
+  height: 24px;
+}
+.stripe-avatar-md {
+  width: 32px;
+  height: 32px;
+}
+.stripe-avatar-lg {
+  width: 48px;
+  height: 48px;
+}
+
+.stripe-avatar-ring {
+  border: 1.5px solid var(--stripe-border-light);
+}
+
+
+.k-filter-search {
+  flex: 1;
+  min-width: 220px;
+  background: var(--stripe-bg-secondary);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--stripe-text-primary);
+  font-family: var(--font-mono);
+}
+
+.k-filter-search:focus {
+  outline: none;
+  border-color: var(--stripe-border-focus);
+}
+
+.k-filter-search::placeholder {
+  color: var(--stripe-text-muted);
+}
+
+/* ── Stat tiles (trader profile) ─────────────────────────── */
+.k-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+.k-stat {
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--stripe-bg-primary);
+}
+
+.k-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--stripe-text-tertiary);
+  margin-bottom: 4px;
+}
+
+.k-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-primary);
+}
+
+.k-stat-sub {
+  font-size: 11px;
+  color: var(--stripe-text-muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Trader profile ──────────────────────────────────────── */
+.k-trader-back {
+  display: inline-block;
+  margin-bottom: var(--space-4);
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color var(--transition-fast);
+}
+.k-trader-back:hover {
+  color: var(--stripe-accent);
+}
+
+.k-trader-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.k-trader-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.k-trader-composite {
+  margin-left: auto;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.k-trader-composite-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--stripe-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.k-trader-composite-of {
+  font-size: 14px;
+  color: var(--stripe-text-muted);
+  font-weight: 400;
+}
+
+.k-trader-refresh {
+  margin-top: 4px;
+}
+
+/* Inline metric strip — text only, color-coded values, vertical-rule separators */
+.k-trader-avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.k-trader-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.k-trader-tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.k-trader-address {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.k-trader-address-text {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--stripe-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.k-trader-copy {
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  color: var(--stripe-text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.k-trader-copy:hover {
+  color: var(--stripe-text-primary);
+  background: var(--stripe-bg-tertiary);
+}
+
+.k-trader-section {
+  margin-bottom: var(--space-8);
+}
+
+.k-section-title {
+  color: var(--stripe-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+
+.k-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.k-section-head .k-section-title {
+  margin-bottom: 0;
+}
+/* Inline subhead next to a section title: "Top open positions · by PnL · 25". */
+.k-section-sub {
+  margin-left: var(--space-2);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-tertiary);
+  text-transform: none;
+}
+
+.k-card {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--stripe-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  padding: var(--space-4);
+}
+
+.k-empty {
+  color: var(--stripe-text-tertiary);
+  text-align: center;
+  font-size: 13px;
+  padding: var(--space-6) 0;
+}
+
+/* ── Charts ──────────────────────────────────────────────── */
+.k-chart {
+  position: relative;
+}
+
+.k-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.k-chart-empty {
+  padding: var(--space-8) 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.k-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+  color: var(--stripe-text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.k-chart-current {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.k-chart-current.positive {
+  color: var(--stripe-success);
+}
+.k-chart-current.negative {
+  color: var(--stripe-danger);
+}
+
+/* ── Asset breakdown bars ────────────────────────────────── */
+.k-asset-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.k-asset-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.k-asset-row-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--stripe-text-secondary);
+}
+
+.k-asset-row-name {
+  font-family: var(--font-mono);
+}
+
+.k-asset-row-bar {
+  height: 4px;
+  background: var(--stripe-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.k-asset-row-fill {
+  height: 100%;
+  background: var(--stripe-accent);
+  border-radius: var(--radius-full);
+}
+
+/* ── Recent fills mini-table ─────────────────────────────── */
+.k-fills-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.k-fills-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--stripe-bg-primary);
+  text-align: left;
+  padding: 10px var(--space-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--stripe-text-tertiary);
+  border-bottom: 1px solid var(--stripe-border);
+}
+
+.k-fills-table thead th.right {
+  text-align: right;
+}
+
+.k-fills-table td {
+  padding: 10px var(--space-3);
+  font-size: 12px;
+  border-bottom: 1px solid var(--stripe-border);
+  color: var(--stripe-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.k-fills-table td.right {
+  text-align: right;
+}
+
+.k-fills-side-buy {
+  color: var(--stripe-success);
+}
+
+.k-fills-side-sell {
+  color: var(--stripe-danger);
+}
+
+.k-fills-maker-flag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 2px;
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-tertiary);
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+/* ── Trade ticker ────────────────────────────────────────── */
+.k-ticker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-4);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-lg);
+  background: var(--stripe-bg-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+.k-ticker-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stripe-accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(106, 220, 197, 0.6);
+  animation: tickerPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tickerPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.k-ticker-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--stripe-accent);
+  flex-shrink: 0;
+  padding-right: var(--space-2);
+  border-right: 0.5px solid var(--stripe-border);
+}
+
+.k-ticker-mask {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+}
+
+.k-ticker-track {
+  display: flex;
+  gap: var(--space-6);
+  width: max-content;
+  animation: tickerSlide 90s linear infinite;
+}
+
+.k-ticker:hover .k-ticker-track,
+.k-ticker:focus-within .k-ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes tickerSlide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.k-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--stripe-text-secondary);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--transition-fast);
+}
+
+.k-ticker-item:hover {
+  color: var(--stripe-text-primary);
+}
+
+.k-ticker-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--stripe-border);
+  background: #000;
+  flex-shrink: 0;
+}
+
+.k-ticker-addr {
+  font-family: var(--font-mono);
+  color: var(--stripe-text-primary);
+}
+
+.k-ticker-side {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.k-ticker-side.buy { color: var(--stripe-success); }
+.k-ticker-side.sell { color: var(--stripe-danger); }
+
+.k-ticker-coin {
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+}
+
+.k-ticker-notional {
+  color: var(--stripe-text-secondary);
+}
+
+.k-ticker-time {
+  color: var(--stripe-text-muted);
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-ticker-track {
+    animation: none;
+  }
+}
+
+/* ── Universe note (landing) ─────────────────────────────── */
+.k-universe-note {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-tertiary);
+  margin: var(--space-8) 0 var(--space-4);
+  text-align: center;
+}
+
+.k-universe-count {
+  color: var(--stripe-accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.k-universe-breakdown {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-muted);
+  margin: calc(-1 * var(--space-2)) 0 var(--space-8);
+  text-align: center;
+}
+
+.k-universe-breakdown .k-universe-count {
+  color: #fff;
+}
+
+/* ── Site footer (professional) ──────────────────────────── */
+.k-site-footer {
+  max-width: 1200px;
+  margin: var(--space-12) auto 0;
+  padding: var(--space-10) var(--space-6) var(--space-6);
+  border-top: 0.5px solid var(--stripe-border);
+  color: var(--stripe-text-tertiary);
+  font-size: 13px;
+}
+
+.k-site-footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-10);
+  margin-bottom: var(--space-8);
+}
+
+@media (max-width: 720px) {
+  .k-site-footer-top {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+.k-site-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.k-site-footer-brand-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+
+.k-site-footer-brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--stripe-text-primary);
+}
+
+.k-site-footer-tagline {
+  max-width: 360px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--stripe-text-tertiary);
+}
+
+.k-site-footer-copyright {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-muted);
+}
+
+.k-site-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.k-site-footer-col-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.k-site-footer-link {
+  font-size: 13px;
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.k-site-footer-link:hover {
+  color: var(--stripe-accent);
+}
+
+.k-site-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 0.5px solid var(--stripe-border);
+  font-size: 11px;
+  color: var(--stripe-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.k-site-footer-meta {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Winners — last week's ROI-maker cards (horizontal scroll) ───── */
+.k-card-scroll {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-3);
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.k-card-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.k-card-scroll::-webkit-scrollbar-thumb {
+  background: var(--stripe-border);
+  border-radius: var(--radius-full);
+}
+
+.k-roi-card {
+  flex: 0 0 auto;
+  width: 200px;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 9px var(--space-3);
+  text-decoration: none;
+  background: var(--stripe-bg-primary);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.k-roi-card:hover {
+  border-color: var(--stripe-accent);
+  background: var(--stripe-bg-secondary);
+}
+
+.k-roi-card-avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.k-roi-card-addr {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stripe-text-tertiary);
+}
+
+.k-roi-card-roi {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Asset detail "Best traders on X" variant of `.k-roi-card`:
+ *   ┌─────────────────────────┐
+ *   │ 🖼  0x5d2…39bb7         │  ← top: avatar + addr (top-right empty)
+ *   │ +$2.98M       +12.5%    │  ← bottom: PnL + ROI
+ *   └─────────────────────────┘
+ */
+.k-asset-trader-card.k-roi-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  width: 220px;
+}
+.k-asset-trader-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.k-asset-trader-card-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.k-asset-trader-card-pnl {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.k-asset-trader-card-roi {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Assets page ─────────────────────────────────────────── */
+/* Coin logo (HL CDN .svg) — used in the mini-tables and the main table. */
+.k-coin-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--stripe-bg-tertiary);
+}
+
+/* Modifier — for logos HL ships as dark silhouettes (see COIN_WHITE_BG_SYMBOLS
+   in $lib/utils/coin.ts). White disc + 1px inset so the artwork doesn't sit
+   edge-to-edge against the circle. */
+.k-coin-icon.is-white-bg,
+.k-asset-icon.is-white-bg {
+  background: #fff;
+  padding: 1px;
+  object-fit: contain;
+}
+
+/* Top gainers / losers — two compact 5-row tables side by side. */
+.k-winners-losers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+@media (max-width: 560px) {
+  .k-winners-losers {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* /analytics — 2x2 categorized panel grid. Outer grid splits the section
+ * into Stocks & Commodities (left) / Crypto (right); each column stacks
+ * Latest trades on top of Winning Trades. Falls back to a single-column
+ * stack on narrow viewports so the panels don't get unreadably tight. */
+.k-categorized-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+.k-category-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.k-category-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-tertiary);
+  padding: 0 var(--space-1);
+}
+@media (max-width: 720px) {
+  .k-categorized-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.k-mini-table {
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  overflow: hidden;
+}
+.k-mini-table-head {
+  padding: var(--space-2) var(--space-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-tertiary);
+  border-bottom: 0.5px solid var(--stripe-border);
+}
+/* Combined head row — panel title sits where the first column would, small
+   column labels aligned with the data columns to the right. Avoids a
+   redundant "TRADER" / "ASSET" first-column label since the title names
+   that column implicitly. */
+.k-mini-table-head-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.k-mini-table-head-row .k-mini-table-head-title {
+  flex: 1;
+  min-width: 0;
+  /* Promoted from <span> to <h3> for landmark navigation. Reset the
+   * browser-default <h3> margin/font so the visual styling is driven
+   * entirely by the parent `.k-mini-table-head`. */
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.k-mini-table-head-row .k-mini-table-head-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-muted);
+}
+
+/* Two-row head — panel title above a separate col-head row that mirrors
+ * the data row's flex layout exactly (avatar spacer + Holdings/Alfa/…
+ * cells using the same column classes as the data). Column labels sit
+ * directly above their data, which a single-row head can't deliver since
+ * the title takes up the avatar slot's space but is much wider than the
+ * 20px avatar. */
+.k-mini-table-head--stacked {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.k-mini-table-head-title-line {
+  padding: var(--space-2) var(--space-3) 4px;
+  color: var(--stripe-text-secondary);
+  /* Promoted from <div> to <h3>; reset the browser-default <h3>
+   * margin/font so the visual stays identical. */
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+}
+.k-mini-table-head-colheads {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3) 6px;
+}
+.k-mini-table-head-colheads .k-mini-table-head-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-muted);
+}
+.k-mini-table-head-avatar-spacer {
+  width: 20px;
+  flex: 0 0 20px;
+}
+/* Data rows + the col-head sub-row share an identical grid template.
+ * Avatar pinned to col 1 (left); a 1fr spacer in col 2 pushes the rest
+ * of the columns (holdings / price / chg) flush to the right side of
+ * the row. Explicit `grid-column` placement keeps cells in their slot
+ * regardless of which siblings are hidden (currently
+ * `.k-mini-table-alfa` is `display: none` and its auto-column
+ * collapses to 0). Content WITHIN each non-avatar column is
+ * center-aligned by the per-cell rules further down (the column class
+ * is shared between the col-head label and the data cell, so headers
+ * and data center-align consistently). */
+/* Base data row — default flex layout used by analytics's `--split` rows
+ * (Latest trades, Winning Trades). The /traders leader mini-tables
+ * override this with a grid layout via the `:not(--split)` selector
+ * further down. */
+.k-mini-table-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px var(--space-3);
+  text-decoration: none;
+  border-bottom: 0.5px solid var(--stripe-border);
+  transition: background-color var(--transition-fast);
+}
+
+/* /traders leader mini-tables (Winners, Win Rate) only — fixed-grid
+ * layout shared between the col-head sub-row and every data row so the
+ * `HOLDINGS` / `7D PNL` / `ROI` labels stack pixel-perfect above their
+ * data. Avatar pinned to col 1; a 1fr spacer in col 2 pushes the rest of
+ * the columns flush to the right side of the row. Explicit `grid-column`
+ * placement keeps cells stable when siblings hide (currently
+ * `.k-mini-table-alfa` is `display: none` and its auto-column collapses
+ * to 0). Analytics's `--split` rows (Latest trades / Winning Trades)
+ * and `--coin` rows (Most Held coin list) keep the flex base above. */
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--coin):not(.k-mini-table-row--mover),
+.k-mini-table-head-colheads {
+  display: grid;
+  grid-template-columns: 20px 1fr 96px auto 80px 96px;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 0;
+}
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) > .stripe-avatar,
+.k-mini-table-head-avatar-spacer {
+  grid-column: 1;
+}
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-holdings,
+.k-mini-table-head-colheads .k-mini-table-holdings {
+  grid-column: 3;
+}
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-alfa,
+.k-mini-table-head-colheads .k-mini-table-alfa {
+  grid-column: 4;
+}
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-price,
+.k-mini-table-head-colheads .k-mini-table-price {
+  grid-column: 5;
+}
+.k-mini-table-row:not(.k-mini-table-row--split):not(.k-mini-table-row--mover) .k-mini-table-chg,
+.k-mini-table-head-colheads .k-mini-table-chg {
+  grid-column: 6;
+}
+
+/* /assets Top Gainers/Losers rows — opt out of the /traders 6-column grid
+ * (which reserves space for Holdings/Alfa columns these rows don't use).
+ * Falls through to the base `.k-mini-table-row` flex layout, so the
+ * symbol column (`.k-coin-sym` with `flex: 1; min-width: 0`) actually gets
+ * the leftover space instead of being squeezed below an empty 96px slot
+ * on mobile. */
+.k-mini-table-row--mover {
+  display: flex;
+}
+.k-mini-table-row--mover .k-mini-table-price,
+.k-mini-table-row--mover .k-mini-table-chg {
+  min-width: 0;
+}
+
+/* Lock the leading icon to 20×20 in mini-table rows so the Winners (trader
+   avatars) and Top gainers/losers (coin icons) tables share the same row
+   height regardless of which icon component the row uses. */
+.k-mini-table-row .stripe-avatar,
+.k-mini-table-row .k-coin-icon {
+  width: 20px;
+  height: 20px;
+}
+.k-mini-table-row:last-child {
+  border-bottom: 0;
+}
+.k-mini-table-row:hover {
+  background: var(--stripe-bg-secondary);
+}
+
+/* Most-Held coin-list row — flex layout, three cells: coin icon + name
+ * (flex 1) + holders count. Lives under the sentiment cards on
+ * /analytics; opt-out of the leader-table grid via the modifier so this
+ * file can keep that grid scoped to /traders. */
+.k-mini-table-row--coin {
+  display: flex;
+}
+.k-most-held-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.k-most-held-coin {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+}
+/* Most-Held direction cell — long count (green) + short count (red),
+ * arrows make the side unambiguous. Tabular-nums so numbers stack
+ * cleanly between rows. */
+.k-most-held-direction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.k-most-held-long {
+  color: var(--stripe-success);
+}
+.k-most-held-short {
+  color: var(--stripe-danger);
+}
+/* Head-label slot above the direction cell — sits to the right of the
+ * panel title (which is flex:1). Uppercase via shared `.k-mini-table-head-row .k-mini-table-head-label`. */
+.k-most-held-direction-head {
+  flex: 0 0 auto;
+}
+.k-coin-sym {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+}
+
+/* Trader address inside a mini-table row (home page Winners). Sits in the
+   same slot as `.k-coin-sym` and inherits flex/truncate, but uses the mono
+   wallet-address treatment. */
+.k-mini-table-addr {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+.k-mini-table-price {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 80px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+/* Sample-size tag next to a win-rate value in the Win Rate panel —
+ * "62%  (243)". Dim + smaller so the headline percentage stays primary
+ * but the user can see how many round trips back it at a glance. */
+.k-mini-table-trade-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--stripe-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+/* Coin icon nested inside `.k-mini-table-price` (Latest trades + Top open
+ * positions on /analytics). Pin to a small size so it doesn't push siblings
+ * onto the next line. Directional ring (green for long / buy, red for short
+ * / sell) replaces the standalone ↑/↓ arrow that used to sit beside the
+ * icon — same visual language as the Holdings icons on /traders. */
+.k-mini-table-price .k-coin-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-mini-table-price .k-coin-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-mini-table-price .k-coin-icon.is-short {
+  border-color: var(--stripe-danger);
+}
+.k-mini-table-chg {
+  flex: 0 0 auto;
+  min-width: 80px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Holdings" column — top 3 currently-open positions by notional + a `+N`
+ * chip for any overflow. Shrink-to-content so it sits compactly on the
+ * left next to the trader avatar (rather than stretching across the row).
+ * `min-width` ≈ three 14px icons + gap + `+NN` chip — keeps short-list
+ * traders' cells from collapsing too narrow so the column reads as a
+ * consistent column. Shared by both Winners and Win Rate mini-tables. */
+.k-mini-table-holdings {
+  flex: 0 0 auto;
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+/* Holdings icon — 14px to match Alfa, with a directional inner ring.
+ * Green for long, red for short. `box-sizing: border-box` keeps the
+ * visual size at 14px regardless of the border so icons stack at a
+ * consistent stride; the border eats 1.5px of the image content. */
+.k-mini-table-holdings-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+}
+.k-mini-table-holdings-icon.is-long {
+  border-color: var(--stripe-success);
+}
+.k-mini-table-holdings-icon.is-short {
+  border-color: var(--stripe-danger);
+}
+.k-mini-table-holdings-more {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-tertiary);
+  margin-left: 2px;
+}
+.k-mini-table-holdings-empty {
+  color: var(--stripe-text-tertiary);
+  font-size: 12px;
+}
+
+/* "Alfa" column — the coin a trader has the best win rate on. Slim fixed
+ * column shared by the Winners and Win Rate mini-tables. Right of the
+ * address, left of the numeric cells. Same alignment treatment for both
+ * the colhead label and the data cell so they line up vertically. */
+.k-mini-table-alfa {
+  flex: 0 0 auto;
+  min-width: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Pin the inline coin icon to a small size inside the Alfa cell — the
+ * default `.k-mini-table-row .k-coin-icon` rule sizes it at 20×20 (matches
+ * the leading avatar / row icon), which is too big for the secondary cell.
+ * Same approach as `.k-mini-table-price .k-coin-icon`. */
+.k-mini-table-alfa .k-coin-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+/* Win Rate panel's "Last 5" column — right-align the inline SVG within
+   the cell to match the new numeric-cell spec (ROI / Profit / PnL all
+   right-aligned). Applied to both the colhead label and the data cell
+   so the header text and pills strip share the same right edge. */
+.k-mini-table-chg.k-mini-table-pills {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Split mini-table row (analytics: Latest trades, Winning Trades) — the
+ * row is a non-link wrapper with two `<a>` segments inside, so the trader
+ * half navigates to /trader/<addr> and the asset half to /assets/<coin>. */
+.k-mini-table-seg {
+  text-decoration: none;
+  color: inherit;
+}
+.k-mini-table-seg-trader {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* Asset cell takes the slack the trader cell used to. The inner content
+ * (arrow + icon + coin name) sits inside a `.k-trade-content` wrapper of
+ * fixed min-width centered in the cell — every row's ↑/↓ stacks at the
+ * same x, with the cluster reading as a centered column whose contents
+ * are left-aligned within. The notional / value sits in the dedicated
+ * `.k-mini-table-val` column to the right. */
+.k-mini-table-row--split .k-mini-table-seg-asset {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  padding-left: 0;
+}
+/* Analytics merged head — panel title on the left + the right-edge label
+ * (`Time` / `Profit`) for the trailing column. The middle `Trade` /
+ * `Position` label was dropped (the data column reads as a column on its
+ * own); the default `.k-mini-table-head-title { flex: 1 }` pushes the
+ * trailing label all the way right, no `--split` override needed. */
+/* Shared content wrapper for the `Trade` / `Position` column on both the
+ * header row and every data row. The fixed min-width is what unifies the
+ * column: rows whose content fits inside `200px` all render with a
+ * `200px` wrapper, the cell centers it, and `justify-content: flex-start`
+ * left-aligns each row's content to the wrapper's left edge — so the
+ * arrows / icons / labels stack at one x across rows AND the header
+ * label sits above that same x. Rows whose content exceeds `200px`
+ * extend the wrapper, breaking the column alignment for that row only
+ * — fine in practice since the widest real entries (`FARTCOIN $708.1K`
+ * style) fit inside the budget. */
+.k-trade-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+/* Dedicated `Size` / `Value` column on the split mini-tables (analytics:
+ * Latest trades, Winning Trades). Right-aligned numeric cell sitting
+ * between the asset and the trailing `Time` / `Profit` column. Shared
+ * class for both header label and data cell so they align vertically. */
+.k-mini-table-val {
+  flex: 0 0 auto;
+  min-width: 76px;
+  text-align: left;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+.k-mini-table-seg-trader:hover .k-mini-table-addr,
+.k-mini-table-seg-asset:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Asset detail (/assets/[coin]) ───────────────────────── */
+.k-asset-header {
+  display: grid;
+  grid-template-areas:
+    'back back'
+    'id quote'
+    'meta meta';
+  grid-template-columns: 1fr auto;
+  row-gap: var(--space-3);
+  column-gap: var(--space-4);
+  align-items: center;
+}
+.k-asset-back {
+  grid-area: back;
+  font-size: 12px;
+  color: var(--stripe-text-tertiary);
+  text-decoration: none;
+  width: max-content;
+}
+.k-asset-back:hover {
+  color: var(--stripe-accent);
+}
+.k-asset-id {
+  grid-area: id;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.k-asset-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--stripe-bg-tertiary);
+  flex: 0 0 auto;
+}
+.k-asset-symbol {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--stripe-text-primary);
+}
+.k-asset-leverage {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--stripe-bg-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+}
+.k-asset-quote {
+  grid-area: quote;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.k-asset-price {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--stripe-text-primary);
+}
+.k-asset-change {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.k-asset-change-label {
+  color: var(--stripe-text-tertiary);
+  font-weight: 500;
+}
+.k-asset-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 0.5px solid var(--stripe-border);
+}
+.k-asset-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.k-asset-meta dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--stripe-text-tertiary);
+}
+.k-asset-meta dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-primary);
+}
+
+/* Range tabs above the chart. */
+.k-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.k-range-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-secondary);
+  border: 0.5px solid var(--stripe-border);
+}
+.k-range-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--stripe-text-tertiary);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+.k-range-tab:hover {
+  color: var(--stripe-text-primary);
+}
+.k-range-tab.is-active {
+  background: var(--stripe-bg-elevated);
+  color: var(--stripe-text-primary);
+}
+
+/* TradingView lightweight-charts container. The TVChart component manages
+ * its own internal height; we just give it the padded frame. */
+.k-chart {
+  position: relative;
+  width: 100%;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  padding: var(--space-2);
+  overflow: hidden;
+}
+.k-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  font-size: 13px;
+  color: var(--stripe-text-tertiary);
+}
+
+/* ── Asset / analytics · long/short sentiment bars ───────── */
+/* Two stacked bars per category — notional split + trader-count split.
+ * The analytics-page cards (`.k-sentiment-card`) drop all panel chrome
+ * via the override block below so the card reads as a typographic block;
+ * the asset-page caller keeps the standard `.k-mini-table` frame. */
+.k-sentiment-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.k-sentiment-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.k-sentiment-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stripe-text-tertiary);
+}
+.k-sentiment-track {
+  display: flex;
+  height: 6px;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--stripe-bg-secondary);
+  overflow: hidden;
+}
+.k-sentiment-fill {
+  display: block;
+  height: 100%;
+  /* Smooth animation when the poll-driven $state update shifts the long/short
+   * split. Without this the bars snap on every refresh; with it they slide. */
+  transition: width 600ms ease-out;
+}
+.k-sentiment-long {
+  background: var(--stripe-success);
+}
+.k-sentiment-short {
+  background: var(--stripe-danger);
+}
+/* Foot row: 4 rigid columns so the long value, long %, short %, short value
+ * align identically across the Size and Traders rows of the same card.
+ * Left half left-aligned, right half right-aligned. */
+.k-sentiment-foot {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.k-sentiment-foot-left,
+.k-sentiment-foot-right {
+  display: contents;
+}
+.k-sentiment-foot-right > * {
+  text-align: right;
+}
+.k-sentiment-foot-right > :first-child {
+  grid-column: 4;
+}
+.k-sentiment-foot-sub {
+  color: var(--stripe-text-tertiary);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+/* Analytics-page sentiment card: drop all panel chrome inherited from
+ * `.k-mini-table` so the two cards read as bare typographic blocks aligned
+ * to the page gutter, with the bias chip pinned to the right of the title. */
+.k-sentiment-card {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+.k-sentiment-card .k-mini-table-head {
+  padding-left: 0;
+  padding-right: 0;
+  border-bottom: 0;
+  margin-bottom: var(--space-3);
+}
+.k-sentiment-card .k-empty {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Sentiment card header: label on the left, bias chip on the right.
+ * `.k-mini-table-head` is the shared header style; this only adds the
+ * flex layout when a bias chip is present alongside it. */
+.k-sentiment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.k-sentiment-bias {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 0.5px solid currentColor;
+}
+.k-sentiment-bias--ex-bull {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
+}
+.k-sentiment-bias--bull {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 6%, transparent);
+}
+.k-sentiment-bias--neutral {
+  color: var(--stripe-text-tertiary);
+  background: var(--stripe-bg-tertiary);
+}
+.k-sentiment-bias--bear {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 6%, transparent);
+}
+.k-sentiment-bias--ex-bear {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
+}
+
+/* ── Live-price flash animations ─────────────────────────── */
+/* Header price flashes a brief colored tint when the HL `allMids` WS
+ * pushes a new tick. Pure CSS keyframe; runs once per class application,
+ * then `transition` from removing the class fades back to default. */
+@keyframes k-price-flash-up {
+  0%   { color: var(--stripe-success); }
+  100% { color: var(--stripe-text-primary); }
+}
+@keyframes k-price-flash-down {
+  0%   { color: var(--stripe-danger); }
+  100% { color: var(--stripe-text-primary); }
+}
+.k-asset-price.k-price-flash-up {
+  animation: k-price-flash-up 700ms ease-out;
+}
+.k-asset-price.k-price-flash-down {
+  animation: k-price-flash-down 700ms ease-out;
+}
+
+/* Per-row flash on the open-positions panel. Subtle row tint that fades
+ * out — visible but doesn't fight the existing row hover. The
+ * `data-flash-tick` attribute changes each tick to retrigger the animation
+ * even when the same direction fires twice in a row. */
+@keyframes k-row-flash-up {
+  0%   { background: var(--stripe-success-subtle); }
+  100% { background: transparent; }
+}
+@keyframes k-row-flash-down {
+  0%   { background: var(--stripe-danger-subtle); }
+  100% { background: transparent; }
+}
+.k-mini-table-row.k-row-flash-up,
+tr.k-row-flash-up {
+  animation: k-row-flash-up 700ms ease-out;
+}
+.k-mini-table-row.k-row-flash-down,
+tr.k-row-flash-down {
+  animation: k-row-flash-down 700ms ease-out;
+}
+/* For `<tr>` we have to repaint the cells too, since some browsers don't
+ * paint the row's background under the cell paint. */
+tr.k-row-flash-up > td,
+tr.k-row-flash-down > td {
+  background-color: inherit;
+}
+
+/* ── Asset page · Consensus mini-tables ──────────────────── */
+/* The double-panel pattern (Open positions / Latest opens) reuses
+ * `.k-winners-losers` + `.k-mini-table` from the home and asset-index
+ * pages. The classes below tweak it for the asset-detail context. */
+
+/* Empty-state inside a mini-table panel — same vibe as `.k-empty` but it
+ * inherits the panel's bordered background, so just add padding + tertiary text. */
+.k-mini-table-empty {
+  padding: var(--space-4) var(--space-3);
+  font-size: 12px;
+  color: var(--stripe-text-tertiary);
+  text-align: center;
+}
+
+/* Right-most cell of "Latest opens" is a relative-time string ("2d ago"),
+ * not a number — drop the bold + tabular-num styling that `.k-mini-table-chg`
+ * inherits and lighten the colour. */
+.k-mini-table-time {
+  font-weight: 400;
+  font-variant-numeric: normal;
+  color: var(--stripe-text-tertiary);
+  letter-spacing: 0;
+}
+
+/* Side glyph (↑ / ↓) shared by the chart-marker rings, the positions cells
+ * here, and the latest-opens cells. */
+.k-side-arrow {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* `Leverage` column for the analytics split mini-tables — right of the
+ * asset cell, left of `Size`/`Value`. Same right-aligned numeric column
+ * shape as `.k-mini-table-val`. */
+.k-mini-table-lev {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: left;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--stripe-text-secondary);
+  white-space: nowrap;
+}
+
+/* Directional leverage pill — green for long/buy, red for short/sell.
+ * Soft `color-mix` tint, same family as the sentiment-bias chip. Fixed
+ * `min-width` + centered text so `4x` and `40x` render as the same-sized
+ * pill — the number itself stacks at one x across rows, not just the
+ * pill's right edge. */
+.k-lev-pill {
+  display: inline-block;
+  min-width: 32px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-align: center;
+}
+.k-lev-pill--long {
+  color: var(--stripe-success);
+  background: color-mix(in srgb, var(--stripe-success) 12%, transparent);
+}
+.k-lev-pill--short {
+  color: var(--stripe-danger);
+  background: color-mix(in srgb, var(--stripe-danger) 12%, transparent);
+}
+.k-side-arrow.k-side-long {
+  color: var(--stripe-success);
+}
+.k-side-arrow.k-side-short {
+  color: var(--stripe-danger);
+}
+
+/* Refresh time — dim; ".is-stale" means leader_cache hasn't been touched
+ * in the last 30 min, so the position numbers may have moved since. */
+.k-open-positions-refreshed {
+  color: var(--stripe-text-tertiary);
+  font-size: 11px;
+}
+.k-open-positions-refreshed .is-stale {
+  color: var(--stripe-warning, #f5a623);
+}
+
+/* ── Analytics · Position matrix ─────────────────────────── */
+/* 25-row × N-col grid: tracked traders down the side, coin icons across
+ * the top (ranked by HL 24h volume, filtered to coins held by ≥ 1
+ * tracked trader so no fully-empty columns). Each cell is a 32×28
+ * tinted square — green long / red short, opacity from `pct_of_book`.
+ * Empty cells keep a very faint grey so the grid reads as a grid. */
+.k-matrix-wrap {
+  overflow-x: auto;
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-md);
+  background: var(--stripe-bg-primary);
+  padding: var(--space-3);
+}
+.k-matrix {
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+}
+/* Traders down the left (avatar only — score chip removed for visual room),
+ * coins across the top as small icon chips. Volume-ranked from the full HL
+ * universe (main + HIP-3), so columns can be sparse — that's the point. */
+.k-matrix-rowhead {
+  background: transparent;
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 8px 6px 0;
+  width: 32px;
+}
+/* Trader row (left rowhead). Small avatar + truncated address + optional score. */
+.k-matrix-traderrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stripe-text-secondary);
+  text-decoration: none;
+}
+.k-matrix-traderrow:hover {
+  color: var(--stripe-accent);
+}
+.k-matrix-traderavatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: 0 0 20px;
+  background: var(--stripe-bg-tertiary);
+}
+.k-matrix-traderaddr {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.k-matrix-traderscore {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 10px;
+  color: var(--stripe-text-tertiary);
+}
+/* Coin column head — clickable icon chip, no text (volume order is the
+ * narrative; hover tooltip carries the ticker + holders + net notional). */
+.k-matrix-colhead {
+  width: 32px;
+  height: 32px;
+  padding: 0 0 4px 0;
+  background: transparent;
+  text-align: center;
+  vertical-align: bottom;
+}
+.k-matrix-coinchip {
+  display: inline-block;
+  line-height: 0;
+  transition: transform var(--transition-fast);
+}
+.k-matrix-coinchip:hover {
+  transform: scale(1.15);
+}
+.k-matrix-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--stripe-bg-tertiary);
+  object-fit: cover;
+}
+.k-matrix-icon.is-white-bg {
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1px;
+}
+.k-matrix-cell {
+  width: 32px;
+  height: 28px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: default;
+}
+.k-cell-long {
+  background: rgba(1, 205, 162, calc(var(--k-cell-opacity, 0.4)));
+}
+.k-cell-short {
+  background: rgba(255, 92, 92, calc(var(--k-cell-opacity, 0.4)));
+}
+
+/* ── Skip link / a11y ────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--stripe-accent);
+  color: #000;
+  padding: var(--space-2) var(--space-4);
+  z-index: 1000;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius-md) 0;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Reset table cell shapes that conflict with Tailwind ── */
+table {
+  width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRADER PAGE — open positions monitor bar + table + dist-to-liq cell
+   Snapshot-driven (leader_cache.positions_json). Numbers refresh when the
+   trader page's "refresh" button populates the cache.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.k-section-count {
+  color: var(--stripe-text-tertiary);
+  font-weight: 500;
+  margin-left: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.k-positions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--stripe-bg-elevated);
+  border: 0.5px solid var(--stripe-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.k-positions-bar-left,
+.k-positions-bar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--stripe-text-tertiary);
+}
+
+.k-positions-bar strong {
+  color: var(--stripe-text-primary);
+  font-weight: 600;
+}
+
+.k-positions-table td:first-child,
+.k-positions-table th:first-child {
+  position: relative;
+  padding-left: 14px;
+}
+
+.k-positions-symbol {
+  font-weight: 600;
+  color: var(--stripe-text-primary);
+  margin-right: 6px;
+}
+
+.k-positions-side-stripe {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 1px;
+}
+
+.k-positions-side-long {
+  background: #16f199;
+}
+
+.k-positions-side-short {
+  background: #ff5d75;
+}
+
+.k-distliq {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.k-distliq-bar {
+  width: 56px;
+  height: 6px;
+  background: var(--stripe-bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.k-distliq-fill {
+  height: 100%;
+}
+
+.k-distliq-pct,
+.k-distliq-px {
+  font-variant-numeric: tabular-nums;
+}
+
+.k-distliq-px {
+  color: var(--stripe-text-tertiary);
+  font-size: 12px;
+}
