@@ -188,12 +188,17 @@
     left: max(var(--safe-left), var(--space-4));
     right: max(var(--safe-right), var(--space-4));
     bottom: calc(var(--safe-bottom) + var(--space-3));
-    background: var(--glass-white-bg);
+    /* Apple-style frosted glass: borderless, translucent dark material that
+       blurs the content scrolling behind it. Separation comes from a soft
+       floating shadow + a hairline top sheen (an inset highlight, not a
+       border). --glass-bg carries the reduced-transparency fallback. */
+    background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-white-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--glass-shadow), var(--glass-white-highlight);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
     overflow: hidden;
     z-index: 20;
   }
