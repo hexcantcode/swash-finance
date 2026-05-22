@@ -41,7 +41,7 @@
 
   {@render children?.()}
 
-  <nav class="m-bottomnav safe-bottom" aria-label="Primary navigation">
+  <nav class="m-bottomnav" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
       <a
         href="/assets"
