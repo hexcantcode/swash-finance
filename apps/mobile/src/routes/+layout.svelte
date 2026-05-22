@@ -9,10 +9,12 @@
   const tradersActive = $derived(path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
   const feedActive = $derived(path.startsWith('/feed'));
+  const profileActive = $derived(path.startsWith('/profile'));
 
   // Bottom-nav icons. Inline SVG paths so we avoid the icon-library import
   // (and the Capacitor bundle ships fewer bytes).
   const ICON_HOME = 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10';
+  const ICON_PROFILE = 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0';
   const ICON_TRADERS =
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
   const ICON_ASSETS = 'M3 3v18h18 M18 17V9 M13 17V5 M8 17v-3';
@@ -41,26 +43,6 @@
 
   <nav class="m-bottomnav safe-bottom" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
-      <a
-        href="/"
-        class="m-bottomnav-item tappable"
-        class:is-active={homeActive}
-        aria-current={homeActive ? 'page' : undefined}
-      >
-        <svg
-          class="m-bottomnav-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d={ICON_HOME} />
-        </svg>
-        <span class="m-bottomnav-label">Home</span>
-      </a>
       <a
         href="/assets"
         class="m-bottomnav-item tappable"
@@ -102,6 +84,26 @@
         <span class="m-bottomnav-label">Traders</span>
       </a>
       <a
+        href="/"
+        class="m-bottomnav-item tappable"
+        class:is-active={homeActive}
+        aria-current={homeActive ? 'page' : undefined}
+      >
+        <svg
+          class="m-bottomnav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d={ICON_HOME} />
+        </svg>
+        <span class="m-bottomnav-label">Home</span>
+      </a>
+      <a
         href="/feed"
         class="m-bottomnav-item tappable"
         class:is-active={feedActive}
@@ -120,6 +122,26 @@
           <path d={ICON_FEED} />
         </svg>
         <span class="m-bottomnav-label">Feed</span>
+      </a>
+      <a
+        href="/profile"
+        class="m-bottomnav-item tappable"
+        class:is-active={profileActive}
+        aria-current={profileActive ? 'page' : undefined}
+      >
+        <svg
+          class="m-bottomnav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d={ICON_PROFILE} />
+        </svg>
+        <span class="m-bottomnav-label">Profile</span>
       </a>
     </div>
   </nav>
@@ -140,43 +162,46 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    padding-top: max(var(--safe-top), var(--space-2));
-    padding-bottom: var(--space-2);
+    /* Match the 56px bottom-nav height so top/bottom chrome are balanced. */
+    min-height: 56px;
+    padding-top: var(--safe-top);
+    padding-bottom: 0;
     background: var(--glass-bg-strong);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border-bottom: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
     position: sticky;
     top: 0;
     z-index: 20;
   }
 
   .m-header-brand img {
-    height: 22px;
+    height: 27px;
     width: auto;
     display: block;
   }
 
   /* Bottom navigation — sticks to the bottom safe-area, never scrolls. */
+  /* Floating pill — detached from the screen edges, fully rounded, frosted.
+     Content scrolls behind it on both sides. */
   .m-bottomnav {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--glass-bg-strong);
+    left: max(var(--safe-left), var(--space-4));
+    right: max(var(--safe-right), var(--space-4));
+    bottom: calc(var(--safe-bottom) + var(--space-3));
+    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border-top: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
-    padding-bottom: var(--safe-bottom);
+    border: 1px solid var(--glass-white-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-shadow), var(--glass-white-highlight);
+    overflow: hidden;
     z-index: 20;
   }
 
   .m-bottomnav-inner {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    height: 56px;
+    grid-template-columns: repeat(5, 1fr);
+    height: 64px;
   }
 
   .m-bottomnav-item {
@@ -184,7 +209,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 5px;
     color: var(--stripe-text-tertiary);
     text-decoration: none;
     font-family: var(--font-mono);
@@ -214,19 +239,25 @@
     height: 2px;
     border-radius: var(--radius-full);
     background: var(--stripe-accent);
-    box-shadow: 0 0 10px rgba(106, 220, 197, 0.6);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
   }
 
   .m-bottomnav-item.is-active .m-bottomnav-icon {
-    filter: drop-shadow(0 0 6px rgba(106, 220, 197, 0.45));
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
   }
 
+  /* Fixed 22px slot, vertically centered, so every icon shares one baseline
+     regardless of its artwork's bounds within the viewBox. flex-shrink:0 keeps
+     them from squashing in narrow cells. */
   .m-bottomnav-icon {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    display: block;
   }
 
   .m-bottomnav-label {
     line-height: 1;
+    letter-spacing: 0.05em;
   }
 </style>

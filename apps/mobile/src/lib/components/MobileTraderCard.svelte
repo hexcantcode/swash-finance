@@ -1,33 +1,44 @@
 <script lang="ts">
   import type { TopTrader } from '$lib/api/leaders-top';
-  import { shortAddress, effigyUrl, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { coinIconUrl } from '$lib/utils/coin';
 
   interface Props {
     trader: TopTrader;
-    /** Label for the PnL window shown on the card (e.g. "7d"). */
-    windowLabel: string;
   }
-  let { trader, windowLabel }: Props = $props();
+  let { trader }: Props = $props();
 
   const pnlClass = $derived(pnlSignClass(trader.pnl_usd));
   const roiClass = $derived(pnlSignClass(trader.roi));
+  // Holdings shown as a stack of coin avatars: first 3, then a +N overflow.
+  const shownHoldings = $derived(trader.holdings.top.slice(0, 3));
+  const extraHoldings = $derived(Math.max(0, trader.holdings.total - shownHoldings.length));
 </script>
 
 <a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${trader.address}`}>
   <div class="m-tcard-top">
     <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
-    <div class="m-tcard-id">
-      <span class="m-tcard-address">{shortAddress(trader.address, 4, 4)}</span>
-      {#if trader.primary_tag}
-        <span class="m-tcard-tag">{trader.primary_tag}</span>
-      {/if}
-    </div>
+    {#if shownHoldings.length > 0}
+      <div class="m-tcard-holdings">
+        {#each shownHoldings as h (h.coin)}
+          <img class="m-tcard-hold-icon" src={coinIconUrl(h.coin)} alt="" loading="lazy" />
+        {/each}
+        {#if extraHoldings > 0}
+          <span class="m-tcard-hold-more">+{extraHoldings}</span>
+        {/if}
+      </div>
+    {/if}
   </div>
 
-  <div class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</div>
-  <div class="m-tcard-sub">
-    <span class="m-tcard-roi {roiClass}">{formatPct(trader.roi)}</span>
-    <span class="m-tcard-window">{windowLabel}</span>
+  <div class="m-tcard-figs">
+    <div class="m-tcard-fig">
+      <span class="m-tcard-fig-label">PnL</span>
+      <span class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</span>
+    </div>
+    <div class="m-tcard-fig">
+      <span class="m-tcard-fig-label">ROI</span>
+      <span class="m-tcard-roi {roiClass}">{formatPct(trader.roi)}</span>
+    </div>
   </div>
 </a>
 
@@ -38,88 +49,102 @@
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
+    /* Override .tappable's align/justify center so rows fill the full width
+       (otherwise the filled top row is inset and shows side "padding"). */
+    align-items: stretch;
+    justify-content: flex-start;
     text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    overflow: hidden;
   }
 
+  /* Full-width filled header row — flush to the frame, same tone as the
+     assets filter chips (--glass-bg). The card's overflow:hidden + radius
+     clips its top corners to match the frame. */
   .m-tcard-top {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     min-width: 0;
+    padding: 7px 10px;
+    background: var(--glass-bg);
   }
 
   .m-tcard-avatar {
-    width: 32px;
-    height: 32px;
-    flex: 0 0 32px;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     border: 1px solid var(--stripe-border-light);
-    box-shadow: var(--glass-shadow);
   }
 
-  .m-tcard-id {
+  .m-tcard-holdings {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .m-tcard-hold-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    background: var(--stripe-bg-secondary);
+    /* Ring in the row's tone so overlapping icons read as a stack. */
+    border: 2px solid var(--stripe-bg-secondary);
+  }
+  .m-tcard-hold-icon:not(:first-child) {
+    margin-left: -7px;
+  }
+
+  .m-tcard-hold-more {
+    margin-left: 5px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    color: var(--stripe-text-tertiary);
+  }
+
+  .m-tcard-figs {
+    display: flex;
+    gap: var(--space-4);
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .m-tcard-fig {
     display: flex;
     flex-direction: column;
     gap: 1px;
     min-width: 0;
   }
 
-  .m-tcard-address {
+  /* Small stat label — same compact scale as the timeframe filter buttons. */
+  .m-tcard-fig-label {
     font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .m-tcard-tag {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--stripe-text-tertiary);
-    text-transform: capitalize;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--stripe-text-muted);
   }
 
   .m-tcard-pnl {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--type-headline);
+    font-size: var(--type-callout);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.1;
   }
 
-  .m-tcard-sub {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
   .m-tcard-roi {
     font-size: var(--type-footnote);
     color: var(--stripe-text-secondary);
-  }
-
-  .m-tcard-window {
-    font-size: 10px;
-    color: var(--stripe-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   .m-tcard-pnl:global(.k-pnl-positive),

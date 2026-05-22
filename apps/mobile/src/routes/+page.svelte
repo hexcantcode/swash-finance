@@ -134,7 +134,7 @@
     </header>
 
     {#if tradersLoading}
-      <div class="m-tcard-scroll safe-x" aria-busy="true">
+      <div class="m-tcard-scroll m-scroll-fade safe-x" aria-busy="true">
         {#each Array(4) as _, i (i)}
           <div class="m-skeleton m-tcard-skel"></div>
         {/each}
@@ -144,9 +144,9 @@
     {:else if traders.length === 0}
       <div class="m-mini-empty safe-x">No {windowLabel} data yet.</div>
     {:else}
-      <div class="m-tcard-scroll safe-x">
+      <div class="m-tcard-scroll m-scroll-fade safe-x">
         {#each traders as t (t.address)}
-          <MobileTraderCard trader={t} {windowLabel} />
+          <MobileTraderCard trader={t} />
         {/each}
       </div>
     {/if}
@@ -158,7 +158,7 @@
       <header class="m-section-head safe-x">
         <h2 class="m-section-title">Pre-IPOs</h2>
       </header>
-      <div class="m-company-row safe-x">
+      <div class="m-company-row m-scroll-fade safe-x">
         {#each featured as f (f.coin)}
           <a class="m-company-card tappable" href={`/assets/${encodeURIComponent(f.coin)}`}>
             <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
@@ -186,7 +186,7 @@
       <a href="/assets" class="m-see-all tappable">See all</a>
     </header>
 
-    <div class="m-filter-row safe-x" role="tablist" aria-label="Asset filters">
+    <div class="m-filter-row m-scroll-fade safe-x" role="tablist" aria-label="Asset filters">
       <button
         type="button"
         class="m-filter-chip m-filter-star tappable"
@@ -214,7 +214,7 @@
     </div>
 
     {#if assetsLoading}
-      <ul class="m-list" aria-busy="true">
+      <ul class="m-card-list" aria-busy="true">
         {#each Array(6) as _, i (i)}
           <li class="m-skeleton-row">
             <span class="m-skeleton m-skeleton-avatar"></span>
@@ -232,7 +232,7 @@
     {:else if topAssets.length === 0}
       <div class="m-mini-empty safe-x">No assets in this category.</div>
     {:else}
-      <ul class="m-list">
+      <ul class="m-card-list">
         {#each topAssets as a (a.coin)}
           <li><MobileAssetRow asset={a} showVolume={false} /></li>
         {/each}
@@ -251,7 +251,25 @@
   }
 
   .m-home-section {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-4);
+  }
+
+  /* Right-edge fade for the horizontal scrollers — softens the clipped last
+     card into a "more to scroll" cue instead of a hard chop. Left stays crisp
+     so the first card lines up at the page inset. */
+  .m-scroll-fade {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
   }
 
   .m-section-head {
@@ -286,22 +304,24 @@
     gap: 4px;
   }
   .m-seg-btn {
-    min-height: 26px;
-    padding: 3px 9px;
+    min-height: 22px;
+    padding: 2px 7px;
     border-radius: var(--radius-sm);
-    background: var(--glass-bg);
+    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
+    border: 1px solid transparent;
+    box-shadow: var(--glass-white-highlight);
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
   }
+  /* Selected = the only chip with a visible border; unselected are borderless
+     filled chips. The border is the highlight. */
   .m-seg-btn.is-active {
-    color: var(--stripe-accent-light);
-    border-color: var(--stripe-accent);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--stripe-text-primary);
   }
 
   /* Horizontal trader-card strip. Explicit side insets (not the .safe-x
@@ -356,11 +376,7 @@
     text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
     white-space: nowrap;
   }
   .m-company-icon {
@@ -424,11 +440,11 @@
     min-height: 34px;
     padding: 6px 14px;
     border-radius: var(--radius-md);
-    background: var(--glass-bg);
+    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
+    border: 1px solid transparent;
+    box-shadow: var(--glass-white-highlight);
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
@@ -436,8 +452,8 @@
     white-space: nowrap;
   }
   .m-filter-chip.is-active {
-    color: var(--stripe-accent-light);
-    border-color: var(--stripe-accent);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--stripe-text-primary);
   }
   .m-filter-star {
     display: inline-flex;

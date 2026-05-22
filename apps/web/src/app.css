@@ -5,7 +5,7 @@
  * SWASH DESIGN SYSTEM
  * Inherited from kismet / cream-hl Stripe theme.
  * Dark mode default. Space Mono everywhere.
- * Teal accent (#59A0AC). Layered backgrounds.
+ * Monochrome white accent. Layered backgrounds.
  * ===========================================
  */
 
@@ -31,15 +31,16 @@
   --color-bg-elevated: #525252;
   --color-bg-hover: #5e5e5e;
 
-  /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons. */
-  --color-accent: #6ADCC5;
-  --color-accent-light: #9BE8D8;
-  --color-accent-dark: #3FA98F;
-  --color-accent-subtle: rgba(106, 220, 197, 0.14);
-  --color-accent-muted: rgba(106, 220, 197, 0.09);
+  /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons.
+     Monochrome: active chrome is bright white, faint white fills for subtle/muted. */
+  --color-accent: #FFFFFF;
+  --color-accent-light: #FFFFFF;
+  --color-accent-dark: rgba(255, 255, 255, 0.55);
+  --color-accent-subtle: rgba(255, 255, 255, 0.14);
+  --color-accent-muted: rgba(255, 255, 255, 0.09);
 
   /* Positive financial outcomes — PnL, ROI, buy side in ticker. */
-  --color-success: #01CDA2;
+  --color-success: #16C784;
   --color-danger: #ff5c5c;
   --color-warning: #f5a623;
 
@@ -84,16 +85,17 @@
   --stripe-bg-elevated: #525252;
   --stripe-bg-hover: #5e5e5e;
 
-  /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons. */
-  --stripe-accent: #6ADCC5;
-  --stripe-accent-light: #9BE8D8;
-  --stripe-accent-dark: #3FA98F;
-  --stripe-accent-subtle: rgba(106, 220, 197, 0.14);
-  --stripe-accent-muted: rgba(106, 220, 197, 0.09);
+  /* Brand accent — ranking highlights, scoring, ticker live pulse, (future) buttons.
+     Monochrome: active chrome is bright white, faint white fills for subtle/muted. */
+  --stripe-accent: #FFFFFF;
+  --stripe-accent-light: #FFFFFF;
+  --stripe-accent-dark: rgba(255, 255, 255, 0.55);
+  --stripe-accent-subtle: rgba(255, 255, 255, 0.14);
+  --stripe-accent-muted: rgba(255, 255, 255, 0.09);
 
   /* Positive financial outcomes — PnL, ROI, buy side in ticker. (Red = downside.) */
-  --stripe-success: #01CDA2;
-  --stripe-success-subtle: rgba(1, 205, 162, 0.14);
+  --stripe-success: #16C784;
+  --stripe-success-subtle: rgba(22, 199, 132, 0.14);
   --stripe-danger: #ff5c5c;
   --stripe-danger-subtle: rgba(255, 92, 92, 0.12);
   --stripe-warning: #f5a623;
@@ -106,7 +108,7 @@
 
   --stripe-border: rgba(255, 255, 255, 0.08);
   --stripe-border-light: rgba(255, 255, 255, 0.12);
-  --stripe-border-focus: rgba(106, 220, 197, 0.4);
+  --stripe-border-focus: rgba(255, 255, 255, 0.4);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -187,7 +189,7 @@ body {
   transform: translate(-50%, -50%);
   width: 800px;
   height: 800px;
-  background: rgba(106, 220, 197, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   filter: blur(140px);
   border-radius: 9999px;
   pointer-events: none;
@@ -759,7 +761,7 @@ body {
   color: #000;
   background: var(--stripe-accent);
   border-color: var(--stripe-accent);
-  box-shadow: 0 0 20px rgba(106, 220, 197, 0.35);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
 .btn-poly:disabled {
@@ -773,8 +775,8 @@ body {
 }
 
 .btn-poly.btn-cream {
-  background: rgba(106, 220, 197, 0.05);
-  border: 1px solid rgba(106, 220, 197, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -1579,7 +1581,7 @@ body {
   border-radius: 50%;
   background: var(--stripe-accent);
   flex-shrink: 0;
-  box-shadow: 0 0 8px rgba(106, 220, 197, 0.6);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
   animation: tickerPulse 1.6s ease-in-out infinite;
 }
 
@@ -2957,7 +2959,7 @@ tr.k-row-flash-down > td {
   cursor: default;
 }
 .k-cell-long {
-  background: rgba(1, 205, 162, calc(var(--k-cell-opacity, 0.4)));
+  background: rgba(22, 199, 132, calc(var(--k-cell-opacity, 0.4)));
 }
 .k-cell-short {
   background: rgba(255, 92, 92, calc(var(--k-cell-opacity, 0.4)));

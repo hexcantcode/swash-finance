@@ -53,6 +53,8 @@
     gap: var(--space-3);
     color: inherit;
     text-decoration: none;
+    background: var(--glass-bg);
+    border-radius: var(--radius-md);
   }
 
   .m-asset-icon {

@@ -85,19 +85,6 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <header class="m-page-header safe-x">
-    <h1 class="m-page-title">Leaderboard</h1>
-    <p class="m-page-subtitle">
-      {#if total > 0}
-        Top {rows.length} of {total.toLocaleString('en-US')} tracked traders
-      {:else if loading}
-        Loading…
-      {:else}
-        No traders match
-      {/if}
-    </p>
-  </header>
-
   <div
     class="m-sort-strip safe-x"
     role="tablist"
@@ -161,29 +148,8 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding-top: var(--space-3);
     padding-bottom: calc(var(--safe-bottom) + 80px); /* bottom nav clearance */
-  }
-
-  .m-page-header {
-    padding-top: max(var(--safe-top), var(--space-3));
-    padding-bottom: var(--space-3);
-    background: var(--stripe-bg-deep);
-  }
-
-  .m-page-title {
-    font-family: var(--font-sans);
-    font-size: var(--type-display);
-    line-height: var(--line-display);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    margin: 0;
-  }
-
-  .m-page-subtitle {
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-    margin: 4px 0 0;
-    font-family: var(--font-mono);
   }
 
   .m-sort-strip {
@@ -203,22 +169,23 @@
     padding: 8px 16px;
     min-height: 36px;
     border-radius: var(--radius-md);
-    background: var(--glass-bg);
+    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
+    border: 1px solid transparent;
+    box-shadow: var(--glass-white-highlight);
     cursor: pointer;
     white-space: nowrap;
   }
 
-  /* Selected = teal border + text only; fill stays unchanged. */
+  /* Selected = the only chip with a visible border; unselected are borderless
+     filled chips. The border is the highlight. */
   .m-sort-chip.is-active {
-    color: var(--stripe-accent-light);
-    border-color: var(--stripe-accent);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--stripe-text-primary);
   }
 
   .m-skeleton-row {

@@ -83,13 +83,6 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <header class="m-page-header safe-x">
-    <h1 class="m-page-title">Feed</h1>
-    <p class="m-page-subtitle">
-      Live activity across tracked traders
-    </p>
-  </header>
-
   <div class="m-tabs safe-x" role="tablist" aria-label="Feed tabs">
     <button
       type="button"
@@ -216,28 +209,8 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding-top: var(--space-3);
     padding-bottom: calc(var(--safe-bottom) + 80px);
-  }
-
-  .m-page-header {
-    padding-top: max(var(--safe-top), var(--space-3));
-    padding-bottom: var(--space-3);
-  }
-
-  .m-page-title {
-    font-family: var(--font-sans);
-    font-size: var(--type-display);
-    line-height: var(--line-display);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    margin: 0;
-  }
-
-  .m-page-subtitle {
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-    margin: 4px 0 0;
-    font-family: var(--font-mono);
   }
 
   .m-tabs {
@@ -250,22 +223,23 @@
     flex: 1 1 auto;
     min-height: var(--touch-min);
     padding: 10px 16px;
-    background: var(--glass-bg);
+    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
     color: var(--stripe-text-secondary);
-    border: 1px solid var(--stripe-border);
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
-    box-shadow: var(--glass-highlight);
+    box-shadow: var(--glass-white-highlight);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     cursor: pointer;
   }
 
-  /* Selected = teal border + text only; fill stays unchanged. */
+  /* Selected = the only tab with a visible border; unselected are borderless
+     filled tabs. The border is the highlight. */
   .m-tab.is-active {
-    color: var(--stripe-accent-light);
-    border-color: var(--stripe-accent);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--stripe-text-primary);
   }
 
   .m-feed-row {

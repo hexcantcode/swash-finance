@@ -29,7 +29,7 @@
   const COLOR_TEXT = 'rgba(255, 255, 255, 0.45)';
   const COLOR_GRID = 'rgba(255, 255, 255, 0.04)';
   const COLOR_BORDER = 'rgba(255, 255, 255, 0.08)';
-  const COLOR_UP = '#01CDA2';
+  const COLOR_UP = '#16C784';
   const COLOR_DOWN = '#ff5c5c';
 
   function toCandleSeries(rows: CandlePoint[]) {

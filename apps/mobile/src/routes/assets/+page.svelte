@@ -59,25 +59,14 @@
 
 <main id="main-content" class="m-page">
   <header class="m-page-header safe-x">
-    <h1 class="m-page-title">Assets</h1>
-    <p class="m-page-subtitle">
-      {#if loading}
-        Loading…
-      {:else}
-        {assets.length} markets · live
-      {/if}
-    </p>
-  </header>
-
-  <div class="m-search safe-x">
     <input
       type="search"
       class="m-search-input"
-      placeholder="Search BTC, ETH, TSLA…"
+      placeholder="Search assets…"
       bind:value={search}
       aria-label="Search assets"
     />
-  </div>
+  </header>
 
   {#if !search.trim() && movers && movers.winners.length > 0}
     <section class="m-movers safe-x" aria-label="Top movers">
@@ -101,7 +90,7 @@
   {/if}
 
   {#if loading}
-    <ul class="m-list" aria-busy="true">
+    <ul class="m-card-list" aria-busy="true">
       {#each Array(10) as _, i (i)}
         <li class="m-skeleton-row">
           <span class="m-skeleton m-skeleton-icon"></span>
@@ -125,7 +114,7 @@
       <p>No assets match “{search}”.</p>
     </div>
   {:else}
-    <ul class="m-list">
+    <ul class="m-card-list">
       {#each filtered.slice(0, 200) as a (a.coin)}
         <li>
           <MobileAssetRow asset={a} />
@@ -149,41 +138,25 @@
   }
 
   .m-page-header {
-    padding-top: max(var(--safe-top), var(--space-3));
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
     padding-bottom: var(--space-3);
     background: var(--stripe-bg-deep);
   }
 
-  .m-page-title {
-    font-family: var(--font-sans);
-    font-size: var(--type-display);
-    line-height: var(--line-display);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    margin: 0;
-  }
-
-  .m-page-subtitle {
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-    margin: 4px 0 0;
-    font-family: var(--font-mono);
-  }
-
-  .m-search {
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-3);
-  }
-
   .m-search-input {
-    width: 100%;
-    min-height: var(--touch-min);
-    padding: 10px 14px;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
     background: var(--stripe-bg-secondary);
     border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
     color: var(--stripe-text-primary);
     font-family: var(--font-mono);
+    /* Keep 16px so iOS Safari doesn't zoom the page on focus. */
     font-size: var(--type-body);
   }
 
@@ -232,7 +205,6 @@
     gap: 6px;
     padding: var(--space-3);
     background: var(--stripe-bg-secondary);
-    border: 0.5px solid var(--stripe-border);
     border-radius: var(--radius-md);
     min-height: var(--touch-comfortable);
     color: inherit;
