@@ -48,7 +48,7 @@
               alt=""
               loading="lazy"
               onerror={hideBrokenAvatar}
-              class="m-ticker-avatar {t.side === 'B' ? 'is-buy' : 'is-sell'}"
+              class="m-ticker-avatar"
             />
             <span
               class="m-ticker-side {t.side === 'B' ? 'is-buy' : 'is-sell'}"
@@ -141,14 +141,6 @@
     height: 18px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-tertiary);
-  }
-  /* Side-aware ring: green for buys, red for sells. Box-shadow keeps the
-     image at its full 18px size (no layout shift, unlike a real border). */
-  .m-ticker-avatar.is-buy {
-    box-shadow: 0 0 0 1.5px var(--stripe-success);
-  }
-  .m-ticker-avatar.is-sell {
-    box-shadow: 0 0 0 1.5px var(--stripe-danger);
   }
   .m-ticker-side {
     font-family: var(--font-mono);

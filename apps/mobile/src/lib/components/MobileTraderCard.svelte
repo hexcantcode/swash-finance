@@ -21,7 +21,14 @@
     {#if shownHoldings.length > 0}
       <div class="m-tcard-holdings">
         {#each shownHoldings as h (h.coin)}
-          <img class="m-tcard-hold-icon" src={coinIconUrl(h.coin)} alt="" loading="lazy" />
+          <img
+            class="m-tcard-hold-icon"
+            class:is-long={h.side === 'long'}
+            class:is-short={h.side === 'short'}
+            src={coinIconUrl(h.coin)}
+            alt=""
+            loading="lazy"
+          />
         {/each}
         {#if extraHoldings > 0}
           <span class="m-tcard-hold-more">+{extraHoldings}</span>
@@ -66,6 +73,7 @@
   .m-tcard-top {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--space-2);
     min-width: 0;
     padding: 7px 10px;
@@ -94,8 +102,15 @@
     border-radius: var(--radius-full);
     object-fit: cover;
     background: var(--stripe-bg-secondary);
-    /* Ring in the row's tone so overlapping icons read as a stack. */
+    /* Ring colored by position side (long=green, short=red); the fallback
+       in the row's tone keeps unknown-side icons reading as a clean stack. */
     border: 2px solid var(--stripe-bg-secondary);
+  }
+  .m-tcard-hold-icon.is-long {
+    border-color: var(--stripe-success);
+  }
+  .m-tcard-hold-icon.is-short {
+    border-color: var(--stripe-danger);
   }
   .m-tcard-hold-icon:not(:first-child) {
     margin-left: -7px;
