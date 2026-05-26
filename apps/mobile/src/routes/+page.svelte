@@ -186,7 +186,7 @@
       <a href="/assets" class="m-see-all tappable">See all</a>
     </header>
 
-    <div class="m-filter-row m-scroll-fade safe-x" role="tablist" aria-label="Asset filters">
+    <div class="m-filter-row" role="tablist" aria-label="Asset filters">
       <button
         type="button"
         class="m-filter-chip m-filter-star tappable"
@@ -298,27 +298,30 @@
     align-items: center;
   }
 
-  /* Segmented control (1d / 7d / 1m) — small, compact, squarish. */
+  /* Segmented control (1d / 7d / 1m) — compact inline version of the same
+     glass-container language as the filter strips and nav. Smaller padding +
+     radius because it's inline next to a section title, not a full-width row. */
   .m-seg {
     display: inline-flex;
-    gap: 4px;
+    gap: 2px;
+    padding: 2px;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-md);
+    box-shadow: var(--glass-highlight);
   }
   .m-seg-btn {
     min-height: 22px;
     padding: 2px 7px;
     border-radius: var(--radius-sm);
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
+    background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: 10px;
     cursor: pointer;
   }
-  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
-     darker fill, add an inset shadow so it reads as recessed. */
+  /* Active = pressed into the seg container's surface. */
   .m-seg-btn.is-active {
     background: var(--glass-pressed-bg);
     box-shadow: var(--glass-pressed-inset);
@@ -421,30 +424,33 @@
     color: var(--stripe-danger);
   }
 
-  /* Asset filter row — horizontally scrollable, one line. Explicit insets to
-     match the rest (see .m-tcard-scroll note). */
+  /* Filter strip — a glass container that mirrors the bottom-nav language:
+     same material, same radius, same recessed-active treatment. Chips inside
+     are transparent labels (like nav tabs); the active one presses into the
+     container's surface using the shared --glass-pressed tokens. */
   .m-filter-row {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-1);
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
-    padding-left: max(var(--safe-left), var(--space-4));
-    padding-right: max(var(--safe-right), var(--space-4));
-    margin-bottom: var(--space-3);
+    margin: 0 max(var(--safe-left), var(--space-4)) var(--space-3);
+    padding: var(--space-1);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
   .m-filter-row::-webkit-scrollbar {
     display: none;
   }
   .m-filter-chip {
     flex: 0 0 auto;
-    min-height: 34px;
+    min-height: 32px;
     padding: 6px 14px;
-    border-radius: var(--radius-md);
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
+    border-radius: var(--radius-lg);
+    background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);

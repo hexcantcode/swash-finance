@@ -109,6 +109,27 @@ body {
   transform: scale(0.98);
 }
 
+/* ── Button primitive ──────────────────────────────────────────────
+ * One material language for every button in the app. Owns surface only —
+ * size / padding / font are the caller's job. Pair with .tappable to inherit
+ * the 48px touch floor and press micro-motion. Active state matches the
+ * bottom-nav pill and selected chips: the button presses into a recess
+ * (--glass-pressed-bg + inset), the top sheen is dropped. */
+.m-btn {
+  background: var(--glass-white-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-white-highlight);
+  color: var(--stripe-text-primary);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.m-btn:active {
+  background: var(--glass-pressed-bg);
+  box-shadow: var(--glass-pressed-inset);
+}
+
 /* Row-style tap target — full width, left-aligned, separator-friendly. */
 .tappable-row {
   display: flex;

@@ -172,7 +172,7 @@
   </div>
 
   {#if !search.trim()}
-    <div class="m-filter-row safe-x" role="tablist" aria-label="Asset filters">
+    <div class="m-filter-row" role="tablist" aria-label="Asset filters">
       <button
         type="button"
         class="m-filter-chip m-filter-star tappable"
@@ -216,7 +216,7 @@
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
-      <button type="button" class="m-error-retry tappable" onclick={() => load()}>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>
         Retry
       </button>
     </div>
@@ -338,30 +338,32 @@
     font-weight: 500;
   }
 
-  /* Asset category filter chips — borderless filled, selected gets a border
-     (mirrors the home filter row). */
+  /* Filter strip — glass container that mirrors the bottom-nav language;
+     chips inside are transparent labels that press into the surface when
+     selected (see home page for the same pattern). */
   .m-filter-row {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-1);
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
-    padding-left: max(var(--safe-left), var(--space-4));
-    padding-right: max(var(--safe-right), var(--space-4));
-    margin-bottom: var(--space-3);
+    margin: 0 max(var(--safe-left), var(--space-4)) var(--space-3);
+    padding: var(--space-1);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
   .m-filter-row::-webkit-scrollbar {
     display: none;
   }
   .m-filter-chip {
     flex: 0 0 auto;
-    min-height: 34px;
+    min-height: 32px;
     padding: 6px 14px;
-    border-radius: var(--radius-md);
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
+    border-radius: var(--radius-lg);
+    background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
@@ -493,12 +495,7 @@
   .m-error-retry {
     margin-top: var(--space-3);
     padding: 10px 20px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    border: 1px solid var(--stripe-accent);
-    border-radius: var(--radius-md);
     font-family: var(--font-mono);
-    cursor: pointer;
   }
 
   .m-footnote {

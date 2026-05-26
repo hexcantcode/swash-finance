@@ -80,7 +80,7 @@
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
-      <button type="button" class="m-error-retry tappable" onclick={() => load()}>Retry</button>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>Retry</button>
     </div>
   {:else if detail}
     <section class="m-detail-hero safe-x">
@@ -474,11 +474,6 @@
   .m-error-retry {
     margin-top: var(--space-3);
     padding: 10px 20px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    border: 1px solid var(--stripe-accent);
-    border-radius: var(--radius-md);
     font-family: var(--font-mono);
-    cursor: pointer;
   }
 </style>

@@ -24,7 +24,7 @@
 <main id="main-content" class="m-page">
   <section class="m-balance-hero">
     <div class="m-hero-right">
-      <button type="button" class="m-bell tappable" aria-label="Notifications" onclick={noop}>
+      <button type="button" class="m-bell m-btn tappable" aria-label="Notifications" onclick={noop}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
@@ -126,7 +126,9 @@
     gap: var(--space-3);
   }
 
-  /* Notification bell — top of the right-anchored stack, mirroring the mockup. */
+  /* Notification bell — inherits the lifted-glass surface + recessed press
+     from .m-btn. Only the circle shape, fixed size, and grid centering are
+     specific to this button. */
   .m-bell {
     position: relative;
     display: grid;
@@ -134,18 +136,6 @@
     width: 40px;
     height: 40px;
     border-radius: var(--radius-full);
-    background: var(--glass-white-bg);
-    border: 1px solid var(--glass-white-border);
-    box-shadow: var(--glass-white-highlight);
-    color: var(--stripe-text-primary);
-    cursor: pointer;
-    transition:
-      background var(--motion-fast) var(--motion-ease),
-      transform var(--motion-fast) var(--motion-ease);
-  }
-  .m-bell:active {
-    transform: scale(0.94);
-    background: var(--stripe-accent-subtle);
   }
   .m-bell-dot {
     position: absolute;
@@ -289,12 +279,16 @@
   .m-action-icon {
     transition: transform var(--motion-fast) var(--motion-ease);
   }
+  /* Hover/press: brighten with the same lifted-glass wash other buttons use,
+     so an action lifting out of the recessed pocket reads as the inverse of
+     pressing a chip in. No accent-color wash — the chrome language stays
+     monochrome and matches the menu pill's tap behavior. */
   .m-action:hover {
     background: var(--glass-white-bg);
   }
   .m-action:active {
     transform: scale(0.95);
-    background: var(--stripe-accent-subtle);
+    background: var(--glass-white-bg);
   }
   .m-action:active .m-action-icon {
     transform: translateY(1px);

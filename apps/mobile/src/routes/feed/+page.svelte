@@ -83,7 +83,7 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <div class="m-tabs safe-x" role="tablist" aria-label="Feed tabs">
+  <div class="m-tabs" role="tablist" aria-label="Feed tabs">
     <button
       type="button"
       role="tab"
@@ -121,7 +121,7 @@
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
-      <button type="button" class="m-error-retry tappable" onclick={() => load()}>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>
         Retry
       </button>
     </div>
@@ -213,30 +213,33 @@
     padding-bottom: calc(var(--safe-bottom) + 80px);
   }
 
+  /* Feed tabs — glass container, same language as the nav and filter rows.
+     The two tabs split the container width equally (flex: 1 on .m-tab). */
   .m-tabs {
     display: flex;
-    gap: var(--space-2);
-    padding-bottom: var(--space-3);
+    gap: var(--space-1);
+    margin: 0 max(var(--safe-left), var(--space-4)) var(--space-3);
+    padding: var(--space-1);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
 
   .m-tab {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: var(--touch-min);
-    padding: 10px 16px;
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    padding: 8px 14px;
+    border-radius: var(--radius-lg);
+    background: transparent;
     color: var(--stripe-text-secondary);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-white-highlight);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     cursor: pointer;
   }
 
-  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
-     darker fill, add an inset shadow so it reads as recessed. */
+  /* Active = pressed into the container's glass surface. */
   .m-tab.is-active {
     background: var(--glass-pressed-bg);
     box-shadow: var(--glass-pressed-inset);
@@ -369,11 +372,6 @@
   .m-error-retry {
     margin-top: var(--space-3);
     padding: 10px 20px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    border: 1px solid var(--stripe-accent);
-    border-radius: var(--radius-md);
     font-family: var(--font-mono);
-    cursor: pointer;
   }
 </style>

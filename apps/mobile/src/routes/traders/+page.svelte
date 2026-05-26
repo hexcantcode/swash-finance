@@ -86,7 +86,7 @@
 
 <main id="main-content" class="m-page">
   <div
-    class="m-sort-strip safe-x"
+    class="m-sort-strip"
     role="tablist"
     aria-label="Sort leaderboard"
   >
@@ -124,7 +124,7 @@
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
-      <button type="button" class="m-error-retry tappable" onclick={() => load()}>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>
         Retry
       </button>
     </div>
@@ -152,37 +152,41 @@
     padding-bottom: calc(var(--safe-bottom) + 80px); /* bottom nav clearance */
   }
 
+  /* Sort strip — glass container, same language as the bottom-nav and the
+     home/assets filter strips. */
   .m-sort-strip {
     display: flex;
-    gap: var(--space-2);
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-3);
+    gap: var(--space-1);
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
+    margin: var(--space-2) max(var(--safe-left), var(--space-4)) var(--space-3);
+    padding: var(--space-1);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
   .m-sort-strip::-webkit-scrollbar {
     display: none;
   }
 
   .m-sort-chip {
-    padding: 8px 16px;
-    min-height: 36px;
-    border-radius: var(--radius-md);
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    min-height: 32px;
+    border-radius: var(--radius-lg);
+    background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
     cursor: pointer;
     white-space: nowrap;
   }
 
-  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
-     darker fill, add an inset shadow so it reads as recessed. */
+  /* Active = pressed into the container's glass surface. */
   .m-sort-chip.is-active {
     background: var(--glass-pressed-bg);
     box-shadow: var(--glass-pressed-inset);
@@ -229,11 +233,6 @@
   .m-error-retry {
     margin-top: var(--space-3);
     padding: 10px 20px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    border: 1px solid var(--stripe-accent);
-    border-radius: var(--radius-md);
     font-family: var(--font-mono);
-    cursor: pointer;
   }
 </style>

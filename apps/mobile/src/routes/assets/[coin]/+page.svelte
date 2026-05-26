@@ -298,12 +298,21 @@
     opacity: 0.6;
   }
 
+  /* Range strip — glass container, same language as the nav and filter rows.
+     Lives inside .m-chart's safe-x padding, so it only needs internal padding. */
   .m-range-strip {
     display: flex;
-    gap: var(--space-2);
+    gap: var(--space-1);
     margin-top: var(--space-3);
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
+    padding: var(--space-1);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
   .m-range-strip::-webkit-scrollbar {
     display: none;
@@ -312,26 +321,20 @@
   .m-range-chip {
     flex: 1 1 0;
     min-width: 56px;
-    min-height: 36px;
+    min-height: 32px;
     padding: 6px 12px;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-lg);
+    background: transparent;
     color: var(--stripe-text-secondary);
-    border: 1px solid var(--stripe-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-highlight);
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     cursor: pointer;
   }
 
-  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
-     darker fill, add an inset shadow so it reads as recessed. */
+  /* Active = pressed into the container's glass surface. */
   .m-range-chip.is-active {
     background: var(--glass-pressed-bg);
     box-shadow: var(--glass-pressed-inset);
-    border-color: transparent;
     color: var(--stripe-text-primary);
   }
 
