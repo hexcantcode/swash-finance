@@ -326,10 +326,13 @@
     cursor: pointer;
   }
 
-  /* Selected = teal border + text only; fill stays unchanged. */
+  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
+     darker fill, add an inset shadow so it reads as recessed. */
   .m-range-chip.is-active {
-    color: var(--stripe-accent-light);
-    border-color: var(--stripe-accent);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
+    border-color: transparent;
+    color: var(--stripe-text-primary);
   }
 
   .m-asset-stats {
