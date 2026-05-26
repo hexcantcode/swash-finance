@@ -200,6 +200,12 @@
     height: 27px;
     width: auto;
     display: block;
+    /* Logo asset is white-on-transparent; invert it so the wordmark reads
+       on the light page. Reversed under the dark theme below. */
+    filter: invert(1);
+  }
+  :global([data-theme='dark']) .m-header-brand img {
+    filter: none;
   }
 
   /* Scroll-edge effect above the floating bottom-nav pill: a fade band that
@@ -210,14 +216,15 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
-    /* Tall enough to cover the pill height (64px) + its bottom inset (safe-area
-       + --space-3) + the fade zone above it. */
-    height: calc(var(--safe-bottom) + 120px);
+    /* Anchored to the TOP of the pill, not the screen floor — otherwise the
+       gradient would fill the area behind the pill with page-color and the
+       pill's backdrop-blur would frost a solid block instead of real content.
+       Pill bottom is safe-bottom + --space-3; pill height is 64px. */
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 64px);
+    height: 28px;
     background: linear-gradient(
       to top,
       var(--stripe-bg-deep) 0%,
-      rgba(8, 11, 18, 0.6) 35%,
       transparent 100%
     );
     pointer-events: none;
@@ -237,22 +244,56 @@
     left: max(var(--safe-left), var(--space-4));
     right: max(var(--safe-right), var(--space-4));
     bottom: calc(var(--safe-bottom) + var(--space-3));
-    /* Apple-style frosted glass: borderless, translucent dark material that
-       blurs the content scrolling behind it. Separation comes from a soft
-       floating shadow + a hairline top sheen (an inset highlight, not a
-       border). --glass-bg carries the reduced-transparency fallback. */
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    /* Apple-style Liquid Glass material. The body is a vertical gradient
+       (brighter at the top, dimmer at the bottom) to fake the look of a
+       curved upper face catching light — flat fills always read as paint.
+       Backdrop-filter does the real frosting; the inset shadow stack does
+       the thickness work: top-edge specular, bottom-edge shadow (suggesting
+       depth), a hairline rim, and an inner glow for refracted light. */
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.45) 0%,
+        rgba(255, 255, 255, 0.22) 50%,
+        rgba(255, 255, 255, 0.32) 100%
+      );
+    -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(108%);
+    backdrop-filter: blur(28px) saturate(220%) brightness(108%);
     border-radius: var(--radius-xl);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      var(--shadow-lg),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.85),
+      inset 0 -1px 1px rgba(10, 15, 26, 0.08),
+      inset 1px 0 0 rgba(255, 255, 255, 0.35),
+      inset -1px 0 0 rgba(255, 255, 255, 0.35),
+      inset 0 0 32px rgba(255, 255, 255, 0.2);
     overflow: hidden;
     z-index: 20;
   }
 
+  /* Specular sheen — a soft vertical gradient that brightens the top of the
+     pill and fades through the body, mimicking the highlight on a curved
+     glass surface. Sits between the backdrop and the nav items. */
+  .m-bottomnav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.32) 0%,
+      rgba(255, 255, 255, 0.06) 30%,
+      transparent 60%
+    );
+    z-index: 0;
+  }
+
+  /* Sits above the .m-bottomnav::before specular layer so icons/labels
+     aren't washed out by the highlight gradient. */
   .m-bottomnav-inner {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     height: 64px;

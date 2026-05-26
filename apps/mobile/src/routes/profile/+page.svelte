@@ -92,9 +92,12 @@
     margin: 0 max(var(--safe-left), var(--space-4));
     padding: var(--space-6) var(--space-5) var(--space-5);
     border-radius: var(--radius-xl);
+    /* The two radial washes use --stripe-accent-muted so depth tracks the
+       theme: a soft white wash on dark, a soft dark wash on light. The base
+       gradient between two elevated tones gives subtle planarity in both. */
     background:
-      radial-gradient(130% 120% at 0% -10%, rgba(255, 255, 255, 0.13), transparent 52%),
-      radial-gradient(120% 130% at 100% 110%, rgba(255, 255, 255, 0.05), transparent 50%),
+      radial-gradient(130% 120% at 0% -10%, var(--stripe-accent-muted), transparent 52%),
+      radial-gradient(120% 130% at 100% 110%, var(--stripe-accent-muted), transparent 50%),
       linear-gradient(165deg, var(--stripe-bg-elevated), var(--stripe-bg-secondary));
     box-shadow: var(--glass-shadow), var(--glass-white-highlight);
     overflow: hidden;
