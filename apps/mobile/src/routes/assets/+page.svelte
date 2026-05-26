@@ -369,7 +369,8 @@
     white-space: nowrap;
   }
   .m-filter-chip.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
     color: var(--stripe-text-primary);
   }
   .m-filter-star {
@@ -413,7 +414,6 @@
     height: 22px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
     overflow: hidden;
   }
   .m-mover-icon.is-white {

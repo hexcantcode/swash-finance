@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
-  import { shortAddress, formatPnl, formatPct, formatUsd, pnlSignClass } from '$lib/utils/format';
-  import { coinDisplayName, coinIconUrl } from '$lib/utils/coin';
+  import { effigyUrl, shortAddress, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { coinIconUrl } from '$lib/utils/coin';
 
   interface Props {
     row: LeaderRow;
@@ -13,8 +13,8 @@
   const scoreText = $derived(row.score === null ? '—' : Math.round(row.score).toString());
   const pnlClass = $derived(pnlSignClass(row.total_pnl_usd));
   const roiClass = $derived(pnlSignClass(row.roi));
-  const alfa = $derived(row.alfa_coin ? coinDisplayName(row.alfa_coin) : null);
-  const alfaIcon = $derived(row.alfa_coin ? coinIconUrl(row.alfa_coin) : null);
+  const shownHoldings = $derived(row.holdings.top.slice(0, 3));
+  const extraHoldings = $derived(Math.max(0, row.holdings.total - shownHoldings.length));
 </script>
 
 <a
@@ -22,35 +22,59 @@
   href={`/trader/${row.address}`}
   aria-label={`Trader ${row.address}, score ${scoreText}`}
 >
-  <div class="m-leader-rank" class:is-top={rank <= 3}>
-    <span class="m-leader-rank-num">{rank}</span>
+  <div
+    class="m-leader-rank"
+    class:is-medal={rank <= 3}
+    class:is-gold={rank === 1}
+    class:is-silver={rank === 2}
+    class:is-bronze={rank === 3}
+    aria-label={`Rank ${rank}`}
+  >
+    {#if rank <= 3}
+      <span class="m-leader-medal" aria-hidden="true"></span>
+    {:else}
+      <span class="m-leader-rank-num">{rank}</span>
+    {/if}
   </div>
 
   <div class="m-leader-main">
-    <div class="m-leader-line-1">
-      <span class="m-leader-address">{shortAddress(row.address, 6, 4)}</span>
-      {#if row.winner && row.winner_rank}
-        <span class="m-leader-badge" aria-label="Top earner this week">★ {row.winner_rank}</span>
-      {/if}
-    </div>
+    <img class="m-leader-avatar" src={effigyUrl(row.address)} alt="" loading="lazy" />
 
-    <div class="m-leader-line-2">
-      {#if row.primary_tag}
-        <span class="m-leader-tag">{row.primary_tag}</span>
-      {/if}
-      {#if alfa}
-        <span class="m-leader-alfa">
-          {#if alfaIcon}<img src={alfaIcon} alt="" class="m-leader-alfa-icon" />{/if}
-          <span>{alfa}</span>
-        </span>
-      {/if}
+    <div class="m-leader-copy">
+      <div class="m-leader-line-1">
+        <span class="m-leader-address">{shortAddress(row.address, 6, 4)}</span>
+        {#if row.winner && row.winner_rank}
+          <span class="m-leader-badge" aria-label="Top earner this week">★ {row.winner_rank}</span>
+        {/if}
+      </div>
+
+      <div class="m-leader-line-2">
+        {#if shownHoldings.length > 0}
+          <span class="m-leader-holdings" aria-label={`${row.holdings.total} open holdings`}>
+            {#each shownHoldings as h (h.coin)}
+              <img
+                class="m-leader-hold-icon"
+                class:is-long={h.side === 'long'}
+                class:is-short={h.side === 'short'}
+                src={coinIconUrl(h.coin)}
+                alt=""
+                loading="lazy"
+              />
+            {/each}
+            {#if extraHoldings > 0}
+              <span class="m-leader-hold-more">+{extraHoldings}</span>
+            {/if}
+          </span>
+        {:else}
+          <span class="m-leader-holdings-empty">No holdings</span>
+        {/if}
+      </div>
     </div>
   </div>
 
   <div class="m-leader-stats">
-    <div class="m-leader-score">
-      <span class="m-leader-score-num">{scoreText}</span>
-      <span class="m-leader-score-label">score</span>
+    <div class="m-leader-score" aria-label={`Score ${scoreText}`}>
+      {scoreText}
     </div>
     <div class="m-leader-pnl {pnlClass}">
       {formatPnl(row.total_pnl_usd)}
@@ -85,30 +109,54 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Top-3 ranks get a teal glass medallion. */
-  .m-leader-rank.is-top {
+  .m-leader-rank.is-medal {
     flex: 0 0 28px;
   }
-  .m-leader-rank.is-top .m-leader-rank-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+
+  .m-leader-medal {
     width: 24px;
     height: 24px;
     border-radius: var(--radius-full);
-    background: var(--stripe-accent-subtle);
-    border: 1px solid var(--stripe-border-focus);
-    box-shadow: var(--glass-highlight);
-    color: var(--stripe-accent-light);
-    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      0 4px 12px rgba(0, 0, 0, 0.22);
+  }
+
+  .m-leader-rank.is-gold .m-leader-medal {
+    background: linear-gradient(135deg, #f8d35c, #b97912);
+  }
+
+  .m-leader-rank.is-silver .m-leader-medal {
+    background: linear-gradient(135deg, #edf1f6, #8d98a7);
+  }
+
+  .m-leader-rank.is-bronze .m-leader-medal {
+    background: linear-gradient(135deg, #d99555, #8f5429);
   }
 
   .m-leader-main {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .m-leader-avatar {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: var(--radius-full);
+    background: var(--stripe-bg-secondary);
+  }
+
+  .m-leader-copy {
+    min-width: 0;
+    display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
 
   .m-leader-line-1 {
@@ -120,6 +168,7 @@
     color: var(--stripe-text-primary);
     font-weight: 500;
     line-height: var(--line-body);
+    min-width: 0;
   }
 
   .m-leader-address {
@@ -144,29 +193,46 @@
   .m-leader-line-2 {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-    line-height: var(--line-caption);
+    min-height: 18px;
+    line-height: 1;
   }
 
-  .m-leader-tag {
-    text-transform: capitalize;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-leader-alfa {
-    display: inline-flex;
+  .m-leader-holdings {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    color: var(--stripe-text-secondary);
+    min-width: 0;
   }
 
-  .m-leader-alfa-icon {
-    width: 14px;
-    height: 14px;
+  .m-leader-hold-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
     border-radius: var(--radius-full);
     object-fit: cover;
+    background: var(--stripe-bg-secondary);
+    border: 2px solid var(--stripe-bg-secondary);
+  }
+  .m-leader-hold-icon.is-long {
+    border-color: var(--stripe-success);
+  }
+  .m-leader-hold-icon.is-short {
+    border-color: var(--stripe-danger);
+  }
+  .m-leader-hold-icon:not(:first-child) {
+    margin-left: -7px;
+  }
+
+  .m-leader-hold-more {
+    margin-left: 5px;
+  }
+
+  .m-leader-hold-more,
+  .m-leader-holdings-empty {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    color: var(--stripe-text-tertiary);
+    white-space: nowrap;
   }
 
   .m-leader-stats {
@@ -187,32 +253,18 @@
 
   .m-leader-score {
     grid-area: score;
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
-    padding: 4px 8px;
+    min-width: 36px;
+    height: 28px;
+    padding: 0 8px;
     border-radius: var(--radius-md);
-    background: var(--stripe-accent-subtle);
-    border: 1px solid var(--stripe-border-focus);
-    box-shadow: var(--glass-highlight);
-  }
-
-  .m-leader-score-num {
-    font-size: var(--type-headline);
-    color: var(--stripe-accent-light);
-    font-weight: 700;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--stripe-text-primary);
+    font-size: var(--type-subhead);
+    font-weight: 600;
     line-height: 1;
-  }
-
-  .m-leader-score-label {
-    font-size: 9px;
-    color: var(--stripe-accent);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 2px;
-    opacity: 0.8;
   }
 
   .m-leader-pnl {

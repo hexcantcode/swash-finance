@@ -96,7 +96,6 @@
       radial-gradient(130% 120% at 0% -10%, rgba(255, 255, 255, 0.13), transparent 52%),
       radial-gradient(120% 130% at 100% 110%, rgba(255, 255, 255, 0.05), transparent 50%),
       linear-gradient(165deg, var(--stripe-bg-elevated), var(--stripe-bg-secondary));
-    border: 1px solid var(--glass-white-border);
     box-shadow: var(--glass-shadow), var(--glass-white-highlight);
     overflow: hidden;
   }
@@ -257,8 +256,9 @@
     color: var(--stripe-text-tertiary);
   }
 
-  /* Action bar — the mockup's floating black card, rendered as the darkest
-     glass surface so it reads as a distinct, recessed panel on the hero. */
+  /* Action bar — recessed-into-hero pocket. No second material layer (Apple:
+     don't nest glass): the inset shadow alone darkens the well, and the hero's
+     gradient shows through. */
   .m-actions {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -266,9 +266,8 @@
     margin-top: var(--space-6);
     padding: var(--space-3) var(--space-2);
     border-radius: var(--radius-lg);
-    background: var(--glass-bg-strong);
-    border: 1px solid var(--stripe-border);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
   }
   .m-action {
     display: flex;

@@ -67,9 +67,8 @@
     overflow: hidden;
   }
 
-  /* Full-width filled header row — flush to the frame, same tone as the
-     assets filter chips (--glass-bg). The card's overflow:hidden + radius
-     clips its top corners to match the frame. */
+  /* Header row — no separate material (would nest glass on glass). Sits on
+     the card's own surface; padding alone separates it from the figs below. */
   .m-tcard-top {
     display: flex;
     align-items: center;
@@ -77,7 +76,6 @@
     gap: var(--space-2);
     min-width: 0;
     padding: 7px 10px;
-    background: var(--glass-bg);
   }
 
   .m-tcard-avatar {
@@ -86,7 +84,6 @@
     flex: 0 0 22px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
   }
 
   .m-tcard-holdings {

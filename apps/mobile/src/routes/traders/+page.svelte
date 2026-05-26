@@ -181,10 +181,11 @@
     white-space: nowrap;
   }
 
-  /* Selected = the only chip with a visible border; unselected are borderless
-     filled chips. The border is the highlight. */
+  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
+     darker fill, add an inset shadow so it reads as recessed. */
   .m-sort-chip.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
     color: var(--stripe-text-primary);
   }
 

@@ -41,6 +41,8 @@
 
   {@render children?.()}
 
+  <div class="m-bottomnav-edge" aria-hidden="true"></div>
+
   <nav class="m-bottomnav" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
       <a
@@ -166,18 +168,65 @@
     min-height: 56px;
     padding-top: var(--safe-top);
     padding-bottom: 0;
-    background: var(--glass-bg-strong);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    background: var(--glass-bg-thin);
+    -webkit-backdrop-filter: var(--glass-blur-thin);
+    backdrop-filter: var(--glass-blur-thin);
     position: sticky;
     top: 0;
     z-index: 20;
+  }
+
+  /* Scroll-edge effect: a short fade strip immediately under the header that
+     bleeds the header tone into transparency, so content scrolling underneath
+     resolves into clarity rather than colliding with a hard chrome line.
+     Apple HIG: replace dividers with subtle blur at chrome boundaries. */
+  .m-header::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to bottom, var(--glass-bg-thin), transparent);
+    pointer-events: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .m-header::after {
+      display: none;
+    }
   }
 
   .m-header-brand img {
     height: 27px;
     width: auto;
     display: block;
+  }
+
+  /* Scroll-edge effect above the floating bottom-nav pill: a fade band that
+     softens content as it scrolls behind / past the pill. Spans full width
+     (the pill is inset, so content drifts past on either side too).
+     Apple HIG: chrome boundaries get subtle blur, not hard cut-offs. */
+  .m-bottomnav-edge {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Tall enough to cover the pill height (64px) + its bottom inset (safe-area
+       + --space-3) + the fade zone above it. */
+    height: calc(var(--safe-bottom) + 120px);
+    background: linear-gradient(
+      to top,
+      var(--stripe-bg-deep) 0%,
+      rgba(8, 11, 18, 0.6) 35%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 19;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .m-bottomnav-edge {
+      display: none;
+    }
   }
 
   /* Bottom navigation — sticks to the bottom safe-area, never scrolls. */
@@ -233,22 +282,22 @@
     color: var(--stripe-accent);
   }
 
-  /* Active tab gets a short teal indicator bar at the top edge + an icon glow. */
+  /* Active tab = recessed glass pill (Apple HIG iOS 26 pattern): no external
+     indicator line, no glow. The pill sits behind the icon+label via ::before
+     and uses the shared pressed-depth tokens so selection reads consistently
+     with chips and segs across the app. */
   .m-bottomnav-item.is-active::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 28px;
-    height: 2px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-accent);
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    inset: 6px 8px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
+    pointer-events: none;
   }
-
-  .m-bottomnav-item.is-active .m-bottomnav-icon {
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+  .m-bottomnav-icon,
+  .m-bottomnav-label {
+    position: relative;
   }
 
   /* Fixed 22px slot, vertically centered, so every icon shares one baseline

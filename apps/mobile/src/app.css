@@ -113,13 +113,20 @@
   --stripe-border-light: rgba(255, 255, 255, 0.14);
   --stripe-border-focus: rgba(255, 255, 255, 0.45);
 
-  /* ── Frosted-glass tokens ──────────────────────────────────
-     Neutral-grey translucency over the near-black base. Applied to
-     framing surfaces only (fixed chrome + container panels), never to
-     every row — keeps backdrop-filter cost low. */
+  /* ── Frosted-glass material hierarchy ──────────────────────
+     Matches Apple's thin / regular / chrome layering:
+       --glass-bg-thin   : top header — most see-through, lets content scroll
+                           visibly behind it.
+       --glass-bg        : default content panels (cards, sidebars, floating
+                           nav) — translucent but with presence.
+       --glass-white-*   : interactive chrome (chips, segs, small controls) —
+                           lighter wash for elements that need to read as
+                           "touchable" on top of content material.
+     Backdrop-filter is expensive; only apply to framing surfaces, never per-row. */
+  --glass-bg-thin: rgba(18, 21, 27, 0.5);
   --glass-bg: rgba(26, 30, 37, 0.62);
-  --glass-bg-strong: rgba(12, 15, 20, 0.82);
   --glass-blur: blur(18px) saturate(120%);
+  --glass-blur-thin: blur(28px) saturate(140%);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
 
@@ -129,6 +136,14 @@
   --glass-white-bg: rgba(255, 255, 255, 0.06);
   --glass-white-border: rgba(255, 255, 255, 0.14);
   --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  /* Pressed/selected depth — Apple HIG: selection reads as pushed-into-glass,
+     not outlined. Pair --glass-pressed-bg with --glass-pressed-inset on the
+     active state, and drop the top sheen so the control loses its lift. */
+  --glass-pressed-bg: rgba(0, 0, 0, 0.28);
+  --glass-pressed-inset:
+    inset 0 1px 2px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -160,8 +175,9 @@
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --glass-bg: var(--stripe-bg-primary);
-    --glass-bg-strong: var(--stripe-bg-deep);
+    --glass-bg-thin: var(--stripe-bg-primary);
     --glass-blur: none;
+    --glass-blur-thin: none;
     --glass-highlight: 0 0 0 0 transparent;
     --glass-white-bg: var(--stripe-bg-secondary);
     --glass-white-highlight: 0 0 0 0 transparent;

@@ -63,7 +63,6 @@
     height: 36px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
     box-shadow: var(--glass-shadow);
     overflow: hidden;
     display: flex;

@@ -228,7 +228,6 @@
     height: 64px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1.5px solid var(--stripe-border-light);
     box-shadow: var(--glass-shadow);
     overflow: hidden;
     margin-bottom: var(--space-2);

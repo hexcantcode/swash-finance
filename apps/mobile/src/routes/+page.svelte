@@ -317,10 +317,11 @@
     font-size: 10px;
     cursor: pointer;
   }
-  /* Selected = the only chip with a visible border; unselected are borderless
-     filled chips. The border is the highlight. */
+  /* Selected = pushed into the glass (Apple HIG): drop the lift, swap to a
+     darker fill, add an inset shadow so it reads as recessed. */
   .m-seg-btn.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
     color: var(--stripe-text-primary);
   }
 
@@ -385,7 +386,6 @@
     height: 22px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
     overflow: hidden;
   }
   .m-company-icon.is-white {
@@ -452,7 +452,8 @@
     white-space: nowrap;
   }
   .m-filter-chip.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
     color: var(--stripe-text-primary);
   }
   .m-filter-star {
