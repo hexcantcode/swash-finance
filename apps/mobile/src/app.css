@@ -132,10 +132,12 @@
 
   /* "White glass" — lighter frosted tint for interactive chrome (bottom-nav
      menu, segmented controls, filter chips, sort/tab rows). Sits a step above
-     the darker content glass so controls read as elevated, not as panels. */
-  --glass-white-bg: rgba(255, 255, 255, 0.06);
+     the darker content glass so controls read as elevated, not as panels.
+     Wash is brighter than the underlying near-black page so that pressing
+     into --glass-pressed-bg reads as a real step down, not a vanishing chip. */
+  --glass-white-bg: rgba(255, 255, 255, 0.14);
   --glass-white-border: rgba(255, 255, 255, 0.14);
-  --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 
   /* Pressed/selected depth — Apple HIG: selection reads as pushed-into-glass,
      not outlined. Pair --glass-pressed-bg with --glass-pressed-inset on the
