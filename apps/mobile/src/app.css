@@ -265,7 +265,10 @@
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`): blocks horizontal bleed without forcing
+   * `overflow-y` to compute as `auto`, which would turn <html> and <body>
+   * into their own scroll containers and break document scroll on iOS. */
+  overflow-x: clip;
   background: var(--stripe-bg-deep);
   color: var(--stripe-text-primary);
   font-family: var(--font-sans);
