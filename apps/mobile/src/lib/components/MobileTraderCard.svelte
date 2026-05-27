@@ -167,10 +167,11 @@
 
   .m-trader-addr {
     font-family: var(--font-sans);
-    font-size: var(--type-headline);
+    font-size: var(--type-title);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.1;
+    letter-spacing: -0.01em;
   }
 
   .m-trader-holdings {
@@ -249,10 +250,13 @@
   .m-trader-fig-val {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--type-headline);
+    /* Hero metric in the card — sits between body and title scales so a
+       6-figure dollar value still fits next to the sparkline without
+       wrapping on 360px-wide phones. */
+    font-size: 20px;
     font-weight: 600;
     color: var(--stripe-text-primary);
-    line-height: 1.1;
+    line-height: 1.15;
   }
   .m-trader-fig-val:global(.k-pnl-positive) {
     color: var(--stripe-success);
@@ -262,7 +266,7 @@
   }
   .m-trader-fig-label {
     font-family: var(--font-mono);
-    font-size: var(--type-caption);
+    font-size: var(--type-footnote);
     color: var(--stripe-text-tertiary);
     letter-spacing: 0.02em;
   }
@@ -293,12 +297,13 @@
     font-variant-numeric: tabular-nums;
   }
   .m-trader-score-val {
-    font-size: var(--type-headline);
+    font-size: var(--type-title);
     font-weight: 600;
     color: var(--stripe-text-primary);
+    line-height: 1;
   }
   .m-trader-score-of {
-    font-size: var(--type-caption);
+    font-size: var(--type-footnote);
     color: var(--stripe-text-tertiary);
   }
   /* Ten thin bars, lit by composite score. Same accent as the desktop
@@ -326,11 +331,11 @@
      understand it's not wired up yet. Click is captured by the parent
      <a>; preventDefault on the button stops the implicit form submit. */
   .m-trader-mirror {
-    padding: 8px 16px;
+    padding: 10px 18px;
     font-family: var(--font-sans);
-    font-size: var(--type-footnote);
+    font-size: var(--type-subhead);
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     opacity: 0.7;
     cursor: not-allowed;
   }
