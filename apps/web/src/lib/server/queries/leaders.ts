@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { scores, walletTags, wallets } from '@copytrade/db';
+import { coinCategory } from '$lib/utils/coin';
 import { db } from '../db.js';
 import { listBestAssetsByWinRate } from './best-asset.js';
 import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
@@ -17,6 +18,11 @@ export interface LeaderCard {
   metrics: {
     total_pnl_usd: number | null;
     total_volume_usd: number | null;
+    /** Last-30-day realized PnL (USD) from Hyperliquid's leaderboard
+     *  snapshot (`wallets.hl_pnl_30d_usd`). Distinct from `total_pnl_usd`
+     *  which is the scored-window net PnL across the full backtest.
+     *  Surfaced for the mobile trader card's "PnL 30D" headline. */
+    pnl_30d_usd: number | null;
     roi: number | null; // net_pnl_usd / account_value — return on current equity over the scored window; null only when account_value is unknown
     sharpe: number | null;
     sortino: number | null;
@@ -40,6 +46,19 @@ export interface LeaderCard {
    *  Drives the Holdings column. Empty top + total=0 when the wallet has
    *  no open positions in `leader_cache`. */
   holdings: HoldingsByAddress;
+  /** 30-point cumulative realized PnL trajectory over the last 30 days
+   *  (USD). Day 0 = 29 days ago, day 29 = today. Each value is the
+   *  running total of `closed_pnl + funding_usdc` up to and including
+   *  that day. Days with no activity carry the previous value forward.
+   *  Always 30 elements; zeros when the wallet has no fills in the
+   *  window. Drives the mobile trader card sparkline. */
+  pnl_curve_30d: number[];
+  /** Trader's primary asset class over the last 30 days, by share of
+   *  |closed_pnl|: `'equity'` when ≥60% of absolute realized PnL came
+   *  from stocks/indices, `'crypto'` otherwise (default + fallback when
+   *  the wallet has no 30D activity). Drives the mobile focus filter
+   *  on /traders. `index` category folds into `equity`. */
+  asset_focus: 'equity' | 'crypto';
   /** True iff this wallet is in the curated "best traders" set (passed the
    * eligibility gate AND composite >= 70, with ~65 hysteresis). `/browse` shows
    * everything; pass `curatedOnly: true` to restrict. */
@@ -74,6 +93,12 @@ export interface BrowseFilters {
    * that's the HL-7d-ROI-top-10 set, displayed ranked by our composite.
    */
   winnersOnly?: boolean | undefined;
+  /**
+   * Restrict to traders whose 30D realized PnL is dominated (≥60%) by
+   * the named asset class. See `LeaderCard.asset_focus`. Omitted = no
+   * restriction.
+   */
+  focus?: 'equity' | 'crypto' | undefined;
 }
 
 export interface BrowseResult {
@@ -110,6 +135,25 @@ export async function listLeaders(args: {
 
   if (filters.search) {
     baseFilters.push(sql`${wallets.address} ilike ${'%' + filters.search.toLowerCase() + '%'}`);
+  }
+
+  // Compute per-wallet asset-class focus from the last 30 days of realized
+  // PnL across the tracked set. Always runs (the value is surfaced on every
+  // returned card); when `filters.focus` is set we also restrict the main
+  // SELECT to addresses whose classification matches. Scoping to
+  // `tracked_wallets` keeps the aggregation bounded — the leaderboard is a
+  // few hundred wallets, not the whole fills table.
+  const focusByAddress = await classifyAssetFocusByAddress();
+  if (filters.focus) {
+    const matching = [...focusByAddress.entries()]
+      .filter(([, f]) => f === filters.focus)
+      .map(([a]) => a);
+    if (matching.length === 0) {
+      // No wallet passes the focus filter — short-circuit before hitting
+      // any other table.
+      return { leaders: [], total: 0 };
+    }
+    baseFilters.push(sql`${inArray(wallets.address, matching)}`);
   }
 
   // Tag filters require an EXISTS subquery against wallet_tags.
@@ -150,6 +194,7 @@ export async function listLeaders(args: {
       winner_rank: wallets.winnerRank,
       total_pnl_usd: scores.netPnlUsd,
       total_volume_usd: scores.totalVolumeUsd,
+      pnl_30d_usd: wallets.hlPnl30dUsd,
       account_value: wallets.accountValue,
       sharpe: scores.sharpe,
       sortino: scores.sortino,
@@ -178,6 +223,7 @@ export async function listLeaders(args: {
   // Look up secondary tags in a single query for the fetched leaders.
   const addresses = rows.map((r) => r.address);
   const secondaryByAddress = new Map<string, string[]>();
+  const curvePromise = pnlCurve30dByAddress(addresses);
   const [, alfaByAddress, holdingsByAddress] = await Promise.all([
     (async () => {
       if (addresses.length === 0) return;
@@ -200,6 +246,7 @@ export async function listLeaders(args: {
     listBestAssetsByWinRate(addresses),
     listHoldingsByAddress(addresses),
   ]);
+  const curveByAddress = await curvePromise;
 
   const leaders: LeaderCard[] = rows.map((r) => ({
     address: r.address,
@@ -210,6 +257,7 @@ export async function listLeaders(args: {
     metrics: {
       total_pnl_usd: numOrNull(r.total_pnl_usd),
       total_volume_usd: numOrNull(r.total_volume_usd),
+      pnl_30d_usd: numOrNull(r.pnl_30d_usd),
       roi: roiFromEquity(numOrNull(r.total_pnl_usd), numOrNull(r.account_value)),
       sharpe: numOrNull(r.sharpe),
       sortino: numOrNull(r.sortino),
@@ -223,6 +271,8 @@ export async function listLeaders(args: {
     primary_asset: r.primary_asset,
     alfa_coin: alfaByAddress.get(r.address) ?? null,
     holdings: holdingsByAddress.get(r.address) ?? { top: [], total: 0 },
+    pnl_curve_30d: curveByAddress.get(r.address) ?? new Array(30).fill(0),
+    asset_focus: focusByAddress.get(r.address) ?? 'crypto',
     curated: r.curated,
     winner: r.winner,
     winner_rank: r.winner_rank,
@@ -252,4 +302,140 @@ function numOrNull(value: string | null): number | null {
   if (value === null) return null;
   const n = Number.parseFloat(value);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Classify every tracked wallet as `equity`- or `crypto`-focused by the
+ * 30D realized-PnL share across asset classes. A wallet is `equity` when
+ * ≥60% of its absolute realized PnL came from stocks/indices (folded
+ * together — same as the analytics breakdown); else `crypto`. Wallets
+ * with no 30D activity fall back to `crypto` (the platform majority).
+ *
+ * Implementation: aggregate `|closed_pnl|` per `(address, coin)` in SQL,
+ * fold to category in TS using the canonical `coinCategory` helper.
+ * Keeps the index/dex symbol list in one place (`utils/coin.ts`) rather
+ * than duplicating it inside the SQL.
+ */
+async function classifyAssetFocusByAddress(): Promise<Map<string, 'equity' | 'crypto'>> {
+  const startMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const rows = await db().execute<{
+    user_address: string;
+    coin: string;
+    abs_pnl: string;
+  }>(sql`
+    SELECT
+      f.user_address,
+      f.coin,
+      SUM(ABS(f.closed_pnl::numeric))::text AS abs_pnl
+    FROM fills f
+    WHERE f.block_time_ms >= ${startMs}
+      AND EXISTS (
+        SELECT 1 FROM tracked_wallets tw WHERE tw.address = f.user_address
+      )
+    GROUP BY f.user_address, f.coin
+  `);
+
+  const perWallet = new Map<string, { stocks: number; crypto: number }>();
+  for (const r of rows.rows) {
+    const colonIdx = r.coin.indexOf(':');
+    const dex = colonIdx === -1 ? null : r.coin.slice(0, colonIdx);
+    const cat3 = coinCategory(r.coin, dex);
+    const cat: 'stocks' | 'crypto' = cat3 === 'crypto' ? 'crypto' : 'stocks';
+    const abs = Number.parseFloat(r.abs_pnl);
+    if (!Number.isFinite(abs)) continue;
+    const entry = perWallet.get(r.user_address) ?? { stocks: 0, crypto: 0 };
+    entry[cat] += abs;
+    perWallet.set(r.user_address, entry);
+  }
+
+  const out = new Map<string, 'equity' | 'crypto'>();
+  for (const [address, { stocks, crypto }] of perWallet) {
+    const total = stocks + crypto;
+    out.set(address, total > 0 && stocks / total >= 0.6 ? 'equity' : 'crypto');
+  }
+  return out;
+}
+
+/**
+ * Build a 30-point cumulative realized-PnL trajectory per address from
+ * `fills.closed_pnl + fundings.usdc` over the last 30 days. Days with no
+ * activity carry the prior cumulative forward (the array is monotone in
+ * the "no fills" stretches). Output day 0 is 29 days ago; day 29 is the
+ * 24h window ending now.
+ *
+ * NB: this is a *realized* trajectory, not literal account equity — it
+ * doesn't include mark-to-market on open positions. See the design doc
+ * for the trade-off (`docs/plans/2026-05-27-mobile-trader-card-redesign-design.md`).
+ */
+async function pnlCurve30dByAddress(addresses: string[]): Promise<Map<string, number[]>> {
+  const DAYS = 30;
+  if (addresses.length === 0) return new Map();
+  const startMs = Date.now() - DAYS * 24 * 60 * 60 * 1000;
+
+  // `node-postgres` won't auto-cast a JS array for `= ANY($n)`; build an
+  // `IN (...)` list via `sql.join` (same pattern as `holdings.ts` /
+  // `analytics.ts`).
+  const addrList = sql.join(
+    addresses.map((a) => sql`${a}`),
+    sql`, `,
+  );
+
+  const rows = await db().execute<{
+    user_address: string;
+    day_idx: number;
+    net_usd: string;
+  }>(sql`
+    WITH fills_daily AS (
+      SELECT
+        user_address,
+        FLOOR((block_time_ms - ${startMs}) / 86400000.0)::int AS day_idx,
+        SUM(closed_pnl::numeric) AS pnl
+      FROM fills
+      WHERE user_address IN (${addrList})
+        AND block_time_ms >= ${startMs}
+      GROUP BY user_address, day_idx
+    ),
+    fundings_daily AS (
+      SELECT
+        user_address,
+        FLOOR((block_time_ms - ${startMs}) / 86400000.0)::int AS day_idx,
+        SUM(usdc::numeric) AS funding_usd
+      FROM fundings
+      WHERE user_address IN (${addrList})
+        AND block_time_ms >= ${startMs}
+      GROUP BY user_address, day_idx
+    )
+    SELECT
+      COALESCE(f.user_address, g.user_address) AS user_address,
+      COALESCE(f.day_idx, g.day_idx)            AS day_idx,
+      (COALESCE(f.pnl, 0) + COALESCE(g.funding_usd, 0))::text AS net_usd
+    FROM fills_daily f
+    FULL OUTER JOIN fundings_daily g
+      ON f.user_address = g.user_address AND f.day_idx = g.day_idx
+  `);
+
+  // Bucket daily-net per address into a dense 30-point array (zeros for
+  // missing days), then cumulative-sum in place. Forward-fill is a
+  // consequence of cumulative-sum on a zero — the running total holds.
+  const dailyByAddress = new Map<string, number[]>();
+  for (const addr of addresses) dailyByAddress.set(addr, new Array(DAYS).fill(0));
+  for (const r of rows.rows) {
+    const arr = dailyByAddress.get(r.user_address);
+    if (!arr) continue;
+    const idx = r.day_idx;
+    if (idx < 0 || idx >= DAYS) continue;
+    const n = Number.parseFloat(r.net_usd);
+    if (Number.isFinite(n)) arr[idx] = (arr[idx] ?? 0) + n;
+  }
+  const out = new Map<string, number[]>();
+  for (const [addr, daily] of dailyByAddress) {
+    const cum = new Array<number>(DAYS);
+    let running = 0;
+    for (let i = 0; i < DAYS; i++) {
+      running += daily[i] ?? 0;
+      cum[i] = running;
+    }
+    out.set(addr, cum);
+  }
+  return out;
 }

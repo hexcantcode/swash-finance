@@ -31,13 +31,26 @@ export interface LeaderRow {
   score: number | null;
   primary_tag: string | null;
   account_value: number | null;
-  total_pnl_usd: number | null;
+  /** 30D realized PnL from HL's leaderboard snapshot — the headline on
+   *  the trader card. Distinct from the scored-window net PnL surfaced
+   *  via `LeaderCard.metrics.total_pnl_usd`, which mobile no longer
+   *  shows. */
+  pnl_30d_usd: number | null;
   roi: number | null;
   win_rate: number | null;
   sharpe: number | null;
   primary_asset: string | null;
   alfa_coin: string | null;
   holdings: Holdings;
+  /** 30-point cumulative realized-PnL trajectory (oldest → newest);
+   *  always 30 elements, zeros when the wallet has no 30D activity. */
+  pnl_curve_30d: number[];
+  /** `'equity'` when ≥60% of 30D |closed_pnl| came from stocks/indices;
+   *  `'crypto'` otherwise. Drives the focus filter strip on /traders. */
+  asset_focus: 'equity' | 'crypto';
+  /** ISO timestamp of the last trade as of the last scoring run. Used
+   *  for the relative-time pip on the card ("3D AGO"). */
+  last_active_at: string | null;
   winner: boolean;
   winner_rank: number | null;
 }
@@ -49,6 +62,7 @@ interface RawLeaderCard {
   account_value: number | null;
   metrics: {
     total_pnl_usd: number | null;
+    pnl_30d_usd: number | null;
     roi: number | null;
     win_rate: number | null;
     sharpe: number | null;
@@ -62,6 +76,9 @@ interface RawLeaderCard {
   primary_asset: string | null;
   alfa_coin: string | null;
   holdings: Holdings;
+  pnl_curve_30d: number[];
+  asset_focus: 'equity' | 'crypto';
+  last_active_at: string | null;
   winner: boolean;
   winner_rank: number | null;
 }
@@ -86,6 +103,7 @@ export interface LeaderListResult {
 export interface LeaderListArgs {
   sort?: LeaderSort;
   search?: string;
+  focus?: 'equity' | 'crypto';
   page?: number;
   limit?: number;
 }
@@ -94,6 +112,7 @@ export async function listLeaders(args: LeaderListArgs = {}): Promise<LeaderList
   const qs = new URLSearchParams();
   if (args.sort) qs.set('sort', args.sort);
   if (args.search) qs.set('search', args.search);
+  if (args.focus) qs.set('focus', args.focus);
   if (args.page) qs.set('page', String(args.page));
   if (args.limit) qs.set('limit', String(args.limit));
 
@@ -116,13 +135,16 @@ function toLeaderRow(card: RawLeaderCard): LeaderRow {
     score: card.score,
     primary_tag: card.primary_tag,
     account_value: card.account_value,
-    total_pnl_usd: card.metrics.total_pnl_usd,
+    pnl_30d_usd: card.metrics.pnl_30d_usd,
     roi: card.metrics.roi,
     win_rate: card.metrics.win_rate,
     sharpe: card.metrics.sharpe,
     primary_asset: card.primary_asset,
     alfa_coin: card.alfa_coin,
     holdings: card.holdings,
+    pnl_curve_30d: card.pnl_curve_30d,
+    asset_focus: card.asset_focus,
+    last_active_at: card.last_active_at,
     winner: card.winner,
     winner_rank: card.winner_rank,
   };

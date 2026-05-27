@@ -1,119 +1,263 @@
 <script lang="ts">
-  import type { TopTrader } from '$lib/api/leaders-top';
-  import { effigyUrl, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import type { LeaderRow } from '$lib/api/leaders';
+  import { effigyUrl, shortAddress, formatPnl, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl } from '$lib/utils/coin';
 
   interface Props {
-    trader: TopTrader;
+    row: LeaderRow;
   }
-  let { trader }: Props = $props();
+  let { row }: Props = $props();
 
-  const pnlClass = $derived(pnlSignClass(trader.pnl_usd));
-  const roiClass = $derived(pnlSignClass(trader.roi));
-  // Holdings shown as a stack of coin avatars: first 3, then a +N overflow.
-  const shownHoldings = $derived(trader.holdings.top.slice(0, 3));
-  const extraHoldings = $derived(Math.max(0, trader.holdings.total - shownHoldings.length));
+  const scoreText = $derived(row.score === null ? '—' : Math.round(row.score).toString());
+  const scoreFilled = $derived(row.score === null ? 0 : Math.max(0, Math.min(10, Math.round(row.score / 10))));
+  const pnlClass = $derived(pnlSignClass(row.pnl_30d_usd));
+  // Mock shows up to 5 holding pips before the +N overflow.
+  const shownHoldings = $derived(row.holdings.top.slice(0, 5));
+  const extraHoldings = $derived(Math.max(0, row.holdings.total - shownHoldings.length));
+  const relTime = $derived(formatRelative(row.last_active_at));
+
+  // Sparkline geometry — fixed viewBox, polyline computed from the 30
+  // cumulative-PnL points. Stroke color = sign of (last - first) so a
+  // flat-then-up trace reads as positive even if the first point is 0.
+  const curve = $derived(row.pnl_curve_30d);
+  const curveSign = $derived(curveDirection(curve));
+  const curvePath = $derived(buildCurvePath(curve));
+  const curveArea = $derived(buildAreaPath(curve));
+
+  function curveDirection(c: number[]): 'positive' | 'negative' | 'flat' {
+    if (c.length < 2) return 'flat';
+    const first = c[0] ?? 0;
+    const last = c[c.length - 1] ?? 0;
+    if (last > first) return 'positive';
+    if (last < first) return 'negative';
+    return 'flat';
+  }
+
+  /** Map a cumulative-PnL series to a polyline path inside a 100×40
+   *  viewBox. Both ends inset by 2px so the stroke + end-cap dot don't
+   *  clip on the rim. Y is inverted (SVG origin is top-left). */
+  function buildCurvePath(c: number[]): string {
+    if (c.length === 0) return '';
+    const lo = Math.min(0, ...c);
+    const hi = Math.max(0, ...c);
+    const range = hi - lo || 1;
+    const w = 96; // 100 - 2 px inset each side
+    const h = 36;
+    const n = c.length;
+    const pts = c.map((v, i) => {
+      const x = 2 + (n === 1 ? w / 2 : (i / (n - 1)) * w);
+      const y = 2 + h - ((v - lo) / range) * h;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    return `M ${pts.join(' L ')}`;
+  }
+
+  /** Closed-shape variant of the same curve for the soft area fill below
+   *  the stroke — drops to the bottom edge at both ends. */
+  function buildAreaPath(c: number[]): string {
+    if (c.length === 0) return '';
+    const line = buildCurvePath(c);
+    // Close along the bottom of the viewBox back to the starting x.
+    const n = c.length;
+    const w = 96;
+    const startX = 2;
+    const endX = 2 + (n === 1 ? w / 2 : w);
+    return `${line} L ${endX.toFixed(2)},38 L ${startX.toFixed(2)},38 Z`;
+  }
+
+  /** "3D AGO" / "5H AGO" / "12M AGO" from an ISO timestamp. Coarse buckets
+   *  — minutes / hours / days / weeks / months — matching the mock. */
+  function formatRelative(iso: string | null): string {
+    if (!iso) return '—';
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return '—';
+    const diffSec = (Date.now() - t) / 1000;
+    if (diffSec < 60) return 'NOW';
+    const mins = Math.floor(diffSec / 60);
+    if (mins < 60) return `${mins}M AGO`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}H AGO`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}D AGO`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks}W AGO`;
+    const months = Math.floor(days / 30);
+    return `${months}MO AGO`;
+  }
 </script>
 
-<a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${trader.address}`}>
-  <div class="m-tcard-top">
-    <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
-    {#if shownHoldings.length > 0}
-      <div class="m-tcard-holdings">
-        {#each shownHoldings as h (h.coin)}
-          <img
-            class="m-tcard-hold-icon"
-            class:is-long={h.side === 'long'}
-            class:is-short={h.side === 'short'}
-            src={coinIconUrl(h.coin)}
-            alt=""
-            loading="lazy"
-          />
-        {/each}
-        {#if extraHoldings > 0}
-          <span class="m-tcard-hold-more">+{extraHoldings}</span>
-        {/if}
-      </div>
-    {/if}
+<a
+  class="m-trader-card"
+  href={`/trader/${row.address}`}
+  aria-label={`Trader ${row.address}, score ${scoreText}`}
+>
+  <div class="m-trader-head">
+    <img
+      class="m-trader-avatar"
+      src={effigyUrl(row.address)}
+      alt=""
+      loading="lazy"
+    />
+    <div class="m-trader-id">
+      <span class="m-trader-addr">{shortAddress(row.address, 6, 4)}</span>
+      {#if shownHoldings.length > 0}
+        <span class="m-trader-holdings" aria-label={`${row.holdings.total} open holdings`}>
+          {#each shownHoldings as h (h.coin)}
+            <img
+              class="m-trader-hold-icon"
+              class:is-long={h.side === 'long'}
+              class:is-short={h.side === 'short'}
+              src={coinIconUrl(h.coin)}
+              alt=""
+              loading="lazy"
+            />
+          {/each}
+          {#if extraHoldings > 0}
+            <span class="m-trader-hold-more">+{extraHoldings}</span>
+          {/if}
+        </span>
+      {/if}
+    </div>
+    <span class="m-trader-time" aria-label="Last active">
+      {relTime}
+      <svg
+        viewBox="0 0 24 24"
+        class="m-trader-time-icon"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    </span>
   </div>
 
-  <div class="m-tcard-figs">
-    <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">PnL</span>
-      <span class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</span>
+  <div class="m-trader-body">
+    <div class="m-trader-figs">
+      <div class="m-trader-fig">
+        <span class="m-trader-fig-val {pnlClass}">{formatPnl(row.pnl_30d_usd)}</span>
+        <span class="m-trader-fig-label">PnL 30D</span>
+      </div>
+      <div class="m-trader-fig">
+        <span class="m-trader-fig-val">{formatPnl(row.account_value)}</span>
+        <span class="m-trader-fig-label">Equity</span>
+      </div>
     </div>
-    <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">ROI</span>
-      <span class="m-tcard-roi {roiClass}">{formatPct(trader.roi)}</span>
+    <svg
+      class="m-trader-spark"
+      class:is-positive={curveSign === 'positive'}
+      class:is-negative={curveSign === 'negative'}
+      viewBox="0 0 100 40"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      {#if curveArea}
+        <path class="m-trader-spark-area" d={curveArea} />
+        <path class="m-trader-spark-line" d={curvePath} />
+      {/if}
+    </svg>
+  </div>
+
+  <div class="m-trader-foot">
+    <div class="m-trader-score" aria-label={`Score ${scoreText} out of 100`}>
+      <span class="m-trader-score-val">{scoreText}</span>
+      <span class="m-trader-score-of">/100</span>
+      <span class="m-trader-score-bars" aria-hidden="true">
+        {#each Array(10) as _, i (i)}
+          <span class="m-trader-score-bar" class:is-on={i < scoreFilled}></span>
+        {/each}
+      </span>
     </div>
+    <button
+      type="button"
+      class="m-trader-mirror m-btn"
+      aria-disabled="true"
+      tabindex="-1"
+      onclick={(e) => e.preventDefault()}
+    >
+      Mirror
+    </button>
   </div>
 </a>
 
 <style>
-  .m-tcard {
-    flex: 0 0 auto;
-    width: 152px;
-    scroll-snap-align: start;
+  .m-trader-card {
     display: flex;
     flex-direction: column;
-    /* Override .tappable's align/justify center so rows fill the full width
-       (otherwise the filled top row is inset and shows side "padding"). */
-    align-items: stretch;
-    justify-content: flex-start;
     text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
     overflow: hidden;
   }
 
-  /* Header row — no separate material (would nest glass on glass). Sits on
-     the card's own surface; padding alone separates it from the figs below. */
-  .m-tcard-top {
+  /* ── Header row ───────────────────────────────────────── */
+  .m-trader-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    min-width: 0;
-    padding: 7px 10px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
   }
 
-  .m-tcard-avatar {
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
-    border-radius: var(--radius-full);
+  .m-trader-avatar {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: var(--radius-md);
     background: var(--stripe-bg-secondary);
+    object-fit: cover;
   }
 
-  .m-tcard-holdings {
+  .m-trader-id {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .m-trader-addr {
+    font-family: var(--font-sans);
+    font-size: var(--type-headline);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
+    line-height: 1.1;
+  }
+
+  .m-trader-holdings {
+    display: inline-flex;
     align-items: center;
     min-width: 0;
   }
 
-  .m-tcard-hold-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
+  .m-trader-hold-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
     border-radius: var(--radius-full);
     object-fit: cover;
     background: var(--stripe-bg-secondary);
-    /* Ring colored by position side (long=green, short=red); the fallback
-       in the row's tone keeps unknown-side icons reading as a clean stack. */
-    border: 2px solid var(--stripe-bg-secondary);
+    /* Ring color encodes long/short, matching the existing top-trader card. */
+    border: 1.5px solid var(--stripe-bg-secondary);
   }
-  .m-tcard-hold-icon.is-long {
+  .m-trader-hold-icon.is-long {
     border-color: var(--stripe-success);
   }
-  .m-tcard-hold-icon.is-short {
+  .m-trader-hold-icon.is-short {
     border-color: var(--stripe-danger);
   }
-  .m-tcard-hold-icon:not(:first-child) {
-    margin-left: -7px;
+  .m-trader-hold-icon:not(:first-child) {
+    margin-left: -6px;
   }
 
-  .m-tcard-hold-more {
+  .m-trader-hold-more {
     margin-left: 5px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -121,50 +265,156 @@
     color: var(--stripe-text-tertiary);
   }
 
-  .m-tcard-figs {
-    display: flex;
-    gap: var(--space-4);
-    padding: 8px 10px;
+  .m-trader-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    background: var(--stripe-accent-muted);
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--stripe-text-tertiary);
+  }
+  .m-trader-time-icon {
+    width: 12px;
+    height: 12px;
   }
 
-  .m-tcard-fig {
+  /* ── Middle row — figures + sparkline ─────────────────── */
+  .m-trader-body {
+    display: grid;
+    grid-template-columns: minmax(0, auto) 1fr;
+    gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--stripe-border);
+  }
+
+  .m-trader-figs {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--space-2);
     min-width: 0;
   }
-
-  /* Small stat label — same compact scale as the timeframe filter buttons. */
-  .m-tcard-fig-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-muted);
+  .m-trader-fig {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
-
-  .m-tcard-pnl {
+  .m-trader-fig-val {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--type-callout);
+    font-size: var(--type-headline);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.1;
   }
-
-  .m-tcard-roi {
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-tcard-pnl:global(.k-pnl-positive),
-  .m-tcard-roi:global(.k-pnl-positive) {
+  .m-trader-fig-val:global(.k-pnl-positive) {
     color: var(--stripe-success);
   }
-  .m-tcard-pnl:global(.k-pnl-negative),
-  .m-tcard-roi:global(.k-pnl-negative) {
+  .m-trader-fig-val:global(.k-pnl-negative) {
     color: var(--stripe-danger);
+  }
+  .m-trader-fig-label {
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
+    letter-spacing: 0.02em;
+  }
+
+  /* Sparkline — fills the right column. Height fixed at 60px so the
+     card height stays predictable regardless of the curve's amplitude. */
+  .m-trader-spark {
+    display: block;
+    width: 100%;
+    height: 60px;
+    overflow: visible;
+  }
+  .m-trader-spark-line {
+    fill: none;
+    stroke: var(--stripe-text-tertiary);
+    stroke-width: 1.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .m-trader-spark-area {
+    fill: var(--stripe-text-tertiary);
+    opacity: 0.10;
+  }
+  .m-trader-spark.is-positive .m-trader-spark-line {
+    stroke: var(--stripe-success);
+  }
+  .m-trader-spark.is-positive .m-trader-spark-area {
+    fill: var(--stripe-success);
+  }
+  .m-trader-spark.is-negative .m-trader-spark-line {
+    stroke: var(--stripe-danger);
+  }
+  .m-trader-spark.is-negative .m-trader-spark-area {
+    fill: var(--stripe-danger);
+  }
+
+  /* ── Footer row — score + Mirror ──────────────────────── */
+  .m-trader-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--stripe-border);
+  }
+
+  .m-trader-score {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-trader-score-val {
+    font-size: var(--type-headline);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
+  }
+  .m-trader-score-of {
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
+  }
+  /* Ten thin bars, lit by composite score. Same accent as the desktop
+     score meter; off-bars are a faint tone so the meter still reads
+     against the glass surface. */
+  .m-trader-score-bars {
+    display: inline-flex;
+    gap: 2px;
+    align-items: flex-end;
+    margin-left: var(--space-1);
+  }
+  .m-trader-score-bar {
+    display: inline-block;
+    width: 3px;
+    height: 12px;
+    background: var(--stripe-accent-muted);
+    border-radius: 1px;
+  }
+  .m-trader-score-bar.is-on {
+    background: var(--stripe-success);
+  }
+
+  /* Mirror button — visually a primary action, but inert: aria-disabled
+     and a non-interactive style so screen readers and keyboard users
+     understand it's not wired up yet. Click is captured by the parent
+     <a>; preventDefault on the button stops the implicit form submit. */
+  .m-trader-mirror {
+    padding: 8px 16px;
+    font-family: var(--font-sans);
+    font-size: var(--type-footnote);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.7;
+    cursor: not-allowed;
   }
 </style>

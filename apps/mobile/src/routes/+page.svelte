@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import MobileTraderCard from '$lib/components/MobileTraderCard.svelte';
+  import MobileTopTraderCard from '$lib/components/MobileTopTraderCard.svelte';
   import MobileAssetRow from '$lib/components/MobileAssetRow.svelte';
   import { listTopTraders, type TopTrader, type LeaderWindow } from '$lib/api/leaders-top';
   import { listAssets, type Asset } from '$lib/api/assets';
@@ -146,7 +146,7 @@
     {:else}
       <div class="m-tcard-scroll m-scroll-fade safe-x">
         {#each traders as t (t.address)}
-          <MobileTraderCard trader={t} />
+          <MobileTopTraderCard trader={t} />
         {/each}
       </div>
     {/if}

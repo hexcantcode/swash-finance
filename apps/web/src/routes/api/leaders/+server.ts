@@ -9,6 +9,10 @@ const QuerySchema = z.object({
   search: z.string().optional(),
   min: z.coerce.number().optional(),
   sort: z.enum(['score', 'pnl', 'equity', 'frequency']).optional(),
+  // Asset-class focus filter — see `LeaderCard.asset_focus`. Absent = no
+  // restriction; `equity` / `crypto` restrict to wallets whose 30D
+  // realized PnL is dominated (≥60%) by that class.
+  focus: z.enum(['equity', 'crypto']).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -24,6 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
     heatTag: q.heat,
     minScore: q.min,
     search: q.search,
+    focus: q.focus,
   };
   const result = await listLeaders({
     filters,

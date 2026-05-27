@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import MobileLeaderRow from '$lib/components/MobileLeaderRow.svelte';
+  import MobileTraderCard from '$lib/components/MobileTraderCard.svelte';
   import { listLeaders, type LeaderRow, type LeaderSort } from '$lib/api/leaders';
 
   // Client-only data loading. No server-side data fetch here — apps/web owns
@@ -17,16 +17,26 @@
     { value: 'frequency', label: 'Active' },
   ];
 
+  type Focus = 'all' | 'equity' | 'crypto';
+  const FOCI: { value: Focus; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'equity', label: 'Equity' },
+    { value: 'crypto', label: 'Crypto' },
+  ];
+
   let rows = $state<LeaderRow[]>([]);
   let total = $state(0);
   let loading = $state(true);
   let refreshing = $state(false);
   let errorMsg = $state<string | null>(null);
 
-  // Sort + search are driven from the URL so deep-links work and the back
-  // button is meaningful. Defaults: composite score, no search.
+  // Sort, focus, and search are driven from the URL so deep-links work and the
+  // back button is meaningful. Defaults: composite score, all traders, no search.
   const sort = $derived<LeaderSort>(
     (($page.url.searchParams.get('sort') as LeaderSort | null) ?? 'score'),
+  );
+  const focus = $derived<Focus>(
+    (($page.url.searchParams.get('focus') as Focus | null) ?? 'all'),
   );
   const search = $derived($page.url.searchParams.get('search') ?? '');
 
@@ -42,6 +52,7 @@
     try {
       const args: Parameters<typeof listLeaders>[0] = { sort, limit: 50 };
       if (search) args.search = search;
+      if (focus !== 'all') args.focus = focus;
       const result = await listLeaders(args);
       rows = result.rows;
       total = result.total;
@@ -61,6 +72,13 @@
     goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
   }
 
+  function setFocus(next: Focus) {
+    const url = new URL($page.url);
+    if (next === 'all') url.searchParams.delete('focus');
+    else url.searchParams.set('focus', next);
+    goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
+  }
+
   onMount(() => {
     mounted = true;
     void load();
@@ -70,11 +88,12 @@
     abortCtrl?.abort();
   });
 
-  // Re-fetch when sort or search changes (driven by URL).
+  // Re-fetch when sort / focus / search change (driven by URL).
   $effect(() => {
     if (!mounted) return;
     // Touch the derived values so the effect re-runs on URL change.
     void sort;
+    void focus;
     void search;
     void load({ silent: true });
   });
@@ -85,6 +104,24 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
+  <div
+    class="m-sort-strip"
+    role="tablist"
+    aria-label="Filter by asset class"
+  >
+    {#each FOCI as opt (opt.value)}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={focus === opt.value}
+        class="m-sort-chip tappable"
+        class:is-active={focus === opt.value}
+        onclick={() => setFocus(opt.value)}
+      >
+        {opt.label}
+      </button>
+    {/each}
+  </div>
   <div
     class="m-sort-strip"
     role="tablist"
@@ -109,18 +146,11 @@
   {/if}
 
   {#if loading}
-    <ul class="m-list" aria-busy="true" aria-label="Loading leaderboard">
-      {#each Array(8) as _, i (i)}
-        <li class="m-skeleton-row">
-          <span class="m-skeleton m-skeleton-rank"></span>
-          <span class="m-skeleton-main">
-            <span class="m-skeleton m-skeleton-line"></span>
-            <span class="m-skeleton m-skeleton-line-sm"></span>
-          </span>
-          <span class="m-skeleton m-skeleton-score"></span>
-        </li>
+    <div class="m-cards" aria-busy="true" aria-label="Loading leaderboard">
+      {#each Array(6) as _, i (i)}
+        <div class="m-skeleton m-card-skel"></div>
       {/each}
-    </ul>
+    </div>
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
@@ -133,13 +163,11 @@
       <p>No traders match this filter.</p>
     </div>
   {:else}
-    <ul class="m-list">
-      {#each rows as row, i (row.address)}
-        <li>
-          <MobileLeaderRow {row} rank={i + 1} />
-        </li>
+    <div class="m-cards">
+      {#each rows as row (row.address)}
+        <MobileTraderCard {row} />
       {/each}
-    </ul>
+    </div>
   {/if}
 </main>
 
@@ -193,34 +221,18 @@
     color: var(--stripe-text-primary);
   }
 
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
-  }
-  .m-skeleton-rank {
-    width: 24px;
-    height: 14px;
-  }
-  .m-skeleton-main {
-    flex: 1;
+  /* Card stack — replaces the old list. Inset to the page edges so cards
+     stand apart from the screen frame; gap matches the home-page section
+     spacing. */
+  .m-cards {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-3);
+    margin: 0 max(var(--safe-left), var(--space-4));
   }
-  .m-skeleton-line {
-    height: 14px;
-    width: 60%;
-  }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 40%;
-  }
-  .m-skeleton-score {
-    width: 48px;
-    height: 28px;
+  .m-card-skel {
+    height: 188px;
+    border-radius: var(--radius-lg);
   }
 
   .m-error,
