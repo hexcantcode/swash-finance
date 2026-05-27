@@ -14,6 +14,7 @@
     pnlSignClass,
   } from '$lib/utils/format';
   import { coinDisplayName, coinIconUrl } from '$lib/utils/coin';
+  import MobileEquityCurve from '$lib/components/MobileEquityCurve.svelte';
 
   const address = $derived($page.params['address'] ?? '');
 
@@ -101,6 +102,17 @@
         </div>
       {/if}
     </section>
+
+    {#if detail.equity_curve.length > 1}
+      <section class="m-detail-section m-detail-chart safe-x" aria-label="Equity curve">
+        <h2 class="m-section-title">Equity curve · 90D</h2>
+        <MobileEquityCurve
+          data={detail.equity_curve.map((p) => p.value)}
+          height={200}
+          interactive={true}
+        />
+      </section>
+    {/if}
 
     <section class="m-detail-stats safe-x" aria-label="Key metrics">
       <div class="m-stat">

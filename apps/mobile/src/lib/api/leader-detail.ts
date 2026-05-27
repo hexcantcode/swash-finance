@@ -62,6 +62,12 @@ export interface LeaderDetail {
   last_seen_at: string | null;
   last_trade_at: string | null;
   total_volume_usd: number | null;
+  /** Cumulative realized PnL (USD) per day for the last ~90 days as of
+   *  the last scoring run. `ts` is epoch-ms at UTC midnight of the day;
+   *  `value` is the running total — same shape as the canonical
+   *  `LeaderDetail.equity_curve` in apps/web. Drives the equity chart
+   *  on the profile page. Empty when no fills land in the window. */
+  equity_curve: { ts: number; value: number }[];
   /** Top + total snapshot mirrored from /api/holdings shape for convenience. */
   holdings?: Holdings;
 }

@@ -2,6 +2,7 @@
   import type { LeaderRow } from '$lib/api/leaders';
   import { effigyUrl, shortAddress, formatPnl, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl } from '$lib/utils/coin';
+  import MobileEquityCurve from './MobileEquityCurve.svelte';
 
   interface Props {
     row: LeaderRow;
@@ -15,55 +16,6 @@
   const shownHoldings = $derived(row.holdings.top.slice(0, 5));
   const extraHoldings = $derived(Math.max(0, row.holdings.total - shownHoldings.length));
   const relTime = $derived(formatRelative(row.last_active_at));
-
-  // Sparkline geometry — fixed 100×40 viewBox. Both ends inset by 2px so
-  // the stroke and end-cap dot don't clip on the rim. Y is inverted
-  // (SVG origin is top-left). Color follows sign of (last - first) so a
-  // flat-then-up trace still reads as positive even from a zero start.
-  const SPARK_W = 96; // 100 - 2px inset on each side
-  const SPARK_H = 36;
-  const curve = $derived(row.pnl_curve_30d);
-  const curveSign = $derived(curveDirection(curve));
-  const sparkPoints = $derived(buildPoints(curve));
-  const curvePath = $derived(buildLinePath(sparkPoints));
-  const curveArea = $derived(buildAreaPath(sparkPoints));
-  const endPoint = $derived(sparkPoints.at(-1) ?? null);
-
-  function curveDirection(c: number[]): 'positive' | 'negative' | 'flat' {
-    if (c.length < 2) return 'flat';
-    const first = c[0] ?? 0;
-    const last = c[c.length - 1] ?? 0;
-    if (last > first) return 'positive';
-    if (last < first) return 'negative';
-    return 'flat';
-  }
-
-  function buildPoints(c: number[]): { x: number; y: number }[] {
-    if (c.length === 0) return [];
-    const lo = Math.min(0, ...c);
-    const hi = Math.max(0, ...c);
-    const range = hi - lo || 1;
-    const n = c.length;
-    return c.map((v, i) => ({
-      x: 2 + (n === 1 ? SPARK_W / 2 : (i / (n - 1)) * SPARK_W),
-      y: 2 + SPARK_H - ((v - lo) / range) * SPARK_H,
-    }));
-  }
-
-  function buildLinePath(pts: { x: number; y: number }[]): string {
-    if (pts.length === 0) return '';
-    return `M ${pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ')}`;
-  }
-
-  /** Closed-shape variant for the area fill — drops to the bottom edge
-   *  at both ends so the hatched fill cleanly closes against the floor. */
-  function buildAreaPath(pts: { x: number; y: number }[]): string {
-    if (pts.length === 0) return '';
-    const line = buildLinePath(pts);
-    const startX = pts[0]!.x;
-    const endX = pts[pts.length - 1]!.x;
-    return `${line} L ${endX.toFixed(2)},38 L ${startX.toFixed(2)},38 Z`;
-  }
 
   /** "3D AGO" / "5H AGO" / "12M AGO" from an ISO timestamp. Coarse buckets
    *  — minutes / hours / days / weeks / months — matching the mock. */
@@ -147,55 +99,9 @@
         <span class="m-trader-fig-label">Equity</span>
       </div>
     </div>
-    <svg
-      class="m-trader-spark"
-      class:is-positive={curveSign === 'positive'}
-      class:is-negative={curveSign === 'negative'}
-      viewBox="0 0 100 40"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <!-- Patterns: shared IDs are intentional. Defined once per card but
-           identical across cards; the browser resolves url(#…) to the
-           first match in document order, so the duplicates cost a few
-           extra DOM nodes and no behavior. Children pick up colors from
-           CSS rules below, keyed off the is-positive/is-negative classes
-           on the parent <svg> via descendant selectors. -->
-      <defs>
-        <pattern
-          id="m-trader-spark-dots"
-          patternUnits="userSpaceOnUse"
-          width="5"
-          height="5"
-        >
-          <circle class="m-trader-spark-dot" cx="2.5" cy="2.5" r="0.35" />
-        </pattern>
-        <pattern
-          id="m-trader-spark-hatch"
-          patternUnits="userSpaceOnUse"
-          width="4"
-          height="4"
-          patternTransform="rotate(-45)"
-        >
-          <line class="m-trader-spark-hatch-line" x1="0" y1="0" x2="0" y2="4" />
-        </pattern>
-      </defs>
-      <!-- Dotted background fills the whole canvas — gives the chart
-           a sense of "graph paper" depth that the mock relies on. -->
-      <rect class="m-trader-spark-bg" x="0" y="0" width="100" height="40" />
-      {#if curveArea}
-        <path class="m-trader-spark-area" d={curveArea} />
-        <path class="m-trader-spark-line" d={curvePath} />
-      {/if}
-      {#if endPoint}
-        <circle
-          class="m-trader-spark-end"
-          cx={endPoint.x}
-          cy={endPoint.y}
-          r="1.6"
-        />
-      {/if}
-    </svg>
+    <div class="m-trader-spark">
+      <MobileEquityCurve data={row.pnl_curve_30d} height={60} />
+    </div>
   </div>
 
   <div class="m-trader-foot">
@@ -361,62 +267,12 @@
     letter-spacing: 0.02em;
   }
 
-  /* Sparkline — fills the right column. Height fixed at 60px so the
-     card height stays predictable regardless of the curve's amplitude.
-     `--spark-tint` is the one knob: line stroke, hatched fill, dot grid,
-     and end-cap circle all read from it. Default is a muted neutral so a
-     flat trace doesn't shout; sign-based classes swap it to success /
-     danger so positive runs read green, negative red. */
+  /* Wrapper for the lightweight-charts canvas sparkline. Fixed 60px tall
+     so the card height stays predictable regardless of the trace's
+     amplitude; the chart auto-fits to this height + the available width. */
   .m-trader-spark {
-    --spark-tint: var(--stripe-text-tertiary);
-    display: block;
     width: 100%;
     height: 60px;
-    overflow: visible;
-  }
-  .m-trader-spark.is-positive {
-    --spark-tint: var(--stripe-success);
-  }
-  .m-trader-spark.is-negative {
-    --spark-tint: var(--stripe-danger);
-  }
-
-  /* Dotted background — soft graph-paper grid behind the curve. The
-     dot itself is tinted by the curve color but pulled way back so the
-     line stays the focal point. */
-  .m-trader-spark-bg {
-    fill: url(#m-trader-spark-dots);
-  }
-  .m-trader-spark-dot {
-    fill: var(--spark-tint);
-    fill-opacity: 0.22;
-  }
-
-  /* Diagonal-stripe hatched fill replacing the old translucent block —
-     reads as a chart's positive/negative region without competing with
-     the line. */
-  .m-trader-spark-area {
-    fill: url(#m-trader-spark-hatch);
-  }
-  .m-trader-spark-hatch-line {
-    stroke: var(--spark-tint);
-    stroke-width: 0.6;
-    stroke-opacity: 0.32;
-  }
-
-  .m-trader-spark-line {
-    fill: none;
-    stroke: var(--spark-tint);
-    stroke-width: 1.3;
-    stroke-linejoin: round;
-    stroke-linecap: round;
-    vector-effect: non-scaling-stroke;
-  }
-
-  /* End-cap dot — anchors the eye at "today" on the curve. */
-  .m-trader-spark-end {
-    fill: var(--spark-tint);
-    stroke: none;
   }
 
   /* ── Footer row — score + Mirror ──────────────────────── */
