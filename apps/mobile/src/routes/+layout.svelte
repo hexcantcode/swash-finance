@@ -35,7 +35,8 @@
 
   <header class="m-header safe-top safe-x" aria-label="App header">
     <a href="/" class="m-header-brand" aria-label="Swash — home">
-      <img src="/logotext.png" alt="" aria-hidden="true" />
+      <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
+      <span class="m-header-brand-text">Swash</span>
     </a>
   </header>
 
@@ -196,16 +197,28 @@
     }
   }
 
-  .m-header-brand img {
-    height: 27px;
-    width: auto;
-    display: block;
-    /* Logo asset is white-on-transparent; invert it so the wordmark reads
-       on the light page. Reversed under the dark theme below. */
-    filter: invert(1);
+  /* Brand mark — icon + wordmark, laid out inline. Replaces the older
+     single `logotext.png` that baked icon and text together. */
+  .m-header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--stripe-text-primary);
   }
-  :global([data-theme='dark']) .m-header-brand img {
-    filter: none;
+  .m-header-brand-icon {
+    height: 26px;
+    width: 26px;
+    display: block;
+    object-fit: contain;
+  }
+  .m-header-brand-text {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--stripe-text-primary);
+    line-height: 1;
   }
 
   /* Scroll-edge effect above the floating bottom-nav pill: a fade band that
