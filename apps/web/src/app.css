@@ -4,7 +4,7 @@
  * ===========================================
  * SWASH DESIGN SYSTEM
  * Inherited from kismet / cream-hl Stripe theme.
- * Dark mode default. Space Mono everywhere.
+ * Dark mode default. Figtree throughout (one font).
  * Monochrome white accent. Layered backgrounds.
  * ===========================================
  */
@@ -53,7 +53,11 @@
   --color-border-light: rgba(255, 255, 255, 0.12);
 
   --font-sans: 'Figtree', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Space Mono', ui-monospace, monospace;
+  /* One font app-wide. The token name stays `--font-mono` so existing
+   * call-sites keep working, but it resolves to Figtree — places that
+   * relied on column-aligned digits already declare
+   * `font-variant-numeric: tabular-nums`, which Figtree honors. */
+  --font-mono: 'Figtree', system-ui, -apple-system, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 7px;

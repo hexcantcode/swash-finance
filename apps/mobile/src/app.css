@@ -5,7 +5,7 @@
  * ===========================================
  * SWASH DESIGN SYSTEM — Mobile (parliament navy)
  * Deep navy backgrounds, frosted-glass chrome, monochrome white accent.
- * Dark mode only. Figtree + Space Mono. Layered by elevation.
+ * Dark mode only. Figtree throughout (one font). Layered by elevation.
  *
  * Mobile-specific tokens (touch sizing, safe-area, motion) live in
  * lib/styles/mobile.css and layer on top of the shared system.
@@ -56,7 +56,11 @@
   --color-border-light: rgba(255, 255, 255, 0.14);
 
   --font-sans: 'Figtree', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Space Mono', ui-monospace, monospace;
+  /* One font app-wide. The token name stays `--font-mono` so existing
+   * call-sites keep working, but it resolves to Figtree — places that
+   * relied on column-aligned digits already declare
+   * `font-variant-numeric: tabular-nums`, which Figtree honors. */
+  --font-mono: 'Figtree', system-ui, -apple-system, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 7px;
