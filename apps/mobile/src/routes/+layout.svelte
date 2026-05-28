@@ -36,7 +36,7 @@
   <header class="m-header safe-top safe-x" aria-label="App header">
     <a href="/" class="m-header-brand" aria-label="Swash — home">
       <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
-      <span class="m-header-brand-text">Swash</span>
+      <span class="m-header-brand-text">swash</span>
     </a>
   </header>
 

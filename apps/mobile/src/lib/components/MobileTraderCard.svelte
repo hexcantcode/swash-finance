@@ -144,15 +144,15 @@
   .m-trader-head {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
   }
 
   .m-trader-avatar {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
-    border-radius: var(--radius-md);
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: var(--radius-sm);
     background: var(--stripe-bg-secondary);
     object-fit: cover;
   }
@@ -167,7 +167,7 @@
 
   .m-trader-addr {
     font-family: var(--font-sans);
-    font-size: var(--type-title);
+    font-size: var(--type-subhead);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.1;
@@ -284,8 +284,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
     border-top: 1px solid var(--stripe-border);
   }
 
@@ -297,13 +297,13 @@
     font-variant-numeric: tabular-nums;
   }
   .m-trader-score-val {
-    font-size: var(--type-title);
+    font-size: var(--type-subhead);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1;
   }
   .m-trader-score-of {
-    font-size: var(--type-footnote);
+    font-size: 11px;
     color: var(--stripe-text-tertiary);
   }
   /* Ten thin bars, lit by composite score. Same accent as the desktop
@@ -317,8 +317,8 @@
   }
   .m-trader-score-bar {
     display: inline-block;
-    width: 3px;
-    height: 12px;
+    width: 2px;
+    height: 8px;
     background: var(--stripe-accent-muted);
     border-radius: 1px;
   }
@@ -331,10 +331,10 @@
      understand it's not wired up yet. Click is captured by the parent
      <a>; preventDefault on the button stops the implicit form submit. */
   .m-trader-mirror {
-    padding: 10px 18px;
+    padding: 5px 11px;
     font-family: var(--font-sans);
-    font-size: var(--type-subhead);
-    font-weight: 600;
+    font-size: var(--type-caption);
+    font-weight: 500;
     letter-spacing: 0.01em;
     opacity: 0.7;
     cursor: not-allowed;
