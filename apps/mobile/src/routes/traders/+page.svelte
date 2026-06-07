@@ -313,18 +313,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 10px;
+    padding: 6px clamp(7px, 2.2vw, 10px);
   }
 
+  /* Horizontal padding + type shrink with the viewport (clamp) so all three
+     frames fit one row on small iPhones; the row still scrolls as a fallback
+     on the very narrowest screens. */
   .m-sort-chip {
     flex: 0 0 auto;
-    padding: 6px 14px;
+    padding: 6px clamp(8px, 2.6vw, 14px);
     min-height: 32px;
     border-radius: var(--radius-lg);
     background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--type-footnote);
+    font-size: clamp(11px, 3.1vw, var(--type-footnote));
     cursor: pointer;
     white-space: nowrap;
   }

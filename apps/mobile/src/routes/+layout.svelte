@@ -30,15 +30,17 @@
   />
 </svelte:head>
 
-<div class="m-shell">
+<div class="m-shell" class:no-header={!homeActive}>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <header class="m-header safe-top safe-x" aria-label="App header">
-    <a href="/" class="m-header-brand" aria-label="Swash — home">
-      <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
-      <span class="m-header-brand-text">swash</span>
-    </a>
-  </header>
+  {#if homeActive}
+    <header class="m-header safe-top safe-x" aria-label="App header">
+      <a href="/" class="m-header-brand" aria-label="Swash — home">
+        <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
+        <span class="m-header-brand-text">swash</span>
+      </a>
+    </header>
+  {/if}
 
   {@render children?.()}
 
@@ -160,13 +162,18 @@
     flex-direction: column;
   }
 
+  /* When the brand header is hidden (every route except home), keep page
+     content clear of the status bar / notch. */
+  .m-shell.no-header {
+    padding-top: var(--safe-top);
+  }
+
   .m-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    /* Match the 56px bottom-nav height so top/bottom chrome are balanced. */
-    min-height: 56px;
+    min-height: 44px;
     padding-top: var(--safe-top);
     padding-bottom: 0;
     background: var(--glass-bg-thin);
