@@ -257,36 +257,28 @@
     left: max(var(--safe-left), var(--space-4));
     right: max(var(--safe-right), var(--space-4));
     bottom: calc(var(--safe-bottom) + var(--space-3));
-    /* Apple-style Liquid Glass material. The body is a vertical gradient
-       (brighter at the top, dimmer at the bottom) to fake the look of a
-       curved upper face catching light — flat fills always read as paint.
-       Backdrop-filter does the real frosting; the inset shadow stack does
-       the thickness work: top-edge specular, bottom-edge shadow (suggesting
-       depth), a hairline rim, and an inner glow for refracted light. */
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.45) 0%,
-        rgba(255, 255, 255, 0.22) 50%,
-        rgba(255, 255, 255, 0.32) 100%
-      );
-    -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(108%);
-    backdrop-filter: blur(28px) saturate(220%) brightness(108%);
+    /* Transparent frosted glass — the same material tokens as the header, so
+       top and bottom chrome read as one system and the page shows through the
+       pill instead of being hidden behind a milky white fill. The blur does
+       the frosting; the low-opacity tint keeps it see-through. Theme-aware,
+       and auto-collapses to a solid surface under prefers-reduced-transparency
+       (the tokens swap themselves — no per-selector override needed here). */
+    background: var(--glass-bg-thin);
+    -webkit-backdrop-filter: var(--glass-blur-thin);
+    backdrop-filter: var(--glass-blur-thin);
     border-radius: var(--radius-xl);
     box-shadow:
       var(--shadow-lg),
-      inset 0 1.5px 0 rgba(255, 255, 255, 0.85),
-      inset 0 -1px 1px rgba(10, 15, 26, 0.08),
-      inset 1px 0 0 rgba(255, 255, 255, 0.35),
-      inset -1px 0 0 rgba(255, 255, 255, 0.35),
-      inset 0 0 32px rgba(255, 255, 255, 0.2);
+      var(--glass-highlight),
+      inset 0 0 0 0.5px var(--stripe-border-light);
     overflow: hidden;
     z-index: 20;
   }
 
-  /* Specular sheen — a soft vertical gradient that brightens the top of the
-     pill and fades through the body, mimicking the highlight on a curved
-     glass surface. Sits between the backdrop and the nav items. */
+  /* Specular sheen — a faint top-edge highlight so the pill still reads as a
+     curved glass surface catching light. Kept subtle (was a strong white wash)
+     so it doesn't re-opaque the now-transparent material. Sits between the
+     backdrop and the nav items. */
   .m-bottomnav::before {
     content: '';
     position: absolute;
@@ -295,9 +287,8 @@
     border-radius: inherit;
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.32) 0%,
-      rgba(255, 255, 255, 0.06) 30%,
-      transparent 60%
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 45%
     );
     z-index: 0;
   }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
   import { effigyUrl, shortAddress, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
-  import { coinIconUrl } from '$lib/utils/coin';
+  import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
     row: LeaderRow;
@@ -57,6 +57,8 @@
                 class:is-long={h.side === 'long'}
                 class:is-short={h.side === 'short'}
                 src={coinIconUrl(h.coin)}
+                style:background-color={coinIconBg(h.coin)}
+                style:padding={coinIconBg(h.coin) ? '2px' : null}
                 alt=""
                 loading="lazy"
               />

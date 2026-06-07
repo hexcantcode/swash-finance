@@ -4,7 +4,8 @@
   import MobileAssetRow from '$lib/components/MobileAssetRow.svelte';
   import { listTopTraders, type TopTrader, type LeaderWindow } from '$lib/api/leaders-top';
   import { listAssets, type Asset } from '$lib/api/assets';
-  import { coinCategory, coinDisplayName, coinIconUrl, coinNeedsWhiteBg, type CoinCategory } from '$lib/utils/coin';
+  import { liveFeed } from '$lib/live/live-feed.svelte';
+  import { coinCategory, coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg, type CoinCategory } from '$lib/utils/coin';
   import { formatUsd, formatPct, pnlSignClass } from '$lib/utils/format';
 
   // ── Top traders ──────────────────────────────────────────
@@ -99,6 +100,7 @@
     mounted = true;
     void loadAssets();
     void loadTraders();
+    return liveFeed.subscribe();
   });
 
   $effect(() => {
@@ -161,7 +163,7 @@
       <div class="m-company-row m-scroll-fade safe-x">
         {#each featured as f (f.coin)}
           <a class="m-company-card tappable" href={`/assets/${encodeURIComponent(f.coin)}`}>
-            <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
+            <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)} style:background-color={coinIconBg(f.coin)} style:padding={coinIconBg(f.coin) ? '3px' : null}>
               {#if coinIconUrl(f.coin)}
                 <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
               {/if}

@@ -7,7 +7,7 @@
     type LatestFill,
     type CategorizedPositions,
   } from '$lib/api/feed';
-  import { coinDisplayName, coinIconUrl } from '$lib/utils/coin';
+  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import {
     shortAddress,
     effigyUrl,
@@ -147,7 +147,7 @@
                   </span>
                   <span class="m-feed-coin">
                     {#if coinIconUrl(f.coin)}
-                      <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
+                      <img src={coinIconUrl(f.coin)} style:background-color={coinIconBg(f.coin)} style:padding={coinIconBg(f.coin) ? '2px' : null} alt="" loading="lazy" />
                     {/if}
                     {coinDisplayName(f.coin)}
                   </span>
@@ -184,7 +184,7 @@
                 </span>
                 <span class="m-feed-coin">
                   {#if coinIconUrl(p.coin)}
-                    <img src={coinIconUrl(p.coin)} alt="" loading="lazy" />
+                    <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '2px' : null} alt="" loading="lazy" />
                   {/if}
                   {coinDisplayName(p.coin)}
                 </span>

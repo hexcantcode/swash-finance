@@ -2,10 +2,12 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import MobileAssetRow from '$lib/components/MobileAssetRow.svelte';
   import { listAssets, deriveMovers, type Asset, type AssetMovers } from '$lib/api/assets';
+  import { liveFeed } from '$lib/live/live-feed.svelte';
   import {
     coinDisplayName,
     coinIconUrl,
     coinNeedsWhiteBg,
+    coinIconBg,
     coinCategory,
     type CoinCategory,
   } from '$lib/utils/coin';
@@ -57,6 +59,7 @@
 
   let abortCtrl: AbortController | null = null;
   let mounted = false;
+  let stopLive: (() => void) | null = null;
 
   async function load() {
     abortCtrl?.abort();
@@ -94,10 +97,12 @@
   onMount(() => {
     mounted = true;
     void load();
+    stopLive = liveFeed.subscribe();
   });
 
   onDestroy(() => {
     abortCtrl?.abort();
+    stopLive?.();
   });
 </script>
 
@@ -114,7 +119,7 @@
       <div class="m-movers-scroll">
         {#each movers.winners as a (a.coin)}
           <a class="m-mover-card tappable" href={`/assets/${encodeURIComponent(a.coin)}`}>
-            <div class="m-mover-icon" class:is-white={coinNeedsWhiteBg(a.coin)}>
+            <div class="m-mover-icon" class:is-white={coinNeedsWhiteBg(a.coin)} style:background-color={coinIconBg(a.coin)} style:padding={coinIconBg(a.coin) ? '3px' : null}>
               {#if coinIconUrl(a.coin)}
                 <img src={coinIconUrl(a.coin)} alt="" loading="lazy" />
               {/if}
@@ -299,14 +304,20 @@
     background: var(--stripe-accent-subtle);
   }
 
+  /* Frameless glass field — the blank track is a glass surface (no border),
+     and focus presses it in (depth, not an outline ring) to match the chip
+     selection language. */
   .m-search-input {
     flex: 1 1 auto;
     min-width: 0;
     height: 28px;
-    padding: 0 8px;
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border);
-    border-radius: var(--radius-sm);
+    padding: 0 10px;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight);
     color: var(--stripe-text-primary);
     font-family: var(--font-mono);
     /* Keep 16px so iOS Safari doesn't zoom the page on focus — shrink the box
@@ -320,8 +331,8 @@
 
   .m-search-input:focus {
     outline: none;
-    border-color: var(--stripe-accent);
-    box-shadow: var(--shadow-focus);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
   }
 
   .m-movers {
@@ -329,13 +340,11 @@
   }
 
   .m-section-title {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--type-headline);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
     margin: 0 0 var(--space-2);
-    font-weight: 500;
   }
 
   /* Filter strip — glass container that mirrors the bottom-nav language;

@@ -46,6 +46,57 @@ export async function getCandles(
   return body.candles;
 }
 
+/** Top trader on this coin, by all-time closed PnL. Mirrors the web's
+ *  `TopTrader` shape (apps/web .../asset-ranges.ts) — the canonical source. */
+export interface TopTrader {
+  address: string;
+  totalPnlUsd: number;
+  tradeCount: number;
+  /** SUM(closed_pnl) / SUM(|sz·px|), decimal; null when no closed notional. */
+  roi: number | null;
+}
+
+/** A position-open event surfaced in the "Latest trades" tab. `side`: 'B' =
+ *  opened long, 'A' = opened short. */
+export interface TraderOpen {
+  address: string;
+  blockTimeMs: number;
+  side: 'B' | 'A';
+  pxUsd: number;
+}
+
+interface TopTradersResponse {
+  ok: true;
+  topTraders: TopTrader[];
+}
+
+interface LatestOpensResponse {
+  ok: true;
+  latestOpens: TraderOpen[];
+}
+
+export async function getTopTraders(
+  coin: string,
+  limit = 5,
+): Promise<TopTrader[]> {
+  const body = await apiGet<TopTradersResponse>(
+    `/api/assets/${encodeURIComponent(coin)}/top-traders?limit=${limit}`,
+  );
+  if (!body.ok) throw new Error('Top-traders request returned ok:false');
+  return body.topTraders;
+}
+
+export async function getLatestOpens(
+  coin: string,
+  limit = 10,
+): Promise<TraderOpen[]> {
+  const body = await apiGet<LatestOpensResponse>(
+    `/api/assets/${encodeURIComponent(coin)}/latest-trades?limit=${limit}`,
+  );
+  if (!body.ok) throw new Error('Latest-trades request returned ok:false');
+  return body.latestOpens;
+}
+
 interface ListAssetsResponse {
   ok: true;
   assets: Asset[];

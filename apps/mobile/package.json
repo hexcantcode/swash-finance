@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 5174",
+    "dev": "vite dev --port 5173",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node --env-file=../../.env build/index.js",

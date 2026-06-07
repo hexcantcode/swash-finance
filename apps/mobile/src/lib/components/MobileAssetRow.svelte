@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Asset } from '$lib/api/assets';
-  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg } from '$lib/utils/coin';
+  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
   import { formatUsd, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { liveFeed, liveChange24h } from '$lib/live/live-feed.svelte';
 
   interface Props {
     asset: Asset;
@@ -13,11 +14,26 @@
   const name = $derived(coinDisplayName(asset.coin));
   const icon = $derived(coinIconUrl(asset.coin));
   const whiteBg = $derived(coinNeedsWhiteBg(asset.coin));
-  const changeClass = $derived(pnlSignClass(asset.change24h));
+  const iconBg = $derived(coinIconBg(asset.coin));
+
+  // Live mid (from the shared HL `allMids` feed) overlays the loaded price;
+  // 24h change is recomputed off it. The `flash` signal tints the row.
+  const livePrice = $derived(liveFeed.prices[asset.coin]);
+  const price = $derived(livePrice ?? asset.price);
+  const change = $derived(liveChange24h(asset.price, asset.change24h, livePrice));
+  const changeClass = $derived(pnlSignClass(change));
+  const flash = $derived(liveFeed.flashes[asset.coin]);
 </script>
 
-<a class="m-asset-row tappable-row" href={`/assets/${encodeURIComponent(asset.coin)}`} aria-label={`${name} market detail`}>
-  <div class="m-asset-icon" class:is-white={whiteBg}>
+<a
+  class="m-asset-row tappable-row"
+  class:m-row-flash-up={flash?.dir === 'up'}
+  class:m-row-flash-down={flash?.dir === 'down'}
+  data-flash-tick={flash?.n ?? 0}
+  href={`/assets/${encodeURIComponent(asset.coin)}`}
+  aria-label={`${name} market detail`}
+>
+  <div class="m-asset-icon" class:is-white={whiteBg} style:background-color={iconBg} style:padding={iconBg ? '4px' : null}>
     {#if icon}
       <img src={icon} alt="" loading="lazy" />
     {:else}
@@ -41,8 +57,8 @@
   </div>
 
   <div class="m-asset-stats">
-    <div class="m-asset-price">{formatUsd(asset.price, { precise: (asset.price ?? 0) < 100 })}</div>
-    <div class="m-asset-change {changeClass}">{formatPct(asset.change24h)}</div>
+    <div class="m-asset-price">{formatUsd(price, { precise: (price ?? 0) < 100 })}</div>
+    <div class="m-asset-change {changeClass}">{formatPct(change)}</div>
   </div>
 </a>
 
@@ -140,5 +156,30 @@
   }
   .m-asset-change:global(.k-pnl-negative) {
     color: var(--stripe-danger);
+  }
+
+  /* Per-row flash on each live price tick — a subtle green/red tint that fades
+     out, mirroring the desktop web table. The `data-flash-tick` attribute
+     changes each tick so the animation can retrigger across consecutive
+     same-direction ticks. */
+  @keyframes m-row-flash-up {
+    0% { background: var(--stripe-success-subtle); }
+    100% { background: var(--glass-bg); }
+  }
+  @keyframes m-row-flash-down {
+    0% { background: var(--stripe-danger-subtle); }
+    100% { background: var(--glass-bg); }
+  }
+  .m-asset-row.m-row-flash-up {
+    animation: m-row-flash-up 700ms ease-out;
+  }
+  .m-asset-row.m-row-flash-down {
+    animation: m-row-flash-down 700ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .m-asset-row.m-row-flash-up,
+    .m-asset-row.m-row-flash-down {
+      animation: none;
+    }
   }
 </style>

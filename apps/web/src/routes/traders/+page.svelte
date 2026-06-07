@@ -130,7 +130,7 @@
   // `winnerRank` (= 7d PnL desc) from the loader.
   const winnerRows = $derived(withLiveHoldings(data.winners.slice(0, 5)));
 
-  // Top 5 by HL 30d realized PnL → "1mo PnL". Already ranked by
+  // Top 5 by HL 30d realized PnL → "Monthly Winners". Already ranked by
   // `listTopMonthlyPnl` (tracked wallets only, ordered by hl_pnl_30d_usd desc).
   const monthlyRows = $derived(withLiveHoldings(data.topMonthly));
 
@@ -154,7 +154,7 @@
     <div class="k-winners-losers">
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head--stacked">
-          <h3 class="k-mini-table-head-title-line">Winners · 7d</h3>
+          <h3 class="k-mini-table-head-title-line">Weekly Winners</h3>
           <div class="k-mini-table-head-colheads">
             <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
             <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>
@@ -224,7 +224,7 @@
       </div>
       <div class="k-mini-table">
         <div class="k-mini-table-head k-mini-table-head--stacked">
-          <h3 class="k-mini-table-head-title-line">1mo PnL</h3>
+          <h3 class="k-mini-table-head-title-line">Monthly Winners</h3>
           <div class="k-mini-table-head-colheads">
             <span class="k-mini-table-head-avatar-spacer" aria-hidden="true"></span>
             <span class="k-mini-table-head-label k-mini-table-holdings">Holdings</span>

@@ -1,16 +1,19 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { leaderCache } from '@copytrade/db';
+import { leaderCache } from './schema.js';
 
 /**
- * `leader_cache.positions_json` is co-owned by three writers, each with its
- * own slice of the data:
+ * `leader_cache.positions_json` is co-owned by multiple writers, each with
+ * its own slice of the data:
  *
  *   - `ws-live-subscriber.handleWebData2` — main-dex positions from HL's WS
  *     `webData2` push (hot subset, sub-second latency).
  *   - `leader-cache-poll` — main-dex positions from REST `clearinghouseState
  *     ({user})` (broad 250-wallet coverage, 60 s cadence).
- *   - `ws-live-subscriber.pollHip3ForAddress` — per-HIP-3-dex positions from
- *     REST `clearinghouseState({user, dex})` (5 min cadence, HIP-3 cohort).
+ *   - `ws-live-subscriber.pollHip3ForAddress` / `hip3-poll-subscriber` —
+ *     per-HIP-3-dex positions from REST `clearinghouseState({user, dex})`
+ *     (5 min cadence, HIP-3 cohort).
+ *   - `apps/web` on-demand refresh — main-dex pull on trader-page open for
+ *     non-cohort wallets.
  *
  * They share one column, so each writer's `ON CONFLICT DO UPDATE` for
  * `positions_json` must agree on the merge contract. The two helpers below

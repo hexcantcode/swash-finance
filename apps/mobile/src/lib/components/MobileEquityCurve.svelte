@@ -92,7 +92,9 @@
             : { visible: false },
         },
         rightPriceScale: {
-          visible: interactive,
+          // Hidden even in interactive mode — no price labels on the right,
+          // so the series spans the full container width.
+          visible: false,
           borderVisible: false,
           scaleMargins: { top: 0.12, bottom: 0.08 },
         },
@@ -113,11 +115,20 @@
               vertLine: { visible: false, labelVisible: false },
               horzLine: { visible: false, labelVisible: false },
             },
+        // Touch drag/pinch stay OFF even in interactive mode: otherwise the
+        // chart's canvas sets `touch-action: none` and swallows vertical
+        // swipes that begin over it, trapping page scroll. Mouse pan/zoom
+        // (desktop) and the crosshair still work.
         handleScale: interactive
-          ? { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+          ? { axisPressedMouseMove: true, mouseWheel: true, pinch: false }
           : { axisPressedMouseMove: false, mouseWheel: false, pinch: false },
         handleScroll: interactive
-          ? true
+          ? {
+              mouseWheel: true,
+              pressedMouseMove: true,
+              horzTouchDrag: false,
+              vertTouchDrag: false,
+            }
           : {
               mouseWheel: false,
               pressedMouseMove: false,

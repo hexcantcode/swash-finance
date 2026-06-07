@@ -23,7 +23,7 @@
   // Chart window (slice client-side off the full equity_curve).
   let chartWindow = $state<'24h' | '7d' | '30d' | 'all'>('30d');
   // Bottom tab strip.
-  let activeTab = $state<'positions' | 'fills' | 'trades' | 'performance'>('positions');
+  let activeTab = $state<'positions' | 'fills' | 'trades' | 'assets'>('positions');
   // Deepen-history button state.
   let deepening = $state(false);
   let deepenError = $state<string | null>(null);
@@ -180,20 +180,6 @@
       ? data.leader.margin_used / data.leader.account_value
       : null,
   );
-  const freeMargin = $derived(
-    data.leader.margin_used != null && data.leader.account_value != null
-      ? data.leader.account_value - data.leader.margin_used
-      : null,
-  );
-  // Closest position to liquidation drives the card's "from liquidation" line.
-  const minDistToLiq = $derived(
-    openPositions.length === 0
-      ? null
-      : openPositions.reduce<number | null>((best, p) => {
-          if (p.distToLiqPct == null) return best;
-          return best == null || p.distToLiqPct < best ? p.distToLiqPct : best;
-        }, null),
-  );
   const longShare = $derived(totalNotional > 0 ? longNotional / totalNotional : null);
   const shortShare = $derived(totalNotional > 0 ? shortNotional / totalNotional : null);
   const directionBiasLabel = $derived.by(() => {
@@ -341,19 +327,6 @@
         </dl>
       </section>
 
-      <!-- Analysis (Trading Style intentionally omitted per scope) -->
-      <section class="k-tp-rail-section">
-        <p class="k-stat-label">Analysis</p>
-        <dl class="k-tp-kv">
-          <!-- TODO(pass-2): derive from consecutive winning round-trips -->
-          <div><dt>Longest Win Streak</dt><dd class="stripe-text-tertiary">—</dd></div>
-          <!-- TODO(pass-2): derive from round-trip durations -->
-          <div><dt>Avg Trade Duration</dt><dd class="stripe-text-tertiary">—</dd></div>
-          <div><dt>Median Trade Duration</dt><dd class="stripe-text-tertiary">—</dd></div>
-          <!-- TODO(pass-2): bucketize all-time PnL -->
-          <div><dt>PnL Cohort</dt><dd class="stripe-text-tertiary">—</dd></div>
-        </dl>
-      </section>
     </aside>
 
     <!-- ── Main column ─────────────────────────────────────────────── -->
@@ -371,34 +344,6 @@
           <p class="stripe-text-tertiary stripe-body-sm">
             {formatPct(data.leader.scoring?.win_rate ?? null, 1)} Win Rate ·
             {(data.leader.scoring?.total_trades ?? 0).toLocaleString()} Trades
-          </p>
-        </article>
-
-        <article class="k-tp-stat-card">
-          <span class="k-stat-label">Leverage</span>
-          <p class="k-tp-stat-card-value">
-            {grossLeverage == null ? '—' : `${grossLeverage.toFixed(1)}×`}
-          </p>
-          <div class="k-tp-meter">
-            <div class="k-tp-meter-fill" style:width="{Math.min((grossLeverage ?? 0) / 5, 1) * 100}%"></div>
-          </div>
-          <p class="stripe-text-tertiary stripe-body-sm">
-            {formatUsd(totalNotional, { precise: false })} Notional ·
-            {formatUsd(data.leader.account_value, { precise: false })} Equity
-          </p>
-        </article>
-
-        <article class="k-tp-stat-card">
-          <span class="k-stat-label">Margin Usage</span>
-          <p class="k-tp-stat-card-value">
-            {marginUsagePct == null ? '—' : formatPct(marginUsagePct, 2)}
-          </p>
-          <div class="k-tp-meter">
-            <div class="k-tp-meter-fill" style:width="{Math.min(marginUsagePct ?? 0, 1) * 100}%"></div>
-          </div>
-          <p class="stripe-text-tertiary stripe-body-sm">
-            {freeMargin == null ? '—' : formatUsd(freeMargin, { precise: false })} Free
-            {#if minDistToLiq != null}· {(minDistToLiq * 100).toFixed(2)}% from Liquidation{/if}
           </p>
         </article>
 
@@ -485,8 +430,8 @@
           <button class="k-tp-tab" class:is-active={activeTab === 'trades'} onclick={() => (activeTab = 'trades')} role="tab" aria-selected={activeTab === 'trades'}>
             Trades
           </button>
-          <button class="k-tp-tab" class:is-active={activeTab === 'performance'} onclick={() => (activeTab = 'performance')} role="tab" aria-selected={activeTab === 'performance'}>
-            Performance
+          <button class="k-tp-tab" class:is-active={activeTab === 'assets'} onclick={() => (activeTab = 'assets')} role="tab" aria-selected={activeTab === 'assets'}>
+            Assets
           </button>
         </div>
 
@@ -621,7 +566,7 @@
             <!-- TODO(pass-3): surface round-trip aggregation from packages/scoring -->
             Round-trip view coming soon.
           </div>
-        {:else if activeTab === 'performance'}
+        {:else if activeTab === 'assets'}
           <div class="k-card">
             <p class="k-stat-label" style="margin-bottom: 12px;">Asset breakdown</p>
             {#if data.leader.primary_asset_breakdown.length > 0}

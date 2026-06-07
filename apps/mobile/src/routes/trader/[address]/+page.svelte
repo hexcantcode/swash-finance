@@ -7,14 +7,12 @@
     effigyUrl,
     formatPnl,
     formatUsd,
-    formatPct,
-    formatNumber,
     formatDuration,
     formatRelativeTime,
     pnlSignClass,
   } from '$lib/utils/format';
-  import { coinDisplayName, coinIconUrl } from '$lib/utils/coin';
-  import MobileEquityCurve from '$lib/components/MobileEquityCurve.svelte';
+  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import MobilePriceChart from '$lib/components/MobilePriceChart.svelte';
 
   const address = $derived($page.params['address'] ?? '');
 
@@ -56,6 +54,37 @@
     if (!address) return;
     void navigator.clipboard?.writeText(address);
   }
+
+  // Crosshair readout for the equity curve: the cumulative PnL value under the
+  // pointer and its date. Null when not hovering — heading shows Net PnL then.
+  let hovered = $state<{ price: number; time: number } | null>(null);
+  function formatHoverDate(seconds: number): string {
+    return new Date(seconds * 1000).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  /** Collapse the recent fill-by-fill list into one row per coin: total
+   *  notional traded, net realized PnL, fill count, and the most recent
+   *  fill time. Ordered most-recently-active first. */
+  const aggregatedTrades = $derived.by(() => {
+    const byCoin = new Map<
+      string,
+      { coin: string; notional: number; pnl: number; lastMs: number; count: number }
+    >();
+    for (const f of detail?.recent_fills ?? []) {
+      const e =
+        byCoin.get(f.coin) ??
+        { coin: f.coin, notional: 0, pnl: 0, lastMs: 0, count: 0 };
+      e.notional += f.notional ?? 0;
+      e.pnl += f.closed_pnl ?? 0;
+      e.lastMs = Math.max(e.lastMs, f.block_time_ms);
+      e.count += 1;
+      byCoin.set(f.coin, e);
+    }
+    return [...byCoin.values()].sort((a, b) => b.lastMs - a.lastMs);
+  });
 </script>
 
 <svelte:head>
@@ -85,53 +114,45 @@
     </div>
   {:else if detail}
     <section class="m-detail-hero safe-x">
-      <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
-      <div class="m-detail-identity">
-        <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
-          {shortAddress(detail.address, 6, 4)}
-        </button>
-        {#if detail.primary_tag}
-          <span class="m-detail-tag">{detail.primary_tag}</span>
-        {/if}
-      </div>
-
-      {#if detail.score !== null}
-        <div class="m-detail-score">
-          <span class="m-detail-score-num">{Math.round(detail.score)}</span>
-          <span class="m-detail-score-label">composite score</span>
+      <div class="m-detail-id">
+        <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
+        <div class="m-detail-meta">
+          <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
+            {shortAddress(detail.address, 6, 4)}
+          </button>
+          <span class="m-detail-sub">Trader</span>
         </div>
-      {/if}
+      </div>
     </section>
 
     {#if detail.equity_curve.length > 1}
       <section class="m-detail-section m-detail-chart safe-x" aria-label="Equity curve">
-        <h2 class="m-section-title">Equity curve · 90D</h2>
-        <MobileEquityCurve
-          data={detail.equity_curve.map((p) => p.value)}
+        <div class="m-chart-heading">
+          <h2 class="m-section-title">Equity curve · 90D</h2>
+          {#if hovered}
+            <div class="m-chart-netpnl {pnlSignClass(hovered.price)}">
+              <span class="m-chart-netpnl-label">{formatHoverDate(hovered.time)}</span>
+              <span class="m-chart-netpnl-value">{formatPnl(hovered.price)}</span>
+            </div>
+          {:else}
+            <div class="m-chart-netpnl {pnlSignClass(detail.scoring?.net_pnl_usd)}">
+              <span class="m-chart-netpnl-label">Net PnL</span>
+              <span class="m-chart-netpnl-value">{formatPnl(detail.scoring?.net_pnl_usd ?? null)}</span>
+            </div>
+          {/if}
+        </div>
+        <MobilePriceChart
+          line={detail.equity_curve.map((p) => ({ t: p.ts, value: p.value }))}
           height={200}
-          interactive={true}
+          onhover={(h) => (hovered = h)}
         />
       </section>
     {/if}
 
     <section class="m-detail-stats safe-x" aria-label="Key metrics">
       <div class="m-stat">
-        <div class="m-stat-label">Net PnL</div>
-        <div class="m-stat-value {pnlSignClass(detail.scoring?.net_pnl_usd)}">
-          {formatPnl(detail.scoring?.net_pnl_usd ?? null)}
-        </div>
-      </div>
-      <div class="m-stat">
         <div class="m-stat-label">Equity</div>
         <div class="m-stat-value">{formatUsd(detail.account_value)}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Win rate</div>
-        <div class="m-stat-value">{formatPct(detail.scoring?.win_rate ?? null, 0)}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Sharpe</div>
-        <div class="m-stat-value">{formatNumber(detail.scoring?.sharpe ?? null)}</div>
       </div>
       <div class="m-stat">
         <div class="m-stat-label">Trades</div>
@@ -151,7 +172,7 @@
             <li class="m-position-row">
               <div class="m-position-icon">
                 {#if coinIconUrl(p.coin)}
-                  <img src={coinIconUrl(p.coin)} alt="" loading="lazy" />
+                  <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '4px' : null} alt="" loading="lazy" />
                 {/if}
               </div>
               <div class="m-position-main">
@@ -172,29 +193,29 @@
       </section>
     {/if}
 
-    {#if detail.recent_fills.length > 0}
+    {#if aggregatedTrades.length > 0}
       <section class="m-detail-section safe-x">
-        <h2 class="m-section-title">Recent trades</h2>
+        <h2 class="m-section-title">Recent trades · by coin</h2>
         <ul class="m-position-list">
-          {#each detail.recent_fills.slice(0, 15) as f (f.tid)}
+          {#each aggregatedTrades.slice(0, 15) as t (t.coin)}
             <li class="m-position-row">
               <div class="m-position-icon">
-                {#if coinIconUrl(f.coin)}
-                  <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
+                {#if coinIconUrl(t.coin)}
+                  <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '4px' : null} alt="" loading="lazy" />
                 {/if}
               </div>
               <div class="m-position-main">
-                <div class="m-position-coin">{coinDisplayName(f.coin)}</div>
+                <div class="m-position-coin">{coinDisplayName(t.coin)}</div>
                 <div class="m-position-side">
-                  {f.side === 'B' ? 'Buy' : f.side === 'A' ? 'Sell' : f.side}
-                  · {formatRelativeTime(new Date(f.block_time_ms))}
+                  {t.count} {t.count === 1 ? 'fill' : 'fills'}
+                  · {formatRelativeTime(new Date(t.lastMs))}
                 </div>
               </div>
               <div class="m-position-stats">
-                <div class="m-position-notional">{formatUsd(f.notional)}</div>
-                {#if f.closed_pnl !== null && f.closed_pnl !== 0}
-                  <div class="m-position-pnl {pnlSignClass(f.closed_pnl)}">
-                    {formatPnl(f.closed_pnl)}
+                <div class="m-position-notional">{formatUsd(t.notional)}</div>
+                {#if t.pnl !== 0}
+                  <div class="m-position-pnl {pnlSignClass(t.pnl)}">
+                    {formatPnl(t.pnl)}
                   </div>
                 {/if}
               </div>
@@ -236,81 +257,55 @@
     box-shadow: var(--glass-highlight);
   }
 
+  /* Avatar left, wallet beside it — mirrors the asset-page hero placement. */
   .m-detail-hero {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: var(--space-2);
     padding-top: var(--space-3);
     padding-bottom: var(--space-5);
   }
 
+  .m-detail-id {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
   .m-detail-avatar {
-    width: 72px;
-    height: 72px;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     border: 1.5px solid var(--stripe-border-light);
     box-shadow: var(--glass-shadow);
   }
 
-  .m-detail-identity {
+  .m-detail-meta {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    min-width: 0;
   }
 
   .m-detail-address {
     font-family: var(--font-mono);
     font-size: var(--type-title);
+    line-height: 1.15;
     color: var(--stripe-text-primary);
     background: transparent;
     border: none;
-    padding: 4px 8px;
-    border-radius: var(--radius-md);
+    padding: 0;
+    text-align: left;
     cursor: pointer;
   }
 
-  .m-detail-tag {
-    text-transform: capitalize;
+  .m-detail-sub {
     font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-secondary);
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border);
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-  }
-
-  /* Composite score = the one teal-accented surface on the page. */
-  .m-detail-score {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: var(--space-3);
-    padding: var(--space-3) var(--space-6);
-    background: var(--stripe-accent-subtle);
-    border: 1px solid var(--stripe-border-focus);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight);
-  }
-
-  .m-detail-score-num {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 48px;
-    line-height: 1;
-    color: var(--stripe-accent-light);
-    font-weight: 700;
-  }
-
-  .m-detail-score-label {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
+    font-size: var(--type-footnote);
     color: var(--stripe-text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 4px;
+    letter-spacing: 0.04em;
   }
 
   .m-detail-stats {
@@ -364,11 +359,47 @@
   .m-section-title {
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
-    text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--stripe-text-tertiary);
     margin: 0 0 var(--space-3);
     font-weight: 500;
+  }
+
+  /* Equity-curve heading row: title left, Net PnL pinned right. */
+  .m-chart-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  .m-chart-heading .m-section-title {
+    margin: 0;
+  }
+
+  .m-chart-netpnl {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-chart-netpnl-label {
+    font-size: 10px;
+    color: var(--stripe-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .m-chart-netpnl-value {
+    font-size: var(--type-headline);
+    color: var(--stripe-text-primary);
+    font-weight: 600;
+  }
+  .m-chart-netpnl:global(.k-pnl-positive) .m-chart-netpnl-value {
+    color: var(--stripe-success);
+  }
+  .m-chart-netpnl:global(.k-pnl-negative) .m-chart-netpnl-value {
+    color: var(--stripe-danger);
   }
 
   .m-position-list {

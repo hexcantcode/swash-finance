@@ -224,7 +224,12 @@ export async function getOpenPositionsOnAsset(
       returnOnEquity: Number.isFinite(roe) ? roe : 0,
       leverage: Number.isFinite(lev) ? lev : 0,
       lastRefreshedAtMs: parseTimestampMs(r.last_refreshed_at),
-      source: r.source === 'ws' || r.source === 'rest' ? r.source : null,
+      source:
+        r.source === 'ws'
+          ? 'ws'
+          : r.source === 'rest_poll' || r.source === 'rest_ondemand'
+            ? 'rest'
+            : null,
     });
   }
   return out;

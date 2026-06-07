@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
   import { effigyUrl, shortAddress, formatPnl, pnlSignClass } from '$lib/utils/format';
-  import { coinIconUrl } from '$lib/utils/coin';
+  import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import MobileEquityCurve from './MobileEquityCurve.svelte';
 
   interface Props {
@@ -60,6 +60,8 @@
               class:is-long={h.side === 'long'}
               class:is-short={h.side === 'short'}
               src={coinIconUrl(h.coin)}
+              style:background-color={coinIconBg(h.coin)}
+              style:padding={coinIconBg(h.coin) ? '2px' : null}
               alt=""
               loading="lazy"
             />
@@ -149,10 +151,10 @@
   }
 
   .m-trader-avatar {
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
-    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     object-fit: cover;
   }
@@ -332,6 +334,10 @@
      <a>; preventDefault on the button stops the implicit form submit. */
   .m-trader-mirror {
     padding: 5px 11px;
+    background-image: url('/buttonbg.png');
+    background-size: cover;
+    background-position: center;
+    color: #fff;
     font-family: var(--font-sans);
     font-size: var(--type-caption);
     font-weight: 500;
