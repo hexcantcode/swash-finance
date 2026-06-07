@@ -341,7 +341,7 @@
 
   .m-section-title {
     font-family: var(--font-sans);
-    font-size: var(--type-headline);
+    font-size: var(--type-body);
     font-weight: 600;
     color: var(--stripe-text-primary);
     margin: 0 0 var(--space-2);

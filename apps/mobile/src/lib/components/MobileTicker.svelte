@@ -10,6 +10,10 @@
   import { effigyUrl, formatRelativeTime, formatUsd } from '$lib/utils/format';
 
   let trades = $state<LatestFill[]>([]);
+  // Track first-load completion so we can hold the bar's space with a skeleton
+  // until data arrives — avoids the tape popping in late and shoving the page
+  // content below it down.
+  let loaded = $state(false);
 
   function hideBrokenAvatar(e: Event) {
     (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
@@ -20,6 +24,8 @@
       trades = mergeFills(await getLatestFills()).slice(0, 24);
     } catch {
       // Non-critical: leave trades empty so the ticker simply doesn't render.
+    } finally {
+      loaded = true;
     }
   });
 
@@ -60,6 +66,25 @@
             <span class="m-ticker-notional">{formatUsd(t.notionalUsd)}</span>
             <span class="m-ticker-time">{formatRelativeTime(new Date(t.blockTimeMs))}</span>
           </a>
+        {/each}
+      </div>
+    </div>
+  </div>
+{:else if !loaded}
+  <!-- Placeholder while the first fetch is in flight: holds the 36px bar so
+       the layout doesn't shift when the real tape arrives. -->
+  <div class="m-ticker" aria-hidden="true">
+    <span class="m-ticker-live">
+      <span class="m-ticker-pulse"></span>
+      Live
+    </span>
+    <div class="m-ticker-mask">
+      <div class="m-ticker-track m-ticker-track-skeleton">
+        {#each Array(8) as _, i (i)}
+          <span class="m-ticker-skel">
+            <span class="m-skeleton m-ticker-skel-avatar"></span>
+            <span class="m-skeleton m-ticker-skel-line"></span>
+          </span>
         {/each}
       </div>
     </div>
@@ -168,6 +193,27 @@
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--stripe-text-muted);
+  }
+
+  /* Skeleton placeholder — static (no marquee) row of shimmer pills that
+     occupies the same height as the live tape. */
+  .m-ticker-track-skeleton {
+    animation: none;
+  }
+  .m-ticker-skel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .m-ticker-skel-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-full);
+  }
+  .m-ticker-skel-line {
+    width: 92px;
+    height: 10px;
+    border-radius: var(--radius-sm);
   }
 
   @keyframes m-ticker-scroll {

@@ -286,21 +286,20 @@
     display: none;
   }
 
-  /* Single strip row holding three glass frames side-by-side:
-     sort (score/pnl) · focus (stock/crypto) · view (table/card icons).
-     Each frame hugs its chips. If a very narrow phone overflows, the row
-     itself scrolls horizontally — keeps the "one row" intent intact. */
+  /* Strip holding three glass frames: sort (score/pnl) · focus (stock/crypto) ·
+     view (table/card icons). Each frame hugs its chips. They sit one row when
+     there's room; on a narrow phone the row wraps so the view frame drops to a
+     second line rather than a control scrolling out of reach. */
   .m-strip-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
-    gap: var(--space-2);
+    gap: clamp(4px, 1.5vw, var(--space-2));
     margin: var(--space-2) max(var(--safe-left), var(--space-4)) var(--space-3);
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-  .m-strip-row::-webkit-scrollbar {
-    display: none;
+    /* Cap to the actual viewport so the frames wrap to the real screen width
+       even if something else widens the page. */
+    max-width: calc(100vw - 2 * max(var(--safe-left), var(--space-4)));
+    box-sizing: border-box;
   }
   .m-sort-strip--inline {
     margin: 0;
@@ -313,7 +312,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px clamp(7px, 2.2vw, 10px);
+    padding: 6px clamp(6px, 1.8vw, 9px);
   }
 
   /* Horizontal padding + type shrink with the viewport (clamp) so all three
@@ -321,13 +320,13 @@
      on the very narrowest screens. */
   .m-sort-chip {
     flex: 0 0 auto;
-    padding: 6px clamp(8px, 2.6vw, 14px);
+    padding: 6px clamp(7px, 2vw, 12px);
     min-height: 32px;
     border-radius: var(--radius-lg);
     background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
-    font-size: clamp(11px, 3.1vw, var(--type-footnote));
+    font-size: clamp(10px, 2.8vw, var(--type-footnote));
     cursor: pointer;
     white-space: nowrap;
   }

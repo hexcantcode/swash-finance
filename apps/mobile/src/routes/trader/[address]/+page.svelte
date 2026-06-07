@@ -357,12 +357,11 @@
   }
 
   .m-section-title {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--type-body);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
     margin: 0 0 var(--space-3);
-    font-weight: 500;
   }
 
   /* Equity-curve heading row: title left, Net PnL pinned right. */
