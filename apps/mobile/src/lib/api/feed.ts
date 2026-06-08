@@ -50,6 +50,7 @@ export interface TopOpenPosition {
   unrealizedPnlUsd: number;
   returnOnEquity: number | null;
   leverage: number | null;
+  liquidationPxUsd: number | null;
   lastRefreshedAtMs: number;
   realizedPnlUsd: number | null;
 }
@@ -88,4 +89,38 @@ export function mergeFills(fills: CategorizedFills): LatestFill[] {
   return [...fills.stocks, ...fills.crypto].sort(
     (a, b) => b.blockTimeMs - a.blockTimeMs,
   );
+}
+
+// ── Sentiment (per-coin long/short holder split) ───────────────────────────
+
+export interface MostHeldRow {
+  coin: string;
+  holders: number;
+  longCount: number;
+  shortCount: number;
+  netNotionalUsd: number;
+  longNotionalUsd: number;
+  shortNotionalUsd: number;
+}
+
+export interface CategorizedMostHeld {
+  stocks: MostHeldRow[];
+  crypto: MostHeldRow[];
+}
+
+interface MostHeldResponse {
+  ok: true;
+  mostHeld: {
+    stocks: MostHeldRow[];
+    crypto: MostHeldRow[];
+  };
+}
+
+export async function getMostHeld(): Promise<CategorizedMostHeld> {
+  const body = await apiGet<MostHeldResponse>('/api/feed/most-held');
+  if (!body.ok) throw new Error('Most-held request returned ok:false');
+  return {
+    stocks: body.mostHeld.stocks ?? [],
+    crypto: body.mostHeld.crypto ?? [],
+  };
 }

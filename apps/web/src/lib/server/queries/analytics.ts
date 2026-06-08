@@ -499,6 +499,9 @@ export interface TopOpenPosition {
   unrealizedPnlUsd: number;
   returnOnEquity: number;
   leverage: number;
+  /** HL-computed liquidation price in USD, or null when absent (e.g. a flat
+   *  or fully-hedged account where HL reports no liq price). */
+  liquidationPxUsd: number | null;
   lastRefreshedAtMs: number | null;
   /** Cumulative realized PnL on this (address, coin) — `Σ (closedPnl − fee)`
    *  across every fill in the history. Zero when the trader has no closed
@@ -521,6 +524,7 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
     unrealized_pnl: string;
     return_on_equity: string;
     leverage: string | null;
+    liquidation_px: string | null;
   }>(sql`
     SELECT
       lc.address,
@@ -531,7 +535,8 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
       (p.elem -> 'position' ->> 'positionValue')   AS notional,
       (p.elem -> 'position' ->> 'unrealizedPnl')   AS unrealized_pnl,
       (p.elem -> 'position' ->> 'returnOnEquity')  AS return_on_equity,
-      (p.elem -> 'position' -> 'leverage' ->> 'value') AS leverage
+      (p.elem -> 'position' -> 'leverage' ->> 'value') AS leverage,
+      (p.elem -> 'position' ->> 'liquidationPx')   AS liquidation_px
     FROM leader_cache lc,
          LATERAL jsonb_array_elements(lc.positions_json) AS p(elem)
     WHERE lc.positions_json IS NOT NULL
@@ -553,6 +558,10 @@ export async function getTopOpenPositions(limit = 25): Promise<TopOpenPosition[]
       unrealizedPnlUsd: Number.parseFloat(r.unrealized_pnl),
       returnOnEquity: Number.parseFloat(r.return_on_equity),
       leverage: r.leverage !== null ? Number.parseFloat(r.leverage) : 0,
+      liquidationPxUsd:
+        r.liquidation_px !== null && Number.isFinite(Number.parseFloat(r.liquidation_px))
+          ? Number.parseFloat(r.liquidation_px)
+          : null,
       lastRefreshedAtMs: r.last_refreshed_at
         ? r.last_refreshed_at instanceof Date
           ? r.last_refreshed_at.getTime()
@@ -751,6 +760,11 @@ export interface MostHeldRow {
   /** Σ long − Σ short notional in USD — signed net exposure across the
    *  cohort. Surfaced for context; can color-tint the row. */
   netNotionalUsd: number;
+  /** Σ long notional in USD across the cohort. Drives the green segment of
+   *  the sentiment bar. */
+  longNotionalUsd: number;
+  /** Σ short notional in USD across the cohort. Drives the red segment. */
+  shortNotionalUsd: number;
 }
 
 export interface CategorizedMostHeld {
@@ -790,7 +804,8 @@ export async function getMostHeldByCategory(
   type Bucket = {
     longHolders: Set<string>;
     shortHolders: Set<string>;
-    netNotional: number;
+    longNotional: number;
+    shortNotional: number;
   };
   const byCoin: Record<'stocks' | 'crypto', Map<string, Bucket>> = {
     stocks: new Map(),
@@ -805,14 +820,15 @@ export async function getMostHeldByCategory(
     const b = byCoin[cat].get(r.coin) ?? {
       longHolders: new Set<string>(),
       shortHolders: new Set<string>(),
-      netNotional: 0,
+      longNotional: 0,
+      shortNotional: 0,
     };
     if (szi > 0) {
       b.longHolders.add(r.address);
-      b.netNotional += notional;
+      b.longNotional += notional;
     } else {
       b.shortHolders.add(r.address);
-      b.netNotional -= notional;
+      b.shortNotional += notional;
     }
     byCoin[cat].set(r.coin, b);
   }
@@ -824,7 +840,9 @@ export async function getMostHeldByCategory(
         longCount: b.longHolders.size,
         shortCount: b.shortHolders.size,
         holders: b.longHolders.size + b.shortHolders.size,
-        netNotionalUsd: b.netNotional,
+        netNotionalUsd: b.longNotional - b.shortNotional,
+        longNotionalUsd: b.longNotional,
+        shortNotionalUsd: b.shortNotional,
       }))
       .sort((a, b) => b.holders - a.holders || Math.abs(b.netNotionalUsd) - Math.abs(a.netNotionalUsd))
       .slice(0, perCategory);
