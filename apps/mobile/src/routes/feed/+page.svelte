@@ -161,7 +161,7 @@
   </div>
 
   {#if loading}
-    <ul class="m-list" aria-busy="true">
+    <ul class="m-card-list" aria-busy="true">
       {#each Array(8) as _, i (i)}
         <li class="m-skeleton-row">
           <span class="m-skeleton m-skeleton-avatar"></span>
@@ -183,7 +183,7 @@
     {#if fills.length === 0}
       <div class="m-empty safe-x">No trades yet.</div>
     {:else}
-      <ul class="m-list">
+      <ul class="m-card-list">
         {#each fills.slice(0, 60) as f (f.key)}
           <li>
             <a class="m-feed-row tappable-row" href={`/trader/${f.address}`}>
@@ -375,6 +375,8 @@
     color: inherit;
     text-decoration: none;
     align-items: center;
+    background: var(--glass-bg);
+    border-radius: var(--radius-md);
   }
 
   .m-feed-avatar {
