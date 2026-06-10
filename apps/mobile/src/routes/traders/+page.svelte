@@ -5,7 +5,6 @@
   import MobileTraderCard from '$lib/components/MobileTraderCard.svelte';
   import MobileLeaderRow from '$lib/components/MobileLeaderRow.svelte';
   import { listLeaders, type LeaderRow, type LeaderSort } from '$lib/api/leaders';
-  import { appSheet } from '$lib/ui/sheets.svelte';
 
   // Client-only data loading. No server-side data fetch here — apps/web owns
   // the canonical leaderboard query and exposes it at /api/leaders. The Vite
@@ -255,16 +254,6 @@
       {/each}
     </div>
   {/if}
-
-  <!-- Floating Mirror CTA — fixed above the bottom-nav pill so the primary
-       action sits in the thumb zone instead of inside each card's footer. -->
-  <button
-    type="button"
-    class="m-mirror-fab m-cta-primary"
-    onclick={() => appSheet.open('mirror')}
-  >
-    Mirror a trader
-  </button>
 </main>
 
 <style>
@@ -273,28 +262,7 @@
     flex-direction: column;
     min-height: 100vh;
     padding-top: var(--space-3);
-    /* Clearance for bottom nav + the floating Mirror CTA above it. */
-    padding-bottom: calc(var(--safe-bottom) + 150px);
-  }
-
-  /* Floating Mirror CTA — centered, hovering just above the nav pill
-     (nav bottom inset = safe-bottom + space-3; pill is 56px tall). Sits
-     under the sheets layer (z 100) and above the nav edge fade (z 19). */
-  .m-mirror-fab {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px + var(--space-3));
-    z-index: 21;
-    min-height: var(--touch-min);
-    padding: 12px 32px;
-    border-radius: var(--radius-full);
-    white-space: nowrap;
-  }
-  /* Re-state the press scale with the centering translate so :active from
-     .m-cta-primary doesn't drop the translateX. */
-  .m-mirror-fab:active {
-    transform: translateX(-50%) scale(0.97);
+    padding-bottom: calc(var(--safe-bottom) + 80px); /* bottom nav clearance */
   }
 
   /* Sort strip — glass container, same language as the bottom-nav and the

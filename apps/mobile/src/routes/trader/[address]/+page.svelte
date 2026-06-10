@@ -163,15 +163,16 @@
       </button>
     </section>
 
-    <div class="m-detail-cta safe-x">
-      <button
-        type="button"
-        class="m-detail-mirror m-cta-primary tappable"
-        onclick={() => appSheet.open('mirror')}
-      >
-        Mirror this trader
-      </button>
-    </div>
+    <!-- Floating Mirror CTA — fixed above the bottom-nav pill so the page's
+         primary action sits in the thumb zone. Same insets and radius as the
+         nav pill so the two floating chrome pieces read as one system. -->
+    <button
+      type="button"
+      class="m-mirror-fab m-cta-primary"
+      onclick={() => appSheet.open('mirror')}
+    >
+      Mirror this trader
+    </button>
 
     {#if detail.equity_curve.length > 1}
       <section class="m-detail-section m-detail-chart safe-x" aria-label="Profit curve">
@@ -288,7 +289,22 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding-bottom: calc(var(--safe-bottom) + 80px);
+    /* Clearance for bottom nav + the floating Mirror CTA above it. */
+    padding-bottom: calc(var(--safe-bottom) + 150px);
+  }
+
+  /* Floating Mirror CTA — full-width bar with the nav pill's insets and
+     radius (--radius-xl), hovering one gap above it (nav bottom inset =
+     safe-bottom + space-3; pill is 56px tall). Below the sheets layer
+     (z 100), above the nav edge fade (z 19). */
+  .m-mirror-fab {
+    position: fixed;
+    left: max(var(--safe-left), var(--space-4));
+    right: max(var(--safe-right), var(--space-4));
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px + var(--space-3));
+    z-index: 21;
+    min-height: 52px;
+    border-radius: var(--radius-xl);
   }
 
   .m-detail-header {
@@ -414,13 +430,6 @@
   /* Monochrome accent — green stays reserved for profit/long. */
   .m-detail-score-bar.is-on {
     background: var(--stripe-accent);
-  }
-
-  .m-detail-cta {
-    padding-bottom: var(--space-5);
-  }
-  .m-detail-mirror {
-    width: 100%;
   }
 
   .m-detail-stats {
