@@ -1,9 +1,14 @@
 <script lang="ts">
   import '../app.css';
+  import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import MobileAppSheets from '$lib/components/MobileAppSheets.svelte';
+  import { initNative } from '$lib/native';
 
   let { children } = $props();
+
+  // Native-only chrome (status bar etc.); no-op in the browser/PWA.
+  onMount(() => void initNative());
 
   const path = $derived($page.url.pathname);
   const homeActive = $derived(path === '/');
