@@ -107,7 +107,7 @@
 </script>
 
 <svelte:head>
-  <title>Assets · Swash</title>
+  <title>Markets · Swash</title>
 </svelte:head>
 
 <main id="main-content" class="m-page">
@@ -138,7 +138,7 @@
   {/if}
 
   <div class="m-assets-head safe-x">
-    <h2 class="m-section-title">{search.trim() ? 'Results' : 'Assets'}</h2>
+    <h2 class="m-section-title">{search.trim() ? 'Results' : 'Markets'}</h2>
     <div class="m-search-slot">
       {#if searchOpen || search.trim()}
         <input
@@ -148,7 +148,7 @@
           placeholder="Search…"
           bind:value={search}
           onkeydown={onSearchKey}
-          aria-label="Search assets"
+          aria-label="Search markets"
         />
         <button
           type="button"
@@ -165,7 +165,7 @@
           type="button"
           class="m-search-iconbtn tappable"
           onclick={openSearch}
-          aria-label="Search assets"
+          aria-label="Search markets"
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -177,10 +177,10 @@
   </div>
 
   {#if !search.trim()}
-    <div class="m-filter-row" role="tablist" aria-label="Asset filters">
+    <div class="m-filter-row" role="tablist" aria-label="Market filters">
       <button
         type="button"
-        class="m-filter-chip m-filter-star tappable"
+        class="m-filter-chip m-filter-star tappable tap-hit"
         class:is-active={favActive}
         aria-pressed={favActive}
         aria-label="Favorites"
@@ -195,7 +195,7 @@
           type="button"
           role="tab"
           aria-selected={activeCategory === c.value}
-          class="m-filter-chip tappable"
+          class="m-filter-chip tappable tap-hit"
           class:is-active={activeCategory === c.value}
           onclick={() => selectCategory(c.value)}
         >
@@ -231,7 +231,7 @@
     </div>
   {:else if filtered.length === 0}
     <div class="m-empty safe-x">
-      <p>{search.trim() ? `No assets match “${search}”.` : 'No assets in this category.'}</p>
+      <p>{search.trim() ? `No markets match “${search}”.` : 'No markets in this category.'}</p>
     </div>
   {:else}
     <ul class="m-card-list">
@@ -257,7 +257,7 @@
     padding-bottom: calc(var(--safe-bottom) + 80px);
   }
 
-  /* "Assets" / "Results" heading row with the collapsible search slot. */
+  /* "Markets" / "Results" heading row with the collapsible search slot. */
   .m-assets-head {
     display: flex;
     align-items: center;
@@ -463,48 +463,16 @@
     color: var(--stripe-danger);
   }
 
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
-  }
+  /* Page-specific skeleton bones (shared row/line bones + error/empty states
+     live in lib/styles/mobile.css). */
   .m-skeleton-icon {
     width: 36px;
     height: 36px;
     border-radius: var(--radius-full);
   }
-  .m-skeleton-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .m-skeleton-line {
-    height: 14px;
-    width: 60%;
-  }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 40%;
-  }
   .m-skeleton-stat {
     width: 64px;
     height: 28px;
-  }
-
-  .m-error,
-  .m-empty {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-error-retry {
-    margin-top: var(--space-3);
-    padding: 10px 20px;
-    font-family: var(--font-mono);
   }
 
   .m-footnote {

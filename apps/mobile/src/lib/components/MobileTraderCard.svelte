@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
-  import { effigyUrl, shortAddress, formatPnl, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, shortAddress, formatPnl, formatRelativeTime, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
-  import MobileEquityCurve from './MobileEquityCurve.svelte';
+  import { appSheet } from '$lib/ui/sheets.svelte';
+  import MobileSparkline from './MobileSparkline.svelte';
 
   interface Props {
     row: LeaderRow;
@@ -15,34 +16,25 @@
   // Mock shows up to 5 holding pips before the +N overflow.
   const shownHoldings = $derived(row.holdings.top.slice(0, 5));
   const extraHoldings = $derived(Math.max(0, row.holdings.total - shownHoldings.length));
-  const relTime = $derived(formatRelative(row.last_active_at));
-
-  /** "3D AGO" / "5H AGO" / "12M AGO" from an ISO timestamp. Coarse buckets
-   *  — minutes / hours / days / weeks / months — matching the mock. */
-  function formatRelative(iso: string | null): string {
-    if (!iso) return '—';
-    const t = Date.parse(iso);
-    if (!Number.isFinite(t)) return '—';
-    const diffSec = (Date.now() - t) / 1000;
-    if (diffSec < 60) return 'NOW';
-    const mins = Math.floor(diffSec / 60);
-    if (mins < 60) return `${mins}M AGO`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}H AGO`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}D AGO`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 5) return `${weeks}W AGO`;
-    const months = Math.floor(days / 30);
-    return `${months}MO AGO`;
-  }
+  const relTime = $derived(formatRelativeTime(row.last_active_at));
+  const holdingsLabel = $derived(
+    `${row.holdings.total} open positions: ` +
+      shownHoldings.map((h) => `${h.coin}${h.side ? ` ${h.side}` : ''}`).join(', ') +
+      (extraHoldings > 0 ? ` and ${extraHoldings} more` : ''),
+  );
+  const sparkPoints = $derived(row.pnl_curve_30d.map((v, i) => ({ t: i, c: v })));
 </script>
 
-<a
-  class="m-trader-card"
-  href={`/trader/${row.address}`}
-  aria-label={`Trader ${row.address}, score ${scoreText}`}
->
+<!-- The card is a div with a stretched link overlay: a button can't legally
+     nest inside an <a>, and the score / Mirror buttons must stay independently
+     tappable. Buttons sit above the overlay via z-index. -->
+<article class="m-trader-card">
+  <a
+    class="m-trader-card-link"
+    href={`/trader/${row.address}`}
+    aria-label={`Trader ${row.address}, score ${scoreText}`}
+  ></a>
+
   <div class="m-trader-head">
     <img
       class="m-trader-avatar"
@@ -53,7 +45,7 @@
     <div class="m-trader-id">
       <span class="m-trader-addr">{shortAddress(row.address, 6, 4)}</span>
       {#if shownHoldings.length > 0}
-        <span class="m-trader-holdings" aria-label={`${row.holdings.total} open holdings`}>
+        <span class="m-trader-holdings" aria-label={holdingsLabel}>
           {#each shownHoldings as h (h.coin)}
             <img
               class="m-trader-hold-icon"
@@ -94,20 +86,25 @@
     <div class="m-trader-figs">
       <div class="m-trader-fig">
         <span class="m-trader-fig-val {pnlClass}">{formatPnl(row.pnl_30d_usd)}</span>
-        <span class="m-trader-fig-label">PnL 30D</span>
+        <span class="m-trader-fig-label">Profit 30D</span>
       </div>
       <div class="m-trader-fig">
         <span class="m-trader-fig-val">{formatPnl(row.account_value)}</span>
-        <span class="m-trader-fig-label">Equity</span>
+        <span class="m-trader-fig-label">Account value</span>
       </div>
     </div>
     <div class="m-trader-spark">
-      <MobileEquityCurve data={row.pnl_curve_30d} height={60} />
+      <MobileSparkline candles={sparkPoints} height={60} label="Profit trend, last 30 days" />
     </div>
   </div>
 
   <div class="m-trader-foot">
-    <div class="m-trader-score" aria-label={`Score ${scoreText} out of 100`}>
+    <button
+      type="button"
+      class="m-trader-score tap-hit"
+      aria-label={`Score ${scoreText} out of 100 — what does this mean?`}
+      onclick={() => appSheet.open('score')}
+    >
       <span class="m-trader-score-val">{scoreText}</span>
       <span class="m-trader-score-of">/100</span>
       <span class="m-trader-score-bars" aria-hidden="true">
@@ -115,24 +112,34 @@
           <span class="m-trader-score-bar" class:is-on={i < scoreFilled}></span>
         {/each}
       </span>
-    </div>
+      <svg
+        class="m-trader-score-info"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5 M12 8h.01" />
+      </svg>
+    </button>
     <button
       type="button"
-      class="m-trader-mirror m-btn"
-      aria-disabled="true"
-      tabindex="-1"
-      onclick={(e) => e.preventDefault()}
+      class="m-trader-mirror m-cta-primary"
+      onclick={() => appSheet.open('mirror')}
     >
       Mirror
     </button>
   </div>
-</a>
+</article>
 
 <style>
   .m-trader-card {
+    position: relative;
     display: flex;
     flex-direction: column;
-    text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -140,6 +147,15 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--glass-highlight), var(--glass-shadow);
     overflow: hidden;
+  }
+
+  /* Stretched link — covers the whole card; the score and Mirror buttons
+     sit above it. */
+  .m-trader-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
   }
 
   /* ── Header row ───────────────────────────────────────── */
@@ -221,6 +237,7 @@
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--stripe-text-tertiary);
   }
   .m-trader-time-icon {
@@ -273,9 +290,8 @@
     letter-spacing: 0.02em;
   }
 
-  /* Wrapper for the lightweight-charts canvas sparkline. Fixed 60px tall
-     so the card height stays predictable regardless of the trace's
-     amplitude; the chart auto-fits to this height + the available width. */
+  /* Fixed 60px tall so the card height stays predictable regardless of the
+     trace's amplitude; the SVG stretches to the available width. */
   .m-trader-spark {
     width: 100%;
     height: 60px;
@@ -291,10 +307,18 @@
     border-top: 1px solid var(--stripe-border);
   }
 
+  /* Tappable: opens the score-explainer sheet. Sits above the stretched
+     card link. */
   .m-trader-score {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
@@ -308,9 +332,8 @@
     font-size: 11px;
     color: var(--stripe-text-tertiary);
   }
-  /* Ten thin bars, lit by composite score. Same accent as the desktop
-     score meter; off-bars are a faint tone so the meter still reads
-     against the glass surface. */
+  /* Ten thin bars, lit by composite score. Monochrome accent — green is
+     reserved for profit/long everywhere else. */
   .m-trader-score-bars {
     display: inline-flex;
     gap: 2px;
@@ -325,24 +348,18 @@
     border-radius: 1px;
   }
   .m-trader-score-bar.is-on {
-    background: var(--stripe-success);
+    background: var(--stripe-accent);
+  }
+  /* Small ⓘ — signals the score is tappable / explainable. */
+  .m-trader-score-info {
+    width: 13px;
+    height: 13px;
+    color: var(--stripe-text-tertiary);
   }
 
-  /* Mirror button — visually a primary action, but inert: aria-disabled
-     and a non-interactive style so screen readers and keyboard users
-     understand it's not wired up yet. Click is captured by the parent
-     <a>; preventDefault on the button stops the implicit form submit. */
   .m-trader-mirror {
-    padding: 5px 11px;
-    background-image: url('/buttonbg.png');
-    background-size: cover;
-    background-position: center;
-    color: #fff;
-    font-family: var(--font-sans);
-    font-size: var(--type-caption);
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    opacity: 0.7;
-    cursor: not-allowed;
+    position: relative;
+    z-index: 2;
+    padding: 6px 14px;
   }
 </style>

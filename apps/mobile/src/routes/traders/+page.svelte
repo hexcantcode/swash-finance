@@ -5,6 +5,7 @@
   import MobileTraderCard from '$lib/components/MobileTraderCard.svelte';
   import MobileLeaderRow from '$lib/components/MobileLeaderRow.svelte';
   import { listLeaders, type LeaderRow, type LeaderSort } from '$lib/api/leaders';
+  import { appSheet } from '$lib/ui/sheets.svelte';
 
   // Client-only data loading. No server-side data fetch here — apps/web owns
   // the canonical leaderboard query and exposes it at /api/leaders. The Vite
@@ -13,7 +14,7 @@
 
   const SORTS: { value: LeaderSort; label: string }[] = [
     { value: 'score', label: 'Score' },
-    { value: 'pnl', label: 'PnL' },
+    { value: 'pnl', label: 'Profit' },
   ];
 
   // 'all' is the implicit state — no chip selected. Stock + Crypto are the
@@ -143,7 +144,7 @@
           type="button"
           role="tab"
           aria-selected={sort === opt.value}
-          class="m-sort-chip tappable"
+          class="m-sort-chip tappable tap-hit"
           class:is-active={sort === opt.value}
           onclick={() => setSort(opt.value)}
         >
@@ -161,7 +162,7 @@
           type="button"
           role="tab"
           aria-selected={focus === opt.value}
-          class="m-sort-chip tappable"
+          class="m-sort-chip tappable tap-hit"
           class:is-active={focus === opt.value}
           onclick={() => setFocus(opt.value)}
         >
@@ -181,7 +182,7 @@
           aria-selected={view === opt.value}
           aria-label={opt.label}
           title={opt.label}
-          class="m-sort-chip m-view-chip tappable"
+          class="m-sort-chip m-view-chip tappable tap-hit"
           class:is-active={view === opt.value}
           onclick={() => setView(opt.value)}
         >
@@ -254,6 +255,16 @@
       {/each}
     </div>
   {/if}
+
+  <!-- Floating Mirror CTA — fixed above the bottom-nav pill so the primary
+       action sits in the thumb zone instead of inside each card's footer. -->
+  <button
+    type="button"
+    class="m-mirror-fab m-cta-primary"
+    onclick={() => appSheet.open('mirror')}
+  >
+    Mirror a trader
+  </button>
 </main>
 
 <style>
@@ -262,7 +273,28 @@
     flex-direction: column;
     min-height: 100vh;
     padding-top: var(--space-3);
-    padding-bottom: calc(var(--safe-bottom) + 80px); /* bottom nav clearance */
+    /* Clearance for bottom nav + the floating Mirror CTA above it. */
+    padding-bottom: calc(var(--safe-bottom) + 150px);
+  }
+
+  /* Floating Mirror CTA — centered, hovering just above the nav pill
+     (nav bottom inset = safe-bottom + space-3; pill is 56px tall). Sits
+     under the sheets layer (z 100) and above the nav edge fade (z 19). */
+  .m-mirror-fab {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px + var(--space-3));
+    z-index: 21;
+    min-height: var(--touch-min);
+    padding: 12px 32px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+  }
+  /* Re-state the press scale with the centering translate so :active from
+     .m-cta-primary doesn't drop the translateX. */
+  .m-mirror-fab:active {
+    transform: translateX(-50%) scale(0.97);
   }
 
   /* Sort strip — glass container, same language as the bottom-nav and the
@@ -352,48 +384,15 @@
     border-radius: var(--radius-lg);
   }
 
-  /* Table-view skeleton bones — match the proportions of MobileLeaderRow so
+  /* Page-specific skeleton bones (shared row/line bones + error/empty states
+     live in lib/styles/mobile.css). Sized to MobileLeaderRow's proportions so
      there's no layout jump when rows hydrate. */
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
-  }
   .m-skeleton-rank {
     width: 24px;
     height: 14px;
   }
-  .m-skeleton-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .m-skeleton-line {
-    height: 14px;
-    width: 60%;
-  }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 40%;
-  }
   .m-skeleton-score {
     width: 48px;
     height: 28px;
-  }
-
-  .m-error,
-  .m-empty {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-error-retry {
-    margin-top: var(--space-3);
-    padding: 10px 20px;
-    font-family: var(--font-mono);
   }
 </style>

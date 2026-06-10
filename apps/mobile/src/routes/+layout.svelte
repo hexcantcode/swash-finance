@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import { page } from '$app/stores';
+  import MobileAppSheets from '$lib/components/MobileAppSheets.svelte';
 
   let { children } = $props();
 
@@ -17,7 +18,8 @@
   const ICON_PROFILE = 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0';
   const ICON_TRADERS =
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
-  const ICON_ASSETS = 'M3 3v18h18 M18 17V9 M13 17V5 M8 17v-3';
+  // Markets = exchange arrows (Lucide arrow-right-left).
+  const ICON_MARKETS = 'M16 3l4 4-4 4 M20 7H4 M8 21l-4-4 4-4 M4 17h16';
   const ICON_FEED =
     'M5 5h.01 M10 5h.01 M15 5h.01 M19 5h.01 M5 10h.01 M10 10h.01 M15 10h.01 M19 10h.01 M5 15h.01 M10 15h.01 M15 15h.01 M19 15h.01 M5 19h.01 M10 19h.01 M15 19h.01 M19 19h.01';
 </script>
@@ -44,6 +46,8 @@
 
   {@render children?.()}
 
+  <MobileAppSheets />
+
   <div class="m-bottomnav-edge" aria-hidden="true"></div>
 
   <nav class="m-bottomnav" aria-label="Primary navigation">
@@ -64,9 +68,9 @@
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          <path d={ICON_ASSETS} />
+          <path d={ICON_MARKETS} />
         </svg>
-        <span class="m-bottomnav-label">Assets</span>
+        <span class="m-bottomnav-label">Markets</span>
       </a>
       <a
         href="/traders"
@@ -239,8 +243,8 @@
     /* Anchored to the TOP of the pill, not the screen floor — otherwise the
        gradient would fill the area behind the pill with page-color and the
        pill's backdrop-blur would frost a solid block instead of real content.
-       Pill bottom is safe-bottom + --space-3; pill height is 64px. */
-    bottom: calc(var(--safe-bottom) + var(--space-3) + 64px);
+       Pill bottom is safe-bottom + --space-3; pill height is 56px. */
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px);
     height: 28px;
     background: linear-gradient(
       to top,
@@ -307,7 +311,7 @@
     z-index: 1;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    height: 64px;
+    height: 56px;
   }
 
   .m-bottomnav-item {
@@ -318,10 +322,12 @@
     gap: 5px;
     color: var(--stripe-text-tertiary);
     text-decoration: none;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans);
+    /* Sentence-case labels — slightly larger than the old all-caps 10px so
+       lowercase letterforms stay legible at a glance. */
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
     min-height: var(--touch-min);
   }
 
@@ -364,6 +370,5 @@
 
   .m-bottomnav-label {
     line-height: 1;
-    letter-spacing: 0.05em;
   }
 </style>

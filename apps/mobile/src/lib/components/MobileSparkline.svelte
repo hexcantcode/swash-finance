@@ -1,14 +1,23 @@
 <script lang="ts">
-  import type { Candle } from '$lib/api/asset-detail';
+  /** Minimal point shape — full Candles satisfy it, but any {t, c} series
+   *  (e.g. a cumulative-PnL curve) can drive the sparkline too. */
+  interface SparkPoint {
+    /** X position (ms epoch or plain index — only ordering matters). */
+    t: number;
+    /** Y value (close price, cumulative PnL, …). */
+    c: number;
+  }
 
   interface Props {
-    candles: Candle[];
+    candles: SparkPoint[];
     height?: number;
     /** Filled area below the line. Adds context without a y-axis. */
     fill?: boolean;
+    /** Accessible description of what the trend represents. */
+    label?: string;
   }
 
-  let { candles, height = 140, fill = true }: Props = $props();
+  let { candles, height = 140, fill = true, label = 'Price trend' }: Props = $props();
 
   // Stretches to its container's width via viewBox preserveAspectRatio="none".
   // We pick 600 as a wide reference so 1-pixel strokes still hint at scale on
@@ -47,7 +56,7 @@
     viewBox={`0 0 ${W} ${height}`}
     preserveAspectRatio="none"
     role="img"
-    aria-label="Price trend"
+    aria-label={label}
   >
     {#if points.area}
       <path
@@ -69,8 +78,12 @@
 {/if}
 
 <style>
+  /* Fill the parent box in both axes — preserveAspectRatio="none" means the
+     viewBox stretches with it. Without the explicit height the browser derives
+     one from the viewBox aspect ratio and renders the trace half-height. */
   .m-sparkline {
     width: 100%;
+    height: 100%;
     display: block;
   }
 

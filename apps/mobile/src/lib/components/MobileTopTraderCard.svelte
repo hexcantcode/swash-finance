@@ -19,7 +19,12 @@
   <div class="m-tcard-top">
     <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
     {#if shownHoldings.length > 0}
-      <div class="m-tcard-holdings">
+      <div
+        class="m-tcard-holdings"
+        aria-label={`${trader.holdings.total} open positions: ${shownHoldings
+          .map((h) => `${h.coin}${h.side ? ` ${h.side}` : ''}`)
+          .join(', ')}`}
+      >
         {#each shownHoldings as h (h.coin)}
           <img
             class="m-tcard-hold-icon"
@@ -41,7 +46,7 @@
 
   <div class="m-tcard-figs">
     <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">PnL</span>
+      <span class="m-tcard-fig-label">Profit</span>
       <span class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</span>
     </div>
     <div class="m-tcard-fig">

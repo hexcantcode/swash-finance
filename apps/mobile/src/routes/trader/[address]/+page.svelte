@@ -7,12 +7,15 @@
     effigyUrl,
     formatPnl,
     formatUsd,
+    formatPct,
     formatDuration,
     formatRelativeTime,
     pnlSignClass,
   } from '$lib/utils/format';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import MobilePriceChart from '$lib/components/MobilePriceChart.svelte';
+  import Tag from '$lib/components/Tag.svelte';
+  import { appSheet } from '$lib/ui/sheets.svelte';
 
   const address = $derived($page.params['address'] ?? '');
 
@@ -120,15 +123,62 @@
           <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
             {shortAddress(detail.address, 6, 4)}
           </button>
-          <span class="m-detail-sub">Trader</span>
+          <span class="m-detail-tagrow">
+            <Tag tag={detail.primary_tag} />
+          </span>
         </div>
       </div>
+      <!-- Composite score — the same number the leaderboard ranks by; tapping
+           opens the plain-language explainer. -->
+      <button
+        type="button"
+        class="m-detail-score tap-hit"
+        aria-label={`Score ${detail.score === null ? 'unknown' : Math.round(detail.score)} out of 100 — what does this mean?`}
+        onclick={() => appSheet.open('score')}
+      >
+        <span class="m-detail-score-num">
+          <span class="m-detail-score-val">{detail.score === null ? '—' : Math.round(detail.score)}</span>
+          <span class="m-detail-score-of">/100</span>
+          <svg
+            class="m-detail-score-info"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5 M12 8h.01" />
+          </svg>
+        </span>
+        <span class="m-detail-score-bars" aria-hidden="true">
+          {#each Array(10) as _, i (i)}
+            <span
+              class="m-detail-score-bar"
+              class:is-on={detail.score !== null && i < Math.max(0, Math.min(10, Math.round(detail.score / 10)))}
+            ></span>
+          {/each}
+        </span>
+      </button>
     </section>
 
+    <div class="m-detail-cta safe-x">
+      <button
+        type="button"
+        class="m-detail-mirror m-cta-primary tappable"
+        onclick={() => appSheet.open('mirror')}
+      >
+        Mirror this trader
+      </button>
+    </div>
+
     {#if detail.equity_curve.length > 1}
-      <section class="m-detail-section m-detail-chart safe-x" aria-label="Equity curve">
+      <section class="m-detail-section m-detail-chart safe-x" aria-label="Profit curve">
         <div class="m-chart-heading">
-          <h2 class="m-section-title">Equity curve · 90D</h2>
+          <!-- The curve plots cumulative realized PnL, not account value —
+               "profit" is both the accurate and the plain-language name. -->
+          <h2 class="m-section-title">Profit curve · 90D</h2>
           {#if hovered}
             <div class="m-chart-netpnl {pnlSignClass(hovered.price)}">
               <span class="m-chart-netpnl-label">{formatHoverDate(hovered.time)}</span>
@@ -136,7 +186,7 @@
             </div>
           {:else}
             <div class="m-chart-netpnl {pnlSignClass(detail.scoring?.net_pnl_usd)}">
-              <span class="m-chart-netpnl-label">Net PnL</span>
+              <span class="m-chart-netpnl-label">Net profit</span>
               <span class="m-chart-netpnl-value">{formatPnl(detail.scoring?.net_pnl_usd ?? null)}</span>
             </div>
           {/if}
@@ -151,8 +201,14 @@
 
     <section class="m-detail-stats safe-x" aria-label="Key metrics">
       <div class="m-stat">
-        <div class="m-stat-label">Equity</div>
+        <div class="m-stat-label">Account value</div>
         <div class="m-stat-value">{formatUsd(detail.account_value)}</div>
+      </div>
+      <div class="m-stat">
+        <div class="m-stat-label">Win rate</div>
+        <div class="m-stat-value">
+          {detail.scoring?.win_rate != null ? formatPct(detail.scoring.win_rate, 0) : '—'}
+        </div>
       </div>
       <div class="m-stat">
         <div class="m-stat-label">Trades</div>
@@ -207,7 +263,7 @@
               <div class="m-position-main">
                 <div class="m-position-coin">{coinDisplayName(t.coin)}</div>
                 <div class="m-position-side">
-                  {t.count} {t.count === 1 ? 'fill' : 'fills'}
+                  {t.count} {t.count === 1 ? 'trade' : 'trades'}
                   · {formatRelativeTime(new Date(t.lastMs))}
                 </div>
               </div>
@@ -257,12 +313,15 @@
     box-shadow: var(--glass-highlight);
   }
 
-  /* Avatar left, wallet beside it — mirrors the asset-page hero placement. */
+  /* Avatar left, wallet beside it — mirrors the asset-page hero placement.
+     The composite score sits on the right edge. */
   .m-detail-hero {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
     padding-top: var(--space-3);
-    padding-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
   }
 
   .m-detail-id {
@@ -300,17 +359,73 @@
     cursor: pointer;
   }
 
-  .m-detail-sub {
+  .m-detail-tagrow {
+    display: inline-flex;
+    margin-top: 4px;
+  }
+
+  /* Score block — right edge of the hero, tappable → explainer sheet. */
+  .m-detail-score {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
     font-family: var(--font-mono);
-    font-size: var(--type-footnote);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-detail-score-num {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+  }
+  .m-detail-score-val {
+    font-size: var(--type-title);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--stripe-text-primary);
+  }
+  .m-detail-score-of {
+    font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  }
+  .m-detail-score-info {
+    width: 13px;
+    height: 13px;
+    align-self: center;
+    color: var(--stripe-text-tertiary);
+  }
+  .m-detail-score-bars {
+    display: inline-flex;
+    gap: 2px;
+    align-items: flex-end;
+  }
+  .m-detail-score-bar {
+    display: inline-block;
+    width: 3px;
+    height: 8px;
+    background: var(--stripe-accent-muted);
+    border-radius: 1px;
+  }
+  /* Monochrome accent — green stays reserved for profit/long. */
+  .m-detail-score-bar.is-on {
+    background: var(--stripe-accent);
+  }
+
+  .m-detail-cta {
+    padding-bottom: var(--space-5);
+  }
+  .m-detail-mirror {
+    width: 100%;
   }
 
   .m-detail-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3);
     padding-top: var(--space-2);
     padding-bottom: var(--space-5);
@@ -506,16 +621,5 @@
     margin-top: var(--space-1);
   }
 
-  .m-error,
-  .m-empty {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-error-retry {
-    margin-top: var(--space-3);
-    padding: 10px 20px;
-    font-family: var(--font-mono);
-  }
+  /* Error/empty states come from the shared layer in lib/styles/mobile.css. */
 </style>

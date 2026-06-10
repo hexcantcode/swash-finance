@@ -166,7 +166,7 @@
 
 <main id="main-content" class="m-page">
   <header class="m-detail-header safe-x">
-    <a href="/assets" class="m-back tappable" aria-label="Back to assets">
+    <a href="/assets" class="m-back tappable" aria-label="Back to markets">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="m15 18-6-6 6-6" />
       </svg>
@@ -229,7 +229,7 @@
       <div class="m-chart-mode" role="group" aria-label="Chart type">
         <button
           type="button"
-          class="m-chart-mode-btn tappable"
+          class="m-chart-mode-btn tappable tap-hit"
           class:is-active={chartMode === 'line'}
           aria-pressed={chartMode === 'line'}
           onclick={() => (chartMode = 'line')}
@@ -238,7 +238,7 @@
         </button>
         <button
           type="button"
-          class="m-chart-mode-btn tappable"
+          class="m-chart-mode-btn tappable tap-hit"
           class:is-active={chartMode === 'candle'}
           aria-pressed={chartMode === 'candle'}
           onclick={() => (chartMode = 'candle')}
@@ -261,7 +261,7 @@
           type="button"
           role="tab"
           aria-selected={range === r.value}
-          class="m-range-chip tappable"
+          class="m-range-chip tappable tap-hit"
           class:is-active={range === r.value}
           onclick={() => (range = r.value)}
         >
@@ -278,7 +278,7 @@
           type="button"
           role="tab"
           aria-selected={tab === 'traders'}
-          class="m-tab tappable"
+          class="m-tab tappable tap-hit"
           class:is-active={tab === 'traders'}
           onclick={() => (tab = 'traders')}
         >
@@ -288,7 +288,7 @@
           type="button"
           role="tab"
           aria-selected={tab === 'trades'}
-          class="m-tab tappable"
+          class="m-tab tappable tap-hit"
           class:is-active={tab === 'trades'}
           onclick={() => (tab = 'trades')}
         >
@@ -618,8 +618,8 @@
 
   .m-tab {
     flex: 1 1 0;
-    min-height: 36px;
-    padding: 8px 12px;
+    min-height: 32px;
+    padding: 6px 12px;
     border-radius: var(--radius-lg);
     background: transparent;
     color: var(--stripe-text-secondary);

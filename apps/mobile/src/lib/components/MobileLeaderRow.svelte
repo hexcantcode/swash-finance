@@ -50,7 +50,12 @@
 
       <div class="m-leader-line-2">
         {#if shownHoldings.length > 0}
-          <span class="m-leader-holdings" aria-label={`${row.holdings.total} open holdings`}>
+          <span
+            class="m-leader-holdings"
+            aria-label={`${row.holdings.total} open positions: ${shownHoldings
+              .map((h) => `${h.coin}${h.side ? ` ${h.side}` : ''}`)
+              .join(', ')}`}
+          >
             {#each shownHoldings as h (h.coin)}
               <img
                 class="m-leader-hold-icon"

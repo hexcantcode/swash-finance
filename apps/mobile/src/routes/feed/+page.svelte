@@ -58,10 +58,23 @@
     }
   }
 
+  /** Background refresh only re-fetches the active tab's dataset — the other
+   *  two keep their last snapshot until the user switches back (the initial
+   *  load() already primed all three, so switches stay instant). */
+  async function refreshActive() {
+    try {
+      if (tab === 'trades') fills = mergeFills(await getLatestFills());
+      else if (tab === 'positions') positions = await getTopOpenPositions();
+      else mostHeld = await getMostHeld();
+    } catch {
+      // Keep the stale snapshot; the next poll retries.
+    }
+  }
+
   function scheduleRefresh() {
     pollTimer = setTimeout(async () => {
       if (document.visibilityState === 'visible') {
-        await load({ silent: true });
+        await refreshActive();
       }
       scheduleRefresh();
     }, POLL_MS);
@@ -132,7 +145,7 @@
       type="button"
       role="tab"
       aria-selected={tab === 'trades'}
-      class="m-tab tappable"
+      class="m-tab tappable tap-hit"
       class:is-active={tab === 'trades'}
       onclick={() => (tab = 'trades')}
     >
@@ -142,7 +155,7 @@
       type="button"
       role="tab"
       aria-selected={tab === 'positions'}
-      class="m-tab tappable"
+      class="m-tab tappable tap-hit"
       class:is-active={tab === 'positions'}
       onclick={() => (tab = 'positions')}
     >
@@ -152,7 +165,7 @@
       type="button"
       role="tab"
       aria-selected={tab === 'sentiment'}
-      class="m-tab tappable"
+      class="m-tab tappable tap-hit"
       class:is-active={tab === 'sentiment'}
       onclick={() => (tab = 'sentiment')}
     >
@@ -196,8 +209,10 @@
               <div class="m-feed-main">
                 <div class="m-feed-line-1">
                   <span class="m-feed-address">{shortAddress(f.address, 4, 4)}</span>
+                  <!-- A raw fill only tells us buy/sell — a sell can be closing a
+                       long, so labeling it "short" would mislead. -->
                   <span class="m-feed-action {f.side === 'B' ? 'is-buy' : 'is-sell'}">
-                    {f.side === 'B' ? 'long' : 'short'}
+                    {f.side === 'B' ? 'buy' : 'sell'}
                   </span>
                   <span class="m-feed-coin">
                     {#if coinIconUrl(f.coin)}
@@ -235,7 +250,7 @@
                   <div class="m-pos-addr">{shortAddress(p.address, 4, 4)}</div>
                   <div class="m-pos-meta">
                     <span class="m-pos-side {p.side === 'long' ? 'is-long' : 'is-short'}">
-                      {p.side}
+                      {p.side}{formatLeverage(p.leverage) ? ` ${formatLeverage(p.leverage)}` : ''}
                     </span>
                     <span class="m-pos-cn">
                       {#if coinIconUrl(p.coin)}
@@ -243,9 +258,6 @@
                       {/if}
                       {coinDisplayName(p.coin)}
                     </span>
-                    {#if formatLeverage(p.leverage)}
-                      <span class="m-pos-lev">· {formatLeverage(p.leverage)}</span>
-                    {/if}
                   </div>
                 </div>
                 <div class="m-pos-metrics">
@@ -270,13 +282,13 @@
                   <span class="m-pos-cell-val {pnlSignClass(p.unrealizedPnlUsd)}">{fmtPrice(cur)}</span>
                 </div>
                 <div class="m-pos-cell">
-                  <span class="m-pos-cell-label">liq</span>
+                  <span class="m-pos-cell-label">liq. price</span>
                   <span class="m-pos-cell-val is-liq">{fmtPrice(p.liquidationPxUsd)}</span>
                 </div>
               </div>
 
               <div class="m-pos-notional">
-                <span class="m-pos-cell-label">notional</span>
+                <span class="m-pos-cell-label">position size</span>
                 <span class="m-pos-notional-val">{formatUsd(p.notionalUsd)}</span>
               </div>
             </a>
@@ -300,23 +312,25 @@
                   {/if}
                   {coinDisplayName(r.coin)}
                 </span>
-                <span class="m-sent-counts">
-                  <span class="is-long">{r.longCount} long</span>
+                <!-- $ at stake is the primary measure (it's what the bar is
+                     weighted by); trader counts are the secondary read below. -->
+                <span class="m-sent-notionals">
+                  <span class="is-long">{formatUsd(r.longNotionalUsd)} long</span>
                   <span class="m-sent-sep">·</span>
-                  <span class="is-short">{r.shortCount} short</span>
+                  <span class="is-short">{formatUsd(r.shortNotionalUsd)} short</span>
                 </span>
               </div>
               <div
                 class="m-sent-bar"
                 role="img"
-                aria-label={`${r.longCount} long, ${r.shortCount} short`}
+                aria-label={`${formatUsd(r.longNotionalUsd)} long vs ${formatUsd(r.shortNotionalUsd)} short, by ${r.longCount} long and ${r.shortCount} short traders`}
               >
                 <span class="m-sent-bar-long" style:width={`${longPct(r)}%`}></span>
                 <span class="m-sent-bar-short" style:width={`${100 - longPct(r)}%`}></span>
               </div>
               <div class="m-sent-foot">
-                <span class="is-long">{formatUsd(r.longNotionalUsd)}</span>
-                <span class="is-short">{formatUsd(r.shortNotionalUsd)}</span>
+                <span>{r.longCount} {r.longCount === 1 ? 'trader' : 'traders'} long</span>
+                <span>{r.shortCount} short</span>
               </div>
             </li>
           {/each}
@@ -351,8 +365,8 @@
 
   .m-tab {
     flex: 1 1 0;
-    min-height: var(--touch-min);
-    padding: 8px 14px;
+    min-height: 32px;
+    padding: 6px 14px;
     border-radius: var(--radius-lg);
     background: transparent;
     color: var(--stripe-text-secondary);
@@ -546,9 +560,6 @@
     height: 14px;
     border-radius: var(--radius-full);
   }
-  .m-pos-lev {
-    color: var(--stripe-text-tertiary);
-  }
 
   /* Right metric column — ROI (hero) with PnL echoed beneath it. */
   .m-pos-metrics {
@@ -675,12 +686,13 @@
     font-size: var(--type-callout);
   }
 
-  .m-sent-counts {
+  .m-sent-notionals {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--type-footnote);
+    font-weight: 600;
     white-space: nowrap;
   }
   .m-sent-sep {
@@ -715,45 +727,9 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
   }
 
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
-  }
-  .m-skeleton-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-full);
-  }
-  .m-skeleton-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .m-skeleton-line {
-    height: 14px;
-    width: 70%;
-  }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 50%;
-  }
-
-  .m-error,
-  .m-empty {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-error-retry {
-    margin-top: var(--space-3);
-    padding: 10px 20px;
-    font-family: var(--font-mono);
-  }
+  /* Skeleton bones and error/empty states come from the shared layer in
+     lib/styles/mobile.css. */
 </style>

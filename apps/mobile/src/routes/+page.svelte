@@ -125,7 +125,7 @@
             type="button"
             role="tab"
             aria-selected={tf === w.value}
-            class="m-seg-btn tappable"
+            class="m-seg-btn tappable tap-hit"
             class:is-active={tf === w.value}
             onclick={() => (tf = w.value)}
           >
@@ -184,14 +184,14 @@
   <!-- ── Assets ──────────────────────────────────────────── -->
   <section class="m-home-section">
     <header class="m-section-head safe-x">
-      <h2 class="m-section-title">Assets</h2>
-      <a href="/assets" class="m-see-all tappable">See all</a>
+      <h2 class="m-section-title">Markets</h2>
+      <a href="/assets" class="m-see-all tappable tap-hit">See all</a>
     </header>
 
-    <div class="m-filter-row" role="tablist" aria-label="Asset filters">
+    <div class="m-filter-row" role="tablist" aria-label="Market filters">
       <button
         type="button"
-        class="m-filter-chip m-filter-star tappable"
+        class="m-filter-chip m-filter-star tappable tap-hit"
         class:is-active={favActive}
         aria-pressed={favActive}
         aria-label="Favorites"
@@ -206,7 +206,7 @@
           type="button"
           role="tab"
           aria-selected={activeCategory === c.value}
-          class="m-filter-chip tappable"
+          class="m-filter-chip tappable tap-hit"
           class:is-active={activeCategory === c.value}
           onclick={() => selectCategory(c.value)}
         >
@@ -230,9 +230,9 @@
     {:else if assetsError}
       <div class="m-mini-error safe-x" role="alert">{assetsError}</div>
     {:else if favActive}
-      <div class="m-mini-empty safe-x">No favorites yet — tap ☆ on an asset to save it.</div>
+      <div class="m-mini-empty safe-x">No favorites yet — tap ☆ on a market to save it.</div>
     {:else if topAssets.length === 0}
-      <div class="m-mini-empty safe-x">No assets in this category.</div>
+      <div class="m-mini-empty safe-x">No markets in this category.</div>
     {:else}
       <ul class="m-card-list">
         {#each topAssets as a (a.coin)}
@@ -471,42 +471,6 @@
     padding: 6px 12px;
   }
 
-  .m-mini-error,
-  .m-mini-empty {
-    padding: var(--space-5) var(--space-4);
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-  }
-  .m-mini-error {
-    color: var(--stripe-danger);
-  }
-
-  /* Skeleton rows reused from the list screens. */
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
-  }
-  .m-skeleton-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-full);
-  }
-  .m-skeleton-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .m-skeleton-line {
-    height: 14px;
-    width: 60%;
-  }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 40%;
-  }
+  /* Skeleton bones, mini error/empty states come from the shared layer in
+     lib/styles/mobile.css. */
 </style>
