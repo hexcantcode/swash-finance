@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import {
     getLatestFills,
+    subscribeLatestFills,
     getTopOpenPositions,
     getMostHeld,
     mergeFills,
@@ -32,6 +33,7 @@
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopTrades: (() => void) | null = null;
   let mounted = false;
   let abortCtrl: AbortController | null = null;
 
@@ -58,14 +60,14 @@
     }
   }
 
-  /** Background refresh only re-fetches the active tab's dataset — the other
-   *  two keep their last snapshot until the user switches back (the initial
+  /** Background poll for the positions/sentiment tabs only — trades are pushed
+   *  live over SSE (see onMount). Refreshes just the active tab's dataset; the
+   *  other keeps its last snapshot until the user switches back (the initial
    *  load() already primed all three, so switches stay instant). */
   async function refreshActive() {
     try {
-      if (tab === 'trades') fills = mergeFills(await getLatestFills());
-      else if (tab === 'positions') positions = await getTopOpenPositions();
-      else mostHeld = await getMostHeld();
+      if (tab === 'positions') positions = await getTopOpenPositions();
+      else if (tab === 'sentiment') mostHeld = await getMostHeld();
     } catch {
       // Keep the stale snapshot; the next poll retries.
     }
@@ -84,10 +86,15 @@
     mounted = true;
     void load();
     scheduleRefresh();
+    // Trades arrive live over SSE; positions/sentiment still poll above.
+    stopTrades = subscribeLatestFills((f) => {
+      fills = mergeFills(f);
+    });
   });
 
   onDestroy(() => {
     if (pollTimer) clearTimeout(pollTimer);
+    stopTrades?.();
     abortCtrl?.abort();
   });
 

@@ -4,7 +4,7 @@
  * single feed by default — the user can filter to a category via tabs.
  */
 
-import { apiGet } from './client';
+import { apiGet, apiUrl } from './client';
 
 export type FeedCategory = 'stocks' | 'crypto' | 'index';
 
@@ -38,6 +38,31 @@ export async function getLatestFills(): Promise<CategorizedFills> {
   const body = await apiGet<LatestFillsResponse>('/api/feed/latest-trades');
   if (!body.ok) throw new Error('Latest fills request returned ok:false');
   return body.latestFills;
+}
+
+/** Live trade feed via SSE (`/api/stream/trades`). Calls `onFills` with each
+ *  fresh snapshot — the initial one on connect, then again whenever new fills
+ *  land. EventSource auto-reconnects. Returns a close fn. Browser-only. */
+export function subscribeLatestFills(onFills: (fills: CategorizedFills) => void): () => void {
+  const es = new EventSource(apiUrl('/api/stream/trades'));
+  es.onmessage = (ev) => {
+    let body: unknown;
+    try {
+      body = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+    } catch {
+      return;
+    }
+    const latestFills = (body as { latestFills?: CategorizedFills } | null)?.latestFills;
+    if (latestFills) onFills(latestFills);
+  };
+  return () => {
+    es.onmessage = null;
+    try {
+      es.close();
+    } catch {
+      /* ignore */
+    }
+  };
 }
 
 export interface TopOpenPosition {
