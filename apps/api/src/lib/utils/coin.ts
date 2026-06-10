@@ -3,9 +3,9 @@
  *
  * Two sources, both served by us:
  * - Per-symbol overrides at `/icons/{SYMBOL}.png` — for coins HL's CDN doesn't
- *   host a logo for. Files live in `apps/web/static/icons/`.
+ *   host a logo for. Files live in `apps/api/static/icons/`.
  * - Proxy to HL's CDN at `/coins/{coin}.svg` for everything else — see
- *   `apps/web/src/routes/coins/[coin].svg/+server.ts`. The proxy adds a memory
+ *   `apps/api/src/routes/coins/[coin].svg/+server.ts`. The proxy adds a memory
  *   cache + long Cache-Control headers so we hit `app.hyperliquid.xyz` at most
  *   once per coin per process.
  *
@@ -60,7 +60,7 @@ export const COIN_WHITE_BG_SYMBOLS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Symbols we ship a local logo for, served from `apps/web/static/icons/`.
+ * Symbols we ship a local logo for, served from `apps/api/static/icons/`.
  * Add a file `{SYMBOL}.png` (or `.svg`) under that directory and an entry
  * here — `coinIconUrl` will route to it ahead of the HL CDN proxy.
  */

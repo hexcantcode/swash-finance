@@ -15,14 +15,14 @@
 module.exports = {
   apps: [
     {
-      name: 'web',
+      name: 'api',
       script: 'pnpm',
-      args: '--filter @copytrade/web dev',
+      args: '--filter @copytrade/api dev',
       cwd: __dirname,
       autorestart: true,
       max_restarts: 10,
-      out_file: './logs/web.log',
-      error_file: './logs/web.log',
+      out_file: './logs/api.log',
+      error_file: './logs/api.log',
       merge_logs: true,
     },
     {

@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   server: {
     fs: {
-      // Allow Vite to serve files from outside apps/web (workspace packages).
+      // Allow Vite to serve files from outside apps/api (workspace packages).
       allow: ['..'],
     },
   },

@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "pnpm --filter @copytrade/web dev",
+    "dev": "pnpm --filter @copytrade/api dev",
     "worker": "pnpm --filter @copytrade/worker run",
     "build": "pnpm -r build",
     "check": "pnpm -r check",

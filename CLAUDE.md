@@ -1,6 +1,6 @@
 # Swash — working notes for agents
 
-Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/web` SvelteKit, `apps/worker`, `packages/{db,scoring,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
+Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/api` SvelteKit, `apps/worker`, `packages/{db,scoring,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
 
 ---
 
@@ -28,7 +28,7 @@ This is an analytics product; a number on screen is only as trustworthy as the d
 
 1. **One canonical definition per data point.** Every metric/figure (ROI, PnL, win rate, composite score, 7d window numbers, …) is computed/owned in exactly one place — the relevant `packages/scoring` function or `packages/db` column / server query. Components and loaders **read** that canonical value; they never recompute, re-derive, or "fix up" the same quantity locally. If you find the same number being calculated in two places, that's a bug — collapse it to one.
 
-2. **A data-point change isn't done until every consumer is updated.** When you change how something is computed, named, scaled, or shaped, trace the full chain — `packages/scoring` / DB column → server query (`apps/web/src/lib/server/queries/*`) → `+page.server.ts` loader → component props → display formatting (`$lib/utils/format.ts`) — and update them together in the same change. Before claiming done, grep for the field name across `apps/web/src` and `packages/` and confirm nothing stale remains.
+2. **A data-point change isn't done until every consumer is updated.** When you change how something is computed, named, scaled, or shaped, trace the full chain — `packages/scoring` / DB column → server query (`apps/api/src/lib/server/queries/*`) → `+page.server.ts` loader → component props → display formatting (`$lib/utils/format.ts`) — and update them together in the same change. Before claiming done, grep for the field name across `apps/api/src` and `packages/` and confirm nothing stale remains.
 
 3. **Renames & removals are not "just" backend changes.** Dropping or renaming a column/metric breaks every component and type that referenced it. List those consumers up front and decide what each should show instead (a different metric? hidden? "—"?) — don't leave a component pointing at a field that no longer exists.
 
@@ -108,7 +108,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 In this repo, "verified" concretely means:
 - `pnpm check` and `pnpm build` pass at the repo root.
-- For any renamed/removed/reshaped data point: `grep` the field name across `apps/web/src` and `packages/` returns no stale references (per the STRICT RULE).
+- For any renamed/removed/reshaped data point: `grep` the field name across `apps/api/src` and `packages/` returns no stale references (per the STRICT RULE).
 - DB changes go through Drizzle (`pnpm db:generate` → `db:migrate`), not ad-hoc SQL, unless the migration state notes above say otherwise.
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
