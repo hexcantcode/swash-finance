@@ -43,6 +43,7 @@
     <div class="m-leader-copy">
       <div class="m-leader-line-1">
         <span class="m-leader-address">{shortAddress(row.address, 6, 4)}</span>
+        {#if row.heat === 'hot'}<span class="m-hot-chip">Hot</span>{/if}
         {#if row.winner && row.winner_rank}
           <span class="m-leader-badge" aria-label="Top earner this week">★ {row.winner_rank}</span>
         {/if}

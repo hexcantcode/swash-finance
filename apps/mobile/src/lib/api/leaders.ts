@@ -30,6 +30,9 @@ export interface LeaderRow {
   address: string;
   score: number | null;
   primary_tag: string | null;
+  /** Heat tag (`hot` / `steady` / `cooling`) parsed from the API's
+   *  `secondary_tags`. Cards show a "Hot" chip only for `hot`. */
+  heat: 'hot' | 'steady' | 'cooling' | null;
   account_value: number | null;
   /** 30D realized PnL from HL's leaderboard snapshot — the headline on
    *  the trader card. Distinct from the scored-window net PnL surfaced
@@ -59,6 +62,8 @@ interface RawLeaderCard {
   address: string;
   score: number | null;
   primary_tag: string | null;
+  /** Non-profile tags as `"<type>:<value>"` strings (heat/size). */
+  secondary_tags?: string[];
   account_value: number | null;
   metrics: {
     total_pnl_usd: number | null;
@@ -129,11 +134,17 @@ export async function listLeaders(args: LeaderListArgs = {}): Promise<LeaderList
   };
 }
 
+function parseHeat(secondaryTags: string[] | undefined): LeaderRow['heat'] {
+  const raw = secondaryTags?.find((t) => t.startsWith('heat:'))?.slice('heat:'.length);
+  return raw === 'hot' || raw === 'steady' || raw === 'cooling' ? raw : null;
+}
+
 function toLeaderRow(card: RawLeaderCard): LeaderRow {
   return {
     address: card.address,
     score: card.score,
     primary_tag: card.primary_tag,
+    heat: parseHeat(card.secondary_tags),
     account_value: card.account_value,
     pnl_30d_usd: card.metrics.pnl_30d_usd,
     roi: card.metrics.roi,

@@ -43,7 +43,10 @@
       loading="lazy"
     />
     <div class="m-trader-id">
-      <span class="m-trader-addr">{shortAddress(row.address, 6, 4)}</span>
+      <span class="m-trader-addr">
+        {shortAddress(row.address, 6, 4)}
+        {#if row.heat === 'hot'}<span class="m-hot-chip">Hot</span>{/if}
+      </span>
       {#if shownHoldings.length > 0}
         <span class="m-trader-holdings" aria-label={holdingsLabel}>
           {#each shownHoldings as h (h.coin)}
@@ -184,6 +187,9 @@
   }
 
   .m-trader-addr {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: var(--font-sans);
     font-size: var(--type-subhead);
     font-weight: 600;

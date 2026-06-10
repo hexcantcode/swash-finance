@@ -14,8 +14,16 @@
   } from '$lib/utils/format';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import MobilePriceChart from '$lib/components/MobilePriceChart.svelte';
-  import Tag from '$lib/components/Tag.svelte';
   import { appSheet } from '$lib/ui/sheets.svelte';
+  import { profileTagClass, profileTagLabel } from '$lib/utils/tags';
+  import {
+    traderBio,
+    TRAIT_EXPLAINERS,
+    type HeatTag,
+    type ProfileTag,
+    type SizeTag,
+    type TraitKey,
+  } from '@copytrade/shared';
 
   const address = $derived($page.params['address'] ?? '');
 
@@ -68,6 +76,51 @@
     });
   }
 
+  // ── Traits: bio line + chips, composed from the classifier output the
+  //    detail payload already carries. Every input optional — absence means
+  //    a dropped clause / missing chip, never a "—".
+  const profileTag = $derived((detail?.primary_tag ?? null) as ProfileTag | null);
+  const sizeTag = $derived(
+    (detail?.tags.find((t) => t.type === 'size')?.value ?? null) as SizeTag | null,
+  );
+  const heatTag = $derived(
+    (detail?.tags.find((t) => t.type === 'heat')?.value ?? null) as HeatTag | null,
+  );
+  /** Display label of the dominant market — only when one coin truly
+   *  dominates lifetime volume (top share ≥ 0.4). */
+  const marketLabel = $derived.by(() => {
+    const top = detail?.primary_asset_breakdown?.[0];
+    return top && top.share >= 0.4 ? coinDisplayName(top.coin) : null;
+  });
+  const bio = $derived(
+    detail
+      ? traderBio({
+          profile: profileTag,
+          size: sizeTag,
+          heat: heatTag,
+          decay: (detail.scoring?.decay_flag ?? null) as 'green' | 'yellow' | 'red' | null,
+          avgHoldSeconds: detail.scoring?.avg_hold_seconds ?? null,
+          market: marketLabel,
+        })
+      : null,
+  );
+  const cooled = $derived(
+    detail?.scoring?.decay_flag === 'yellow' ||
+      detail?.scoring?.decay_flag === 'red' ||
+      heatTag === 'cooling',
+  );
+  const traitChips = $derived.by(() => {
+    const chips: { trait: TraitKey; label: string; cls: string }[] = [];
+    if (profileTag) {
+      chips.push({ trait: profileTag, label: profileTagLabel(profileTag), cls: profileTagClass(profileTag) });
+    }
+    if (sizeTag) chips.push({ trait: sizeTag, label: TRAIT_EXPLAINERS[sizeTag].title, cls: 'tag-neutral' });
+    if (marketLabel) chips.push({ trait: 'market', label: marketLabel, cls: 'tag-neutral' });
+    if (cooled) chips.push({ trait: 'cooling', label: 'Cooled lately', cls: 'is-cooling' });
+    else if (heatTag === 'hot') chips.push({ trait: 'hot', label: 'Hot streak', cls: 'is-hot' });
+    return chips;
+  });
+
   /** Collapse the recent fill-by-fill list into one row per coin: total
    *  notional traded, net realized PnL, fill count, and the most recent
    *  fill time. Ordered most-recently-active first. */
@@ -117,15 +170,13 @@
     </div>
   {:else if detail}
     <section class="m-detail-hero safe-x">
+      <div class="m-detail-top">
       <div class="m-detail-id">
         <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
         <div class="m-detail-meta">
           <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
             {shortAddress(detail.address, 6, 4)}
           </button>
-          <span class="m-detail-tagrow">
-            <Tag tag={detail.primary_tag} />
-          </span>
         </div>
       </div>
       <!-- Composite score — the same number the leaderboard ranks by; tapping
@@ -161,6 +212,25 @@
           {/each}
         </span>
       </button>
+      </div>
+
+      {#if bio}
+        <p class="m-detail-bio">{bio}</p>
+      {/if}
+      {#if traitChips.length > 0}
+        <div class="m-detail-traits">
+          {#each traitChips as c (c.trait)}
+            <button
+              type="button"
+              class="tag-chip m-trait-chip tap-hit {c.cls}"
+              onclick={() => appSheet.openTrait(c.trait)}
+              aria-label={`${c.label} — what does this mean?`}
+            >
+              {c.label}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </section>
 
     <!-- Floating Mirror CTA — fixed above the bottom-nav pill so the page's
@@ -329,15 +399,22 @@
     box-shadow: var(--glass-highlight);
   }
 
+  /* Hero: identity row on top, then the plain-language bio + trait chips. */
+  .m-detail-hero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-4);
+  }
+
   /* Avatar left, wallet beside it — mirrors the asset-page hero placement.
      The composite score sits on the right edge. */
-  .m-detail-hero {
+  .m-detail-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    padding-top: var(--space-3);
-    padding-bottom: var(--space-4);
   }
 
   .m-detail-id {
@@ -375,9 +452,34 @@
     cursor: pointer;
   }
 
-  .m-detail-tagrow {
-    display: inline-flex;
-    margin-top: 4px;
+  /* One-line plain-language read on who this trader is. */
+  .m-detail-bio {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--type-subhead);
+    line-height: var(--line-body);
+    color: var(--stripe-text-secondary);
+  }
+
+  /* Trait chips — every one taps open its explainer sheet. Builds on the
+     global .tag-chip look; archetype keeps its tag-* tint, size/market are
+     neutral, heat is the one expressive chip. */
+  .m-detail-traits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .m-trait-chip {
+    border: 0;
+    cursor: pointer;
+  }
+  .m-trait-chip.is-hot {
+    background: var(--stripe-accent-subtle);
+    color: var(--stripe-accent);
+  }
+  .m-trait-chip.is-cooling {
+    background: var(--stripe-warning-subtle);
+    color: var(--stripe-warning);
   }
 
   /* Score block — right edge of the hero, tappable → explainer sheet. */

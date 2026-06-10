@@ -70,6 +70,9 @@ export interface LeaderDetail {
   equity_curve: { ts: number; value: number }[];
   /** Top + total snapshot mirrored from /api/holdings shape for convenience. */
   holdings?: Holdings;
+  /** Lifetime volume share per coin, descending. Drives the "home market"
+   *  bio clause + chip (dominant when the top share ≥ 0.4). */
+  primary_asset_breakdown?: { coin: string; volume_usd: number; share: number }[];
 }
 
 interface LeaderDetailResponse {

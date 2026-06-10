@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { TRAIT_EXPLAINERS } from '@copytrade/shared';
   import MobileSheet from './MobileSheet.svelte';
   import { appSheet } from '$lib/ui/sheets.svelte';
+
+  const trait = $derived(appSheet.trait ? TRAIT_EXPLAINERS[appSheet.trait] : null);
 </script>
 
 <MobileSheet
@@ -51,6 +54,18 @@
     Got it
   </button>
 </MobileSheet>
+
+{#if trait}
+  <MobileSheet
+    open={appSheet.active === 'trait'}
+    onclose={() => appSheet.close()}
+    label={`${trait.title} — what this trait means`}
+  >
+    <h2 class="m-sheet-title">{trait.title}</h2>
+    <p class="m-sheet-body">{trait.body}</p>
+    <p class="m-sheet-hint">{trait.takeaway}</p>
+  </MobileSheet>
+{/if}
 
 <style>
   .m-sheet-title {

@@ -310,6 +310,24 @@ body {
   width: 40%;
 }
 
+/* "Hot" micro-chip — shown next to a trader's address only when their heat
+ * tag is `hot`. Smallest member of the badge family (Preview / Coming soon):
+ * accent-subtle fill, 10px uppercase mono. Steady/cooling render nothing on
+ * cards — the cooled-lately nuance lives on the trader detail page. */
+.m-hot-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--stripe-accent-subtle);
+  color: var(--stripe-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 /* Shared empty / error states — full-bleed (page-level) and mini (section). */
 .m-error,
 .m-empty {

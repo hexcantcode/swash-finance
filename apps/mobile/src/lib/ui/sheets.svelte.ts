@@ -5,18 +5,33 @@
  * that would trap a position:fixed overlay.
  */
 
-export type AppSheet = 'score' | 'mirror';
+import type { TraitKey } from '@copytrade/shared';
 
-const state = $state<{ active: AppSheet | null }>({ active: null });
+export type AppSheet = 'score' | 'mirror' | 'trait';
+
+const state = $state<{ active: AppSheet | null; trait: TraitKey | null }>({
+  active: null,
+  trait: null,
+});
 
 export const appSheet = {
   get active(): AppSheet | null {
     return state.active;
   },
-  open(sheet: AppSheet): void {
+  get trait(): TraitKey | null {
+    return state.trait;
+  },
+  open(sheet: Exclude<AppSheet, 'trait'>): void {
     state.active = sheet;
+    state.trait = null;
+  },
+  /** Open the explainer for one trader trait (archetype / size / heat / market). */
+  openTrait(trait: TraitKey): void {
+    state.active = 'trait';
+    state.trait = trait;
   },
   close(): void {
     state.active = null;
+    state.trait = null;
   },
 };
