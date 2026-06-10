@@ -36,8 +36,14 @@ export class ApiError extends Error {
   }
 }
 
+/** Resolve an API path to a full URL — same-origin in dev/PWA, PUBLIC_API_BASE
+ *  cross-origin in the Capacitor build. Used for both `fetch` and `EventSource`. */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const url = apiUrl(path);
   const res = await fetch(url, {
     ...init,
     headers: { Accept: 'application/json', ...(init?.headers ?? {}) },

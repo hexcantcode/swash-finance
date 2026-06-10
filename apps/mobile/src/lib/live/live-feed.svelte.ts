@@ -1,26 +1,26 @@
 /*
  * Shared live mark-price feed — mirrors the desktop web flash behavior.
  *
- * The browser subscribes once to Hyperliquid's `allMids` WS channel (a fresh
- * mark price for every coin every ~few hundred ms). A single socket fans out
- * to every subscriber (home + assets lists) via refcount, so we never open
- * one connection per page. On each price change we emit a brief up/down
- * `flash` signal keyed by coin; `MobileAssetRow` reads `prices`/`flashes`
- * reactively and tints the row green/red.
+ * The browser subscribes once to the BFF's `/api/stream/prices` SSE endpoint,
+ * which holds a single Hyperliquid `allMids` poll loop and fans fresh mids out
+ * to every client. A single EventSource fans out to every subscriber (home +
+ * assets lists) via refcount, so we never open one connection per page. The
+ * client never talks to Hyperliquid directly — that's the BFF's job. On each
+ * price change we emit a brief up/down `flash` signal keyed by coin;
+ * `MobileAssetRow` reads `prices`/`flashes` reactively and tints the row.
  *
- * Canonical price still comes from `apps/web`'s `/api/assets` (the loaded
- * `Asset.price`); this only overlays the live mid on top for display.
+ * Each SSE message is a `{ coin: price }` object: the first is a full snapshot,
+ * the rest are deltas of changed coins. Canonical price still comes from the
+ * BFF's `/api/assets` (the loaded `Asset.price`); this overlays the live mid.
  */
 
 import { browser } from '$app/environment';
+import { apiUrl } from '$lib/api/client';
 
 type Flash = { dir: 'up' | 'down'; n: number };
 
-const HL_WS = 'wss://api.hyperliquid.xyz/ws';
 /** How long a row stays tinted after its last price change. */
 const FLASH_MS = 700;
-/** Reconnect backoff after an unexpected socket close. */
-const RECONNECT_MS = 2_000;
 
 class LiveFeed {
   /** coin → latest live mark price. Mutated in place; readers track per-coin. */
@@ -29,13 +29,12 @@ class LiveFeed {
    *  retrigger even when consecutive ticks share direction. */
   flashes = $state<Record<string, Flash>>({});
 
-  #ws: WebSocket | null = null;
+  #es: EventSource | null = null;
   #refs = 0;
   #last = new Map<string, number>();
   #flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  #reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Open (or join) the shared socket. Returns an unsubscribe that closes it
+  /** Open (or join) the shared stream. Returns an unsubscribe that closes it
    *  once the last subscriber leaves. */
   subscribe(): () => void {
     this.#refs++;
@@ -47,48 +46,26 @@ class LiveFeed {
   }
 
   #connect() {
-    if (!browser || this.#ws) return;
-    const ws = new WebSocket(HL_WS);
-    this.#ws = ws;
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'allMids' } }));
-    };
-    ws.onmessage = (ev) => this.#onMessage(ev);
-    ws.onclose = () => {
-      if (this.#ws !== ws) return; // already torn down / replaced
-      this.#ws = null;
-      this.#reconnectTimer = setTimeout(() => {
-        this.#reconnectTimer = null;
-        if (this.#refs > 0) this.#connect();
-      }, RECONNECT_MS);
-    };
-    ws.onerror = () => {
-      try { ws.close(); } catch { /* ignore */ }
-    };
+    if (!browser || this.#es) return;
+    // EventSource reconnects automatically on drop; on reconnect the server
+    // re-sends a snapshot, so there's no manual retry logic to maintain.
+    const es = new EventSource(apiUrl('/api/stream/prices'));
+    this.#es = es;
+    es.onmessage = (ev) => this.#onMessage(ev);
   }
 
   #onMessage(ev: MessageEvent) {
-    let msg: unknown;
+    let mids: unknown;
     try {
-      msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+      mids = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
     } catch {
       return;
     }
-    if (
-      typeof msg !== 'object' ||
-      msg === null ||
-      (msg as { channel?: unknown }).channel !== 'allMids'
-    ) {
-      return;
-    }
-    const mids = (msg as { data?: { mids?: Record<string, string> } }).data?.mids;
-    if (!mids) return;
+    if (typeof mids !== 'object' || mids === null) return;
 
-    for (const coin in mids) {
-      const raw = mids[coin];
-      if (typeof raw !== 'string') continue;
-      const px = Number.parseFloat(raw);
-      if (!Number.isFinite(px)) continue;
+    for (const coin in mids as Record<string, unknown>) {
+      const px = (mids as Record<string, number>)[coin];
+      if (typeof px !== 'number' || !Number.isFinite(px)) continue;
       const prev = this.#last.get(coin);
       if (prev !== undefined && px !== prev) {
         const dir: 'up' | 'down' = px > prev ? 'up' : 'down';
@@ -109,20 +86,14 @@ class LiveFeed {
   }
 
   #teardown() {
-    if (this.#reconnectTimer) {
-      clearTimeout(this.#reconnectTimer);
-      this.#reconnectTimer = null;
-    }
     for (const t of this.#flashTimers.values()) clearTimeout(t);
     this.#flashTimers.clear();
     this.flashes = {};
-    const ws = this.#ws;
-    this.#ws = null;
-    if (ws) {
-      ws.onclose = null;
-      ws.onerror = null;
-      ws.onmessage = null;
-      try { ws.close(); } catch { /* ignore */ }
+    const es = this.#es;
+    this.#es = null;
+    if (es) {
+      es.onmessage = null;
+      try { es.close(); } catch { /* ignore */ }
     }
   }
 }
