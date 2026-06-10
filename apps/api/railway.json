@@ -5,7 +5,7 @@
     "buildCommand": "corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm --filter @copytrade/api build"
   },
   "deploy": {
-    "startCommand": "pnpm --filter @copytrade/api start",
+    "startCommand": "node apps/api/build/index.js",
     "healthcheckPath": "/api/stats",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
