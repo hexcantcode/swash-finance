@@ -208,7 +208,7 @@ export class HlInfoClient {
         return { data: hit, weightCost: 0, fromCache: true, fetchedAt: Date.now() };
       }
     }
-    const data = await args.fetcher();
+    const data = await fetchWithRetry(args.fetcher);
     if (this.cache.isEnabled()) {
       await this.cache.set(args.key, data);
     }
@@ -218,6 +218,26 @@ export class HlInfoClient {
 
 function wrapFresh<T>(data: T, weight: number): HlResult<T> {
   return { data, weightCost: weight, fromCache: false, fetchedAt: Date.now() };
+}
+
+/**
+ * Retry a single HL read on HTTP 429 with exponential backoff. HL rate-limits
+ * by IP, so a burst of paginated reads (deep-history ingest of a high-volume
+ * wallet) can trip it mid-walk. Without this, the whole wallet ingest throws;
+ * with it, each page waits out the limit and resumes. Backoff: 2s, 4s, 8s, 16s,
+ * 32s (5 tries). Non-429 errors propagate immediately.
+ */
+async function fetchWithRetry<T>(fetcher: () => Promise<T>): Promise<T> {
+  const MAX_RETRY = 5;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetcher();
+    } catch (err) {
+      const is429 = err instanceof Error && err.message.includes('429');
+      if (!is429 || attempt >= MAX_RETRY) throw err;
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+    }
+  }
 }
 
 function asHexAddress(addr: string): `0x${string}` {

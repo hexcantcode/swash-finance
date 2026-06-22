@@ -41,6 +41,11 @@ export const wallets = pgTable(
     score: integer('score'),
     primaryTag: text('primary_tag'),
 
+    /** User-set display name from HL's leaderboard (`displayName`). Sparse
+     *  (~3-4% of wallets). UI shows it over the short address when present;
+     *  custom Swash naming layers on later with personalization. */
+    displayName: text('display_name'),
+
     // HL leaderboard snapshot — populated by `leaderboard-ingest` job.
     // ROI fields are signed decimals (0.05 = +5%).
     hlPnl1dUsd: numeric('hl_pnl_1d_usd', { precision: 30, scale: 8 }),
@@ -61,6 +66,14 @@ export const wallets = pgTable(
     //   scored    → composite score + tags computed.
     // Monotonic upgrade only — workers shouldn't downgrade state.
     ingestState: text('ingest_state').notNull().default('observed'),
+
+    // Discovery source — which ingest first surfaced this wallet.
+    //   'hl_leaderboard' (default) — Hyperliquid's official leaderboard.
+    //   'hyperdash'                — Hyperdash's curated copytraders group.
+    // Drives "primary roster" ordering in leaders.ts (hyperdash floats first).
+    // Sticky: leaderboard-ingest never overwrites it, so once a wallet is in
+    // the Hyperdash set it stays marked even if HL also lists it.
+    source: text('source').notNull().default('hl_leaderboard'),
 
     // Curated = passes the eligibility gate AND composite >= 70 (with ~65 hysteresis). Drives the `/browse` "best traders" set.
     curated: boolean('curated').notNull().default(false),
@@ -96,6 +109,7 @@ export const wallets = pgTable(
     index('idx_wallets_primary_tag').on(t.primaryTag).where(sql`${t.primaryTag} is not null`),
     index('idx_wallets_hl_roi_7d').on(t.hlRoi7d.desc()).where(sql`${t.hlRoi7d} is not null`),
     index('idx_wallets_ingest_state').on(t.ingestState),
+    index('idx_wallets_source').on(t.source).where(sql`${t.source} <> 'hl_leaderboard'`),
     index('idx_wallets_curated').on(t.curated).where(sql`${t.curated}`),
     index('idx_wallets_winner').on(t.winner).where(sql`${t.winner}`),
   ],

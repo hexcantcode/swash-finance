@@ -1,4 +1,5 @@
 import { runBootstrap } from './jobs/bootstrap.js';
+import { runHyperdashIngest } from './jobs/hyperdash-ingest.js';
 import { runLeaderCachePoll } from './jobs/leader-cache-poll.js';
 import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
@@ -19,6 +20,8 @@ const COMMANDS = {
     'Fetch HL official leaderboard, persist tier-1 wallets, queue top-N for deep ingest.',
   'leaderboard-poll':
     'Poll HL leaderboard for top-7d-ROI + top trader-rankers, queue them as curation candidates.',
+  hyperdash:
+    "Fetch Hyperdash's curated copytraders group, mark them source='hyperdash', and queue for deep ingest (primary roster).",
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
   'trades-coin-live':
     'Long-running per-coin WS firehose: filters every fill against the wallets table and writes matched fills + advances leader_cache.last_trade_ms.',
@@ -77,6 +80,14 @@ async function main(): Promise<void> {
         ...(minVol !== undefined ? { minMonthlyVolumeUsd: minVol } : {}),
         ...(minAcct !== undefined ? { minAccountValueUsd: minAcct } : {}),
         ...(win !== undefined ? { window: win } : {}),
+      });
+      break;
+    }
+    case 'hyperdash': {
+      const groupId = flags['group'];
+      await runHyperdashIngest({
+        ...(groupId !== undefined ? { groupId } : {}),
+        ...(flags['include-all'] ? { includeNonCopyEnabled: true } : {}),
       });
       break;
     }

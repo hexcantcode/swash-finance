@@ -2,6 +2,7 @@ import { Cron } from 'croner';
 import { closeDb } from './db.js';
 import { withAdvisoryLock } from './db.js';
 import { runFillsRetention } from './jobs/fills-retention.js';
+import { runHyperdashIngest } from './jobs/hyperdash-ingest.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
 import { runRefreshQueue } from './jobs/refresh-queue.js';
 import { runScoreRecompute } from './jobs/score.js';
@@ -35,6 +36,18 @@ async function main(): Promise<void> {
     },
   );
 
+  // Refresh the Hyperdash curated roster hourly (at :05). Seeds new
+  // copytraders into the wallets table + discovery_queue; the normal
+  // fills→score pipeline takes over from there.
+  const hyperdash = new Cron(
+    '0 5 * * * *',
+    { name: 'hyperdash', protect: true },
+    async () => {
+      const result = await withAdvisoryLock('worker.hyperdash', () => runHyperdashIngest());
+      if (result === null) log.debug('hyperdash.locked_skip');
+    },
+  );
+
   // Nightly fills retention — runs 30 min after `score` so the day's
   // scoring sees the fuller table before trim. Skips wallets where
   // history_deepened_at IS NOT NULL.
@@ -54,6 +67,7 @@ async function main(): Promise<void> {
       refreshNext: refresh.nextRun()?.toISOString(),
       scoreNext: score.nextRun()?.toISOString(),
       leaderboardPollNext: leaderboardPoll.nextRun()?.toISOString(),
+      hyperdashNext: hyperdash.nextRun()?.toISOString(),
       fillsRetentionNext: fillsRetention.nextRun()?.toISOString(),
     },
     'worker.scheduled',
@@ -64,6 +78,7 @@ async function main(): Promise<void> {
     refresh.stop();
     score.stop();
     leaderboardPoll.stop();
+    hyperdash.stop();
     fillsRetention.stop();
     await closeDb();
     process.exit(0);

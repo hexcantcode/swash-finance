@@ -244,6 +244,12 @@ async function ingestSingleAddress(address: string): Promise<SingleAddressResult
       liquidationUser: f.liquidation?.liquidatedUser ?? null,
       createdAt: now,
     }));
+    // Dedupe by the conflict key before insert. The paginator re-fetches
+    // window-boundary fills, so `fillsResp.data` can carry the same `tid`
+    // twice; `userAddress` is constant per call, so `tid` is the key. Without
+    // this, a chunk containing a repeated tid trips Postgres's "ON CONFLICT DO
+    // UPDATE command cannot affect row a second time". Last occurrence wins.
+    const dedupedRows = Array.from(new Map(rows.map((r) => [r.tid, r])).values());
     // onConflictDoUpdate so REST enrichment overwrites any sentinel rows left
     // by `trades-coin-subscriber` (fee=0, closedPnl=0). Stable fields (coin,
     // side, px, sz, hash, block_time_ms) should already match; we only update
@@ -267,7 +273,7 @@ async function ingestSingleAddress(address: string): Promise<SingleAddressResult
             },
           })
           .returning({ tid: fills.tid }),
-      rows,
+      dedupedRows,
     );
   }
 

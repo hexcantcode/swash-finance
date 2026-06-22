@@ -7,6 +7,9 @@ import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
 
 export interface LeaderCard {
   address: string;
+  /** HL user-set display name (sparse, ~3-4% of wallets). UI prefers this
+   *  over the short address when present. */
+  display_name: string | null;
   score: number | null;
   /** Current account equity (USD) — `wallets.accountValue`. */
   account_value: number | null;
@@ -76,6 +79,10 @@ export interface LeaderCard {
    */
   last_active_at: string | null;
   score_computed_at: string | null;
+  /** Discovery source (`wallets.source`): `'hyperdash'` for the curated
+   *  copytraders roster, `'hl_leaderboard'` otherwise. Hyperdash-sourced
+   *  wallets lead the list (the "primary roster"). */
+  source: string;
 }
 
 export interface BrowseFilters {
@@ -184,14 +191,20 @@ export async function listLeaders(args: {
           ? scores.tradesPerDayAvg
           : wallets.score;
 
+  // "Primary roster": Hyperdash-sourced wallets lead, then the chosen sort
+  // applies within each source group.
+  const sourcePriority = sql`case when ${wallets.source} = 'hyperdash' then 0 else 1 end`;
+
   const rows = await db()
     .select({
       address: wallets.address,
+      display_name: wallets.displayName,
       score: wallets.score,
       primary_tag: wallets.primaryTag,
       curated: wallets.curated,
       winner: wallets.winner,
       winner_rank: wallets.winnerRank,
+      source: wallets.source,
       total_pnl_usd: scores.netPnlUsd,
       total_volume_usd: scores.totalVolumeUsd,
       pnl_30d_usd: wallets.hlPnl30dUsd,
@@ -211,7 +224,7 @@ export async function listLeaders(args: {
     .from(wallets)
     .leftJoin(scores, eq(scores.address, wallets.address))
     .where(whereClause)
-    .orderBy(desc(orderColumn))
+    .orderBy(sourcePriority, desc(orderColumn))
     .limit(limit)
     .offset(offset);
 
@@ -250,6 +263,7 @@ export async function listLeaders(args: {
 
   const leaders: LeaderCard[] = rows.map((r) => ({
     address: r.address,
+    display_name: r.display_name,
     score: r.score,
     account_value: numOrNull(r.account_value),
     primary_tag: r.primary_tag,
@@ -278,6 +292,7 @@ export async function listLeaders(args: {
     winner_rank: r.winner_rank,
     last_active_at: r.last_active_at?.toISOString() ?? null,
     score_computed_at: r.score_computed_at?.toISOString() ?? null,
+    source: r.source,
   }));
 
   return { leaders, total: totalRow[0]?.count ?? 0 };

@@ -14,6 +14,7 @@
     "score": "tsx src/cli.ts score",
     "refresh-queue": "tsx src/cli.ts refresh-queue",
     "leaderboard-poll": "tsx src/cli.ts leaderboard-poll",
+    "hyperdash": "tsx src/cli.ts hyperdash",
     "ws-live": "tsx src/cli.ts ws-live",
     "trades-coin-live": "tsx src/cli.ts trades-coin-live",
     "hip3-poll-live": "tsx src/cli.ts hip3-poll-live",
