@@ -5,14 +5,18 @@
     subscribeLatestFills,
     getTopOpenPositions,
     getMostHeld,
+    getCohortSentiment,
     mergeFills,
     type LatestFill,
     type CategorizedPositions,
     type TopOpenPosition,
     type CategorizedMostHeld,
     type MostHeldRow,
+    type CohortSentiment,
+    type CohortBias,
   } from '$lib/api/feed';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { Crown, Gem, Coins, Flower2, Ghost, Skull } from 'lucide-svelte';
   import {
     shortAddress,
     effigyUrl,
@@ -30,6 +34,7 @@
   let fills = $state<LatestFill[]>([]);
   let positions = $state<CategorizedPositions | null>(null);
   let mostHeld = $state<CategorizedMostHeld | null>(null);
+  let cohortSentiment = $state<CohortSentiment[]>([]);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,14 +50,16 @@
     if (!opts.silent) loading = true;
     errorMsg = null;
     try {
-      const [latest, top, held] = await Promise.all([
+      const [latest, top, held, cohorts] = await Promise.all([
         getLatestFills(),
         getTopOpenPositions(),
         getMostHeld(),
+        getCohortSentiment(),
       ]);
       fills = mergeFills(latest);
       positions = top;
       mostHeld = held;
+      cohortSentiment = cohorts;
     } catch (err) {
       errorMsg = (err as Error).message || 'Failed to load feed';
     } finally {
@@ -67,7 +74,9 @@
   async function refreshActive() {
     try {
       if (tab === 'positions') positions = await getTopOpenPositions();
-      else if (tab === 'sentiment') mostHeld = await getMostHeld();
+      else if (tab === 'sentiment') {
+        [mostHeld, cohortSentiment] = await Promise.all([getMostHeld(), getCohortSentiment()]);
+      }
     } catch {
       // Keep the stale snapshot; the next poll retries.
     }
@@ -114,6 +123,39 @@
         ] as const).filter((s) => s.rows.length > 0)
       : [],
   );
+
+  /** PnL cohort → line icon (lucide). Mirrors the emoji semantics: crown / gem
+   *  / coins for the profitable tiers, wilting flower / ghost / skull for the
+   *  losing tiers. */
+  const COHORT_ICONS: Record<string, typeof Crown> = {
+    extremely_profitable: Crown,
+    very_profitable: Gem,
+    profitable: Coins,
+    unprofitable: Flower2,
+    very_unprofitable: Ghost,
+    rekt: Skull,
+  };
+
+  /** Cohort bias → display label, arrow, and tone class. Bullish leans long
+   *  (the crowd buying), bearish leans short. */
+  function biasDisplay(b: CohortBias): { label: string; arrow: string; tone: 'bull' | 'bear' | 'flat' } {
+    switch (b) {
+      case 'very_bullish':
+        return { label: 'Very Bullish', arrow: '↗', tone: 'bull' };
+      case 'bullish':
+        return { label: 'Bullish', arrow: '↗', tone: 'bull' };
+      case 'slightly_bullish':
+        return { label: 'Slightly Bullish', arrow: '↗', tone: 'bull' };
+      case 'slightly_bearish':
+        return { label: 'Slightly Bearish', arrow: '↘', tone: 'bear' };
+      case 'bearish':
+        return { label: 'Bearish', arrow: '↘', tone: 'bear' };
+      case 'very_bearish':
+        return { label: 'Very Bearish', arrow: '↘', tone: 'bear' };
+      default:
+        return { label: 'Neutral', arrow: '→', tone: 'flat' };
+    }
+  }
 
   /** Green-segment width % for a sentiment bar — long notional as a share of
    *  total directional notional. Falls back to 50/50 when both sides are 0. */
@@ -303,11 +345,36 @@
         {/each}
       </ul>
     {/if}
-  {:else if sentimentSections.length === 0}
-    <div class="m-empty safe-x">No positions to summarize.</div>
   {:else}
-    <div class="m-sentiment">
-      {#each sentimentSections as section (section.label)}
+    <!-- Sentiment tab -->
+    {#if cohortSentiment.length > 0}
+      <section class="m-cohorts safe-x" aria-label="Cohort sentiment">
+        <h2 class="m-sent-head">Cohort sentiment</h2>
+        <ul class="m-cohort-list">
+          {#each cohortSentiment as c (c.id)}
+            {@const b = biasDisplay(c.bias)}
+            {@const Icon = COHORT_ICONS[c.id] ?? Coins}
+            <li class="m-cohort-row">
+              <Icon class="m-cohort-icon" size={18} strokeWidth={1.6} aria-hidden="true" />
+              <span class="m-cohort-id">
+                <span class="m-cohort-label">{c.label}</span>
+                <span class="m-cohort-range">{c.range}</span>
+              </span>
+              <span class="m-cohort-bias is-{b.tone}">
+                {b.label}
+                <span class="m-cohort-arrow" aria-hidden="true">{b.arrow}</span>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
+    {#if sentimentSections.length === 0}
+      <div class="m-empty safe-x">No positions to summarize.</div>
+    {:else}
+      <div class="m-sentiment">
+        {#each sentimentSections as section (section.label)}
         <h2 class="m-sent-head safe-x">{section.label}</h2>
         <ul class="m-list">
           {#each section.rows as r (r.coin)}
@@ -343,7 +410,8 @@
           {/each}
         </ul>
       {/each}
-    </div>
+      </div>
+    {/if}
   {/if}
 </main>
 
@@ -675,6 +743,84 @@
   }
   .m-sentiment > .m-list:not(:last-child) {
     margin-bottom: var(--space-2);
+  }
+
+  /* ── Cohort sentiment (top of the Sentiment tab) ────────────────────── */
+  .m-cohorts {
+    margin-bottom: var(--space-4);
+  }
+  .m-cohort-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    overflow: hidden;
+  }
+  .m-cohort-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  .m-cohort-row:not(:last-child) {
+    border-bottom: 1px solid var(--stripe-border);
+  }
+  .m-cohort-row :global(.m-cohort-icon) {
+    flex: 0 0 auto;
+    color: var(--stripe-text-secondary);
+  }
+  .m-cohort-id {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .m-cohort-label {
+    font-family: var(--font-sans);
+    font-size: var(--type-subhead);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
+    line-height: 1.15;
+  }
+  .m-cohort-range {
+    font-family: var(--font-mono);
+    font-size: var(--type-footnote);
+    color: var(--stripe-text-tertiary);
+    letter-spacing: 0.02em;
+  }
+  .m-cohort-bias {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    /* Match the app-wide pill radius (.tag-chip in app.css). */
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: var(--type-footnote);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .m-cohort-bias.is-bull {
+    color: var(--stripe-success);
+    background: color-mix(in srgb, var(--stripe-success) 15%, transparent);
+  }
+  .m-cohort-bias.is-bear {
+    color: var(--stripe-danger);
+    background: color-mix(in srgb, var(--stripe-danger) 15%, transparent);
+  }
+  .m-cohort-bias.is-flat {
+    color: var(--stripe-text-secondary);
+    background: var(--stripe-accent-muted);
+  }
+  .m-cohort-arrow {
+    font-size: var(--type-callout);
+    line-height: 1;
   }
 
   .m-sent-row {

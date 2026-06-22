@@ -149,3 +149,37 @@ export async function getMostHeld(): Promise<CategorizedMostHeld> {
     crypto: body.mostHeld.crypto ?? [],
   };
 }
+
+// ── Cohort sentiment (net long/short bias per realized-PnL band) ────────────
+
+export type CohortBias =
+  | 'very_bullish'
+  | 'bullish'
+  | 'slightly_bullish'
+  | 'neutral'
+  | 'slightly_bearish'
+  | 'bearish'
+  | 'very_bearish';
+
+export interface CohortSentiment {
+  id: string;
+  label: string;
+  emoji: string;
+  range: string;
+  totalTraders: number;
+  longNotionalUsd: number;
+  shortNotionalUsd: number;
+  net: number;
+  bias: CohortBias;
+}
+
+interface CohortSentimentResponse {
+  ok: true;
+  cohorts: CohortSentiment[];
+}
+
+export async function getCohortSentiment(): Promise<CohortSentiment[]> {
+  const body = await apiGet<CohortSentimentResponse>('/api/feed/cohort-sentiment');
+  if (!body.ok) throw new Error('Cohort-sentiment request returned ok:false');
+  return body.cohorts ?? [];
+}
