@@ -3,14 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#080B12" />
+    <meta name="theme-color" content="#E3E7EE" />
     <script>
-      // Apply the persisted theme before first paint to avoid a light flash.
+      // Apply the persisted theme before first paint to avoid a flash, and sync
+      // the status-bar tint (theme-color) to the chosen page floor.
       try {
-        if (localStorage.getItem('swash-theme') === 'dark') {
-          document.documentElement.dataset.theme = 'dark';
-        }
-      } catch {}
+        var dark = localStorage.getItem('swash-theme') === 'dark';
+        if (dark) document.documentElement.dataset.theme = 'dark';
+        var tc = document.querySelector('meta[name="theme-color"]');
+        if (tc) tc.setAttribute('content', dark ? '#09151A' : '#E3E7EE');
+      } catch (e) {}
     </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="any" href="/favicon.png?v=6" />

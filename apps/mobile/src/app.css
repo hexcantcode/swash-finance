@@ -134,6 +134,9 @@
   --stripe-accent-subtle: rgba(10, 15, 26, 0.10);
   --stripe-accent-muted: rgba(10, 15, 26, 0.06);
 
+  /* Brand teal for the bottom-nav text + icons. */
+  --nav-fg: #009C85;
+
   /* Financial colors — pulled a touch darker than the dark-theme values so
      they keep AA contrast on a white surface. */
   --stripe-success: #0E9F66;
@@ -190,26 +193,39 @@
   --shadow-focus: 0 0 0 3px var(--stripe-border-focus);
 }
 
-/* ── Dark theme — set data-theme="dark" on <html> to activate ─────── */
+/* ── Dark theme — "deep-ocean glass" ──────────────────────────────────
+ * Set data-theme="dark" on <html> to activate (persisted as `swash-theme`,
+ * restored pre-paint in app.html). Base floor is #09151A — a deep desaturated
+ * teal, not neutral black; the same teal hue runs up the whole surface ramp and
+ * into the frosted glass, so cards read as tinted dark glass rather than gray.
+ * Mono-white chrome + bright mint success keep it financial. Same token set as
+ * :root, so components (which only read the stripe and glass tokens) need no
+ * changes. */
 [data-theme="dark"] {
-  --stripe-bg-deep: #080B12;
-  --stripe-bg-primary: #12151B;
-  --stripe-bg-secondary: #1A1E25;
-  --stripe-bg-tertiary: #242931;
-  --stripe-bg-elevated: #2D333D;
-  --stripe-bg-hover: #363D48;
+  /* Surface ramp — teal hue held constant, lightness stepped. */
+  --stripe-bg-deep: #09151A;
+  --stripe-bg-primary: #0E1D23;
+  --stripe-bg-secondary: #13262D;
+  --stripe-bg-tertiary: #1A3139;
+  --stripe-bg-elevated: #1F3A44;
+  --stripe-bg-hover: #284853;
 
+  /* Active chrome is one tone — white on dark. */
   --stripe-accent: #FFFFFF;
   --stripe-accent-light: #FFFFFF;
   --stripe-accent-dark: rgba(255, 255, 255, 0.55);
   --stripe-accent-subtle: rgba(255, 255, 255, 0.14);
   --stripe-accent-muted: rgba(255, 255, 255, 0.08);
 
+  /* Brand teal for the bottom nav — bright enough to read on the dark nav glass. */
+  --nav-fg: #009C85;
+
+  /* Financial — brightened so they pop against the teal floor. */
   --stripe-success: #16C784;
   --stripe-success-subtle: rgba(22, 199, 132, 0.16);
-  --stripe-danger: #FF6B6B;
-  --stripe-danger-subtle: rgba(255, 107, 107, 0.16);
-  --stripe-warning: #f5a623;
+  --stripe-danger: #E5484D;
+  --stripe-danger-subtle: rgba(229, 72, 77, 0.16);
+  --stripe-warning: #F5A623;
   --stripe-warning-subtle: rgba(245, 166, 35, 0.14);
 
   --stripe-text-primary: rgba(255, 255, 255, 0.95);
@@ -221,26 +237,54 @@
   --stripe-border-light: rgba(255, 255, 255, 0.14);
   --stripe-border-focus: rgba(255, 255, 255, 0.45);
 
-  --glass-bg-thin: rgba(18, 21, 27, 0.5);
-  --glass-bg: rgba(26, 30, 37, 0.62);
-  --glass-blur: blur(18px) saturate(120%);
-  --glass-blur-thin: blur(28px) saturate(140%);
+  /* Liquid Glass — teal-tinted frosting. The fill is drawn from the surface
+     ramp (not neutral gray) so blur pulls the ocean tone through; saturation
+     amplifies it. */
+  --glass-bg-thin: rgba(14, 29, 35, 0.5);
+  --glass-bg: rgba(17, 34, 41, 0.62);
+  --glass-blur: blur(18px) saturate(125%);
+  --glass-blur-thin: blur(28px) saturate(145%);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 
-  --glass-white-bg: rgba(255, 255, 255, 0.14);
+  --glass-white-bg: rgba(255, 255, 255, 0.12);
   --glass-white-border: rgba(255, 255, 255, 0.14);
   --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 
-  --glass-pressed-bg: rgba(0, 0, 0, 0.28);
+  --glass-pressed-bg: rgba(0, 0, 0, 0.30);
   --glass-pressed-inset:
-    inset 0 1px 2px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35);
+    inset 0 1px 2px rgba(0, 0, 0, 0.50),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.40);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.24), 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 1px rgba(0, 0, 0, 0.12);
+  /* Shadows deepened to read on the darker floor. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.30), 0 0 1px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 0 1px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* Theme crossfade — the profile toggle adds `.theme-transition` to <html> for
+ * the duration of a light↔dark flip, then removes it. Scoping it to that class
+ * means surfaces fade between palettes on switch without permanent transitions
+ * fighting hover/press states the rest of the time. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 280ms ease,
+    border-color 280ms ease,
+    color 280ms ease,
+    fill 280ms ease,
+    box-shadow 280ms ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: none !important;
+  }
 }
 
 /* Accessibility: when the OS asks for reduced transparency, collapse the glass

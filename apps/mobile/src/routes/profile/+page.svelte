@@ -10,11 +10,23 @@
 
   // Light/dark toggle — flips data-theme on <html> (see app.css theme system)
   // and persists; app.html re-applies the saved choice before first paint.
+  // Page-floor colors per theme — keeps the iOS status-bar tint (`theme-color`)
+  // in sync with the surface the user is actually looking at.
+  const THEME_COLOR = { dark: '#09151A', light: '#E3E7EE' } as const;
   let dark = $state(browser && document.documentElement.dataset.theme === 'dark');
   function toggleTheme() {
     dark = !dark;
-    if (dark) document.documentElement.dataset.theme = 'dark';
-    else delete document.documentElement.dataset.theme;
+    const root = document.documentElement;
+    // Crossfade between palettes for the flip, then drop the class so it never
+    // interferes with hover/press transitions.
+    root.classList.add('theme-transition');
+    window.setTimeout(() => root.classList.remove('theme-transition'), 320);
+
+    if (dark) root.dataset.theme = 'dark';
+    else delete root.dataset.theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', dark ? THEME_COLOR.dark : THEME_COLOR.light);
     try {
       localStorage.setItem('swash-theme', dark ? 'dark' : 'light');
     } catch {}
