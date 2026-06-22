@@ -242,8 +242,8 @@
     background: var(--stripe-accent-muted);
     font-family: var(--font-mono);
     font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-transform: none;
     color: var(--stripe-text-tertiary);
   }
   .m-trader-time-icon {

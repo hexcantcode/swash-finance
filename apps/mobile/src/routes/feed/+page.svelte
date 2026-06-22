@@ -30,7 +30,7 @@
 
   type Tab = 'trades' | 'positions' | 'sentiment';
 
-  let tab = $state<Tab>('trades');
+  let tab = $state<Tab>('sentiment');
   let fills = $state<LatestFill[]>([]);
   let positions = $state<CategorizedPositions | null>(null);
   let mostHeld = $state<CategorizedMostHeld | null>(null);
@@ -182,6 +182,17 @@
     }
     return `$${v.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
   }
+
+  /** Compact base-unit size for a fill, e.g. "0.5", "12K", "1.2M". */
+  function fmtSize(n: number): string {
+    if (!Number.isFinite(n) || n === 0) return '0';
+    const abs = Math.abs(n);
+    const digits = abs >= 1000 ? 1 : abs >= 1 ? 2 : 4;
+    return new Intl.NumberFormat('en-US', {
+      notation: abs >= 10000 ? 'compact' : 'standard',
+      maximumFractionDigits: digits,
+    }).format(n);
+  }
 </script>
 
 <svelte:head>
@@ -193,12 +204,12 @@
     <button
       type="button"
       role="tab"
-      aria-selected={tab === 'trades'}
+      aria-selected={tab === 'sentiment'}
       class="m-tab tappable tap-hit"
-      class:is-active={tab === 'trades'}
-      onclick={() => (tab = 'trades')}
+      class:is-active={tab === 'sentiment'}
+      onclick={() => (tab = 'sentiment')}
     >
-      Trades
+      Sentiment
     </button>
     <button
       type="button"
@@ -213,12 +224,12 @@
     <button
       type="button"
       role="tab"
-      aria-selected={tab === 'sentiment'}
+      aria-selected={tab === 'trades'}
       class="m-tab tappable tap-hit"
-      class:is-active={tab === 'sentiment'}
-      onclick={() => (tab = 'sentiment')}
+      class:is-active={tab === 'trades'}
+      onclick={() => (tab = 'trades')}
     >
-      Sentiment
+      Trades
     </button>
   </div>
 
@@ -271,10 +282,18 @@
                   </span>
                 </div>
                 <div class="m-feed-line-2">
-                  {formatUsd(f.notionalUsd)}
-                  {#if f.leverage}· {f.leverage}x{/if}
-                  · {formatRelativeTime(new Date(f.blockTimeMs))}
+                  <span class="m-feed-size">{fmtSize(f.szBase)} {coinDisplayName(f.coin)}</span>
+                  <span class="m-feed-dot">·</span>
+                  <span>@ {fmtPrice(f.vwapUsd)}</span>
+                  {#if f.leverage}<span class="m-feed-dot">·</span><span class="m-feed-lev">{f.leverage}x</span>{/if}
+                  {#if f.fillCount > 1}<span class="m-feed-dot">·</span><span>×{f.fillCount}</span>{/if}
                 </div>
+              </div>
+              <div class="m-feed-amount">
+                <span class="m-feed-notional {f.side === 'B' ? 'is-buy' : 'is-sell'}">
+                  {formatUsd(f.notionalUsd)}
+                </span>
+                <span class="m-feed-time">{formatRelativeTime(new Date(f.blockTimeMs))}</span>
               </div>
             </a>
           </li>
@@ -528,10 +547,56 @@
   }
 
   .m-feed-line-2 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* Size + coin is the most useful detail — give it the secondary tone so it
+     stands a step above the price/lev/time metadata. */
+  .m-feed-size {
+    color: var(--stripe-text-secondary);
+    flex-shrink: 0;
+  }
+  .m-feed-lev {
+    color: var(--stripe-text-secondary);
+  }
+  .m-feed-dot {
+    color: var(--stripe-text-muted);
+  }
+
+  /* Right column — notional headline (tinted buy/sell) over the timestamp. */
+  .m-feed-amount {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    text-align: right;
+  }
+  .m-feed-notional {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--type-callout);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
+  }
+  .m-feed-notional.is-buy {
+    color: var(--stripe-success);
+  }
+  .m-feed-notional.is-sell {
+    color: var(--stripe-danger);
+  }
+  .m-feed-time {
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
+    white-space: nowrap;
   }
 
   /* ── Position cards ─────────────────────────────────────────────────── */
