@@ -51,7 +51,7 @@ export interface LeaderRow {
    *  always 30 elements, zeros when the wallet has no 30D activity. */
   pnl_curve_30d: number[];
   /** `'equity'` when ≥60% of 30D |closed_pnl| came from stocks/indices;
-   *  `'crypto'` otherwise. Drives the focus filter strip on /traders. */
+   *  `'crypto'` otherwise. Drives the focus filter strip on the main page. */
   asset_focus: 'equity' | 'crypto';
   /** ISO timestamp of the last trade as of the last scoring run. Used
    *  for the relative-time pip on the card ("3D AGO"). */

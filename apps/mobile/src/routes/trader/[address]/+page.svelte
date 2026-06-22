@@ -160,14 +160,7 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <header class="m-detail-header safe-x">
-    <a href="/traders" class="m-back tappable" aria-label="Back to leaderboard">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-    </a>
-    <h1 class="sr-only">Trader detail</h1>
-  </header>
+  <h1 class="sr-only">Trader detail</h1>
 
   {#if loading}
     <section class="m-detail-hero safe-x">
@@ -390,28 +383,6 @@
     z-index: 21;
     min-height: 52px;
     border-radius: var(--radius-xl);
-  }
-
-  .m-detail-header {
-    padding-top: max(var(--safe-top), var(--space-2));
-    padding-bottom: var(--space-2);
-    display: flex;
-    align-items: center;
-  }
-
-  .m-back {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: var(--radius-md);
-    color: var(--stripe-text-primary);
-    text-decoration: none;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
   }
 
   /* Hero: identity row on top, then the plain-language bio + trait chips. */

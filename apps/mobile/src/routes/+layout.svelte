@@ -11,15 +11,15 @@
   onMount(() => void initNative());
 
   const path = $derived($page.url.pathname);
-  const homeActive = $derived(path === '/');
-  const tradersActive = $derived(path.startsWith('/trader'));
+  // Traders is the main page now (`/` = the leaderboard); `/trader/[address]`
+  // keeps the Traders tab lit too. The brand header shows on every page.
+  const tradersActive = $derived(path === '/' || path.startsWith('/trader'));
   const assetsActive = $derived(path.startsWith('/assets'));
   const feedActive = $derived(path.startsWith('/feed'));
   const profileActive = $derived(path.startsWith('/profile'));
 
   // Bottom-nav icons. Inline SVG paths so we avoid the icon-library import
   // (and the Capacitor bundle ships fewer bytes).
-  const ICON_HOME = 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10';
   const ICON_PROFILE = 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0';
   const ICON_TRADERS =
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
@@ -37,17 +37,15 @@
   />
 </svelte:head>
 
-<div class="m-shell" class:no-header={!homeActive}>
+<div class="m-shell">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  {#if homeActive}
-    <header class="m-header safe-top safe-x" aria-label="App header">
-      <a href="/" class="m-header-brand" aria-label="Swash — home">
-        <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
-        <span class="m-header-brand-text">swash</span>
-      </a>
-    </header>
-  {/if}
+  <header class="m-header safe-top safe-x" aria-label="App header">
+    <a href="/" class="m-header-brand" aria-label="Swash — home">
+      <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
+      <span class="m-header-brand-text">swash</span>
+    </a>
+  </header>
 
   {@render children?.()}
 
@@ -58,27 +56,7 @@
   <nav class="m-bottomnav" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
       <a
-        href="/assets"
-        class="m-bottomnav-item tappable"
-        class:is-active={assetsActive}
-        aria-current={assetsActive ? 'page' : undefined}
-      >
-        <svg
-          class="m-bottomnav-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d={ICON_MARKETS} />
-        </svg>
-        <span class="m-bottomnav-label">Markets</span>
-      </a>
-      <a
-        href="/traders"
+        href="/"
         class="m-bottomnav-item tappable"
         class:is-active={tradersActive}
         aria-current={tradersActive ? 'page' : undefined}
@@ -98,10 +76,10 @@
         <span class="m-bottomnav-label">Traders</span>
       </a>
       <a
-        href="/"
+        href="/assets"
         class="m-bottomnav-item tappable"
-        class:is-active={homeActive}
-        aria-current={homeActive ? 'page' : undefined}
+        class:is-active={assetsActive}
+        aria-current={assetsActive ? 'page' : undefined}
       >
         <svg
           class="m-bottomnav-icon"
@@ -113,9 +91,9 @@
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          <path d={ICON_HOME} />
+          <path d={ICON_MARKETS} />
         </svg>
-        <span class="m-bottomnav-label">Home</span>
+        <span class="m-bottomnav-label">Markets</span>
       </a>
       <a
         href="/feed"
@@ -169,12 +147,6 @@
     color: var(--stripe-text-primary);
     display: flex;
     flex-direction: column;
-  }
-
-  /* When the brand header is hidden (every route except home), keep page
-     content clear of the status bar / notch. */
-  .m-shell.no-header {
-    padding-top: var(--safe-top);
   }
 
   .m-header {
@@ -315,7 +287,7 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     height: 56px;
   }
 
@@ -325,7 +297,9 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    color: var(--stripe-text-tertiary);
+    /* Brand teal; inactive tabs sit at reduced strength, the active tab goes
+       full (plus its recessed pill). Icons inherit via stroke="currentColor". */
+    color: color-mix(in srgb, var(--nav-fg) 60%, transparent);
     text-decoration: none;
     font-family: var(--font-sans);
     /* Sentence-case labels — slightly larger than the old all-caps 10px so
@@ -342,7 +316,7 @@
   }
 
   .m-bottomnav-item.is-active {
-    color: var(--stripe-accent);
+    color: var(--nav-fg);
   }
 
   /* Active tab = recessed glass pill (Apple HIG iOS 26 pattern): no external

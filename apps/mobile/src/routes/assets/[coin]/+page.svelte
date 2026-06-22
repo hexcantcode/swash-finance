@@ -346,7 +346,7 @@
     <section class="m-detail-section safe-x">
       <p class="m-section-blurb">
         Tap <a href="/feed" class="m-inline-link">Feed</a> to see live trades across
-        all markets, or <a href={`/traders?search=${encodeURIComponent(coin)}`} class="m-inline-link">
+        all markets, or <a href={`/?search=${encodeURIComponent(coin)}`} class="m-inline-link">
           search Traders for {displayName}
         </a> to find wallets active here.
       </p>
