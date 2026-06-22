@@ -305,6 +305,12 @@
   }
   .m-sort-strip--inline {
     margin: 0;
+    /* Text frames grow to share the full row width; the view frame stays
+       compact (override below). */
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .m-view-strip {
     flex: 0 0 auto;
   }
 
@@ -316,12 +322,17 @@
     justify-content: center;
     padding: 6px clamp(6px, 1.8vw, 9px);
   }
+  /* View toggle stays icon-sized — don't let the chip-grow rule stretch it. */
+  .m-view-strip .m-sort-chip {
+    flex: 0 0 auto;
+  }
 
   /* Horizontal padding + type shrink with the viewport (clamp) so all three
      frames fit one row on small iPhones; the row still scrolls as a fallback
      on the very narrowest screens. */
   .m-sort-chip {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    text-align: center;
     padding: 6px clamp(7px, 2vw, 12px);
     min-height: 32px;
     border-radius: var(--radius-lg);
