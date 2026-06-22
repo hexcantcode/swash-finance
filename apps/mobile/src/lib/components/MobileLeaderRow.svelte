@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
-  import { effigyUrl, shortAddress, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
@@ -20,7 +20,7 @@
 <a
   class="m-leader-row tappable-row"
   href={`/trader/${row.address}`}
-  aria-label={`Trader ${row.address}, score ${scoreText}`}
+  aria-label={`Trader ${traderName(row.display_name, row.address)}, score ${scoreText}`}
 >
   <div
     class="m-leader-rank"
@@ -42,7 +42,7 @@
 
     <div class="m-leader-copy">
       <div class="m-leader-line-1">
-        <span class="m-leader-address">{shortAddress(row.address, 6, 4)}</span>
+        <span class="m-leader-address">{traderName(row.display_name, row.address, 6, 4)}</span>
         {#if row.heat === 'hot'}<span class="m-hot-chip">Hot</span>{/if}
         {#if row.winner && row.winner_rank}
           <span class="m-leader-badge" aria-label="Top earner this week">★ {row.winner_rank}</span>

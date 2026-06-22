@@ -3,9 +3,22 @@
   // docs/plans/2026-06-10-profile-page-refresh-design.md). Everything below
   // renders from MOCK_PROFILE; wiring real endpoints later is a one-spot
   // swap. The hero carries a "Preview" chip as the honesty marker.
+  import { browser } from '$app/environment';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import { effigyUrl, shortAddress, formatPnl, formatUsd, pnlSignClass } from '$lib/utils/format';
   import { appSheet } from '$lib/ui/sheets.svelte';
+
+  // Light/dark toggle — flips data-theme on <html> (see app.css theme system)
+  // and persists; app.html re-applies the saved choice before first paint.
+  let dark = $state(browser && document.documentElement.dataset.theme === 'dark');
+  function toggleTheme() {
+    dark = !dark;
+    if (dark) document.documentElement.dataset.theme = 'dark';
+    else delete document.documentElement.dataset.theme;
+    try {
+      localStorage.setItem('swash-theme', dark ? 'dark' : 'light');
+    } catch {}
+  }
 
   // Mirror addresses are real leaderboard wallets (taps genuinely navigate);
   // weights/contributions are fixtures. Times/details on fills are static
@@ -48,12 +61,28 @@
 <main id="main-content" class="m-page">
   <section class="m-balance-hero">
     <div class="m-hero-right">
-      <button type="button" class="m-bell m-btn tappable" aria-label="Notifications" onclick={noop}>
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        <span class="m-bell-dot" aria-hidden="true"></span>
-      </button>
+      <div class="m-hero-btns">
+        <button type="button" class="m-theme-switch tappable" role="switch" aria-checked={dark} aria-label="Dark mode" onclick={toggleTheme}>
+          <span class="m-switch-thumb">
+            {#if dark}
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            {:else}
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41" />
+              </svg>
+            {/if}
+          </span>
+        </button>
+        <button type="button" class="m-hero-btn m-btn tappable" aria-label="Notifications" onclick={noop}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span class="m-bell-dot" aria-hidden="true"></span>
+        </button>
+      </div>
       <span class="m-change-pill" class:is-up={MOCK_PROFILE.changePositive} class:is-down={!MOCK_PROFILE.changePositive}>
         <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
           <path d={MOCK_PROFILE.changePositive ? 'M12 6l7 12H5z' : 'M12 18 5 6h14z'} />
@@ -245,23 +274,60 @@
     gap: var(--space-3);
   }
 
-  .m-bell {
+  .m-hero-btns {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  /* Sized down to match the change pill's height below. */
+  .m-hero-btn {
     position: relative;
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-full);
   }
   .m-bell-dot {
     position: absolute;
-    top: 9px;
-    right: 10px;
-    width: 7px;
-    height: 7px;
+    top: 5px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
     border-radius: var(--radius-full);
     background: var(--stripe-danger);
     border: 1.5px solid var(--stripe-bg-elevated);
+  }
+
+  /* Light/dark switch — recessed track (pressed glass) with a raised thumb
+     that slides right for dark. Thumb icon mirrors the current mode. */
+  .m-theme-switch {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
+    cursor: pointer;
+  }
+  .m-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background: var(--glass-white-bg);
+    box-shadow: var(--glass-white-highlight), var(--shadow-xs);
+    color: var(--stripe-text-secondary);
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+  .m-theme-switch[aria-checked='true'] .m-switch-thumb {
+    transform: translateX(20px);
   }
 
   /* Content sits above the grain overlay. */

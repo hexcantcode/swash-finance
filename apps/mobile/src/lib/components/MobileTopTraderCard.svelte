@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TopTrader } from '$lib/api/leaders-top';
-  import { effigyUrl, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
@@ -15,7 +15,7 @@
   const extraHoldings = $derived(Math.max(0, trader.holdings.total - shownHoldings.length));
 </script>
 
-<a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${trader.address}`}>
+<a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${traderName(trader.display_name, trader.address)}`}>
   <div class="m-tcard-top">
     <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
     {#if shownHoldings.length > 0}

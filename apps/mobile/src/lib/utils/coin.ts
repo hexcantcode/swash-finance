@@ -115,6 +115,7 @@ export function coinNeedsWhiteBg(coin: string): boolean {
  */
 export const COIN_ICON_BG: ReadonlyMap<string, string> = new Map([
   ['HYPE', '#0a1a20'],
+  ['XPL', '#152F28'],
 ]);
 
 /** Custom disc color for a coin's icon, or null to use the default fill. */

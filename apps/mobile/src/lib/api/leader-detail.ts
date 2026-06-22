@@ -5,7 +5,7 @@
  * fields to the API later is then a typing-only change here.
  */
 
-import { apiGet } from './client';
+import { apiGet, apiUrl } from './client';
 import type { Holdings } from './leaders';
 
 export interface RecentFill {
@@ -50,6 +50,8 @@ export interface ScoringSnapshot {
 
 export interface LeaderDetail {
   address: string;
+  /** HL user-set display name — shown over the short address when present. */
+  display_name?: string | null;
   score: number | null;
   primary_tag: string | null;
   tags: { type: string; value: string }[];
@@ -86,4 +88,42 @@ export async function getLeaderDetail(address: string): Promise<LeaderDetail> {
   );
   if (!body.ok) throw new Error('Leader detail request returned ok:false');
   return body.data;
+}
+
+/** The volatile slice of a trader's state — the fields that change moment to
+ *  moment. Subset of LeaderDetail; pushed live over SSE. */
+export interface LiveSlice {
+  open_positions: OpenPosition[];
+  recent_fills: RecentFill[];
+}
+
+/** Subscribe to a trader's live positions + fills via SSE
+ *  (`/api/stream/trader/[address]`). Calls `onSlice` with the snapshot on
+ *  connect, then again whenever positions/fills change. EventSource
+ *  auto-reconnects. Returns a close fn. Browser-only. */
+export function subscribeLiveSlice(
+  address: string,
+  onSlice: (slice: LiveSlice) => void,
+): () => void {
+  const es = new EventSource(apiUrl(`/api/stream/trader/${encodeURIComponent(address)}`));
+  es.onmessage = (ev) => {
+    let body: unknown;
+    try {
+      body = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+    } catch {
+      return;
+    }
+    const slice = body as Partial<LiveSlice> | null;
+    if (slice && Array.isArray(slice.open_positions) && Array.isArray(slice.recent_fills)) {
+      onSlice({ open_positions: slice.open_positions, recent_fills: slice.recent_fills });
+    }
+  };
+  return () => {
+    es.onmessage = null;
+    try {
+      es.close();
+    } catch {
+      /* ignore */
+    }
+  };
 }

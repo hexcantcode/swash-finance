@@ -28,6 +28,8 @@ export interface Holdings {
 /** Mobile-only view of a leader row. Subset of apps/web's `LeaderCard`. */
 export interface LeaderRow {
   address: string;
+  /** HL user-set display name — shown over the short address when present. */
+  display_name: string | null;
   score: number | null;
   primary_tag: string | null;
   /** Heat tag (`hot` / `steady` / `cooling`) parsed from the API's
@@ -60,6 +62,7 @@ export interface LeaderRow {
 
 interface RawLeaderCard {
   address: string;
+  display_name?: string | null;
   score: number | null;
   primary_tag: string | null;
   /** Non-profile tags as `"<type>:<value>"` strings (heat/size). */
@@ -142,6 +145,7 @@ function parseHeat(secondaryTags: string[] | undefined): LeaderRow['heat'] {
 function toLeaderRow(card: RawLeaderCard): LeaderRow {
   return {
     address: card.address,
+    display_name: card.display_name ?? null,
     score: card.score,
     primary_tag: card.primary_tag,
     heat: parseHeat(card.secondary_tags),

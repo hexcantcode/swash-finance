@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
-  import { effigyUrl, shortAddress, formatPnl, formatRelativeTime, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, traderName, formatPnl, formatRelativeTime, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
   import { appSheet } from '$lib/ui/sheets.svelte';
   import MobileSparkline from './MobileSparkline.svelte';
@@ -32,7 +32,7 @@
   <a
     class="m-trader-card-link"
     href={`/trader/${row.address}`}
-    aria-label={`Trader ${row.address}, score ${scoreText}`}
+    aria-label={`Trader ${traderName(row.display_name, row.address)}, score ${scoreText}`}
   ></a>
 
   <div class="m-trader-head">
@@ -44,7 +44,7 @@
     />
     <div class="m-trader-id">
       <span class="m-trader-addr">
-        {shortAddress(row.address, 6, 4)}
+        {traderName(row.display_name, row.address, 6, 4)}
         {#if row.heat === 'hot'}<span class="m-hot-chip">Hot</span>{/if}
       </span>
       {#if shownHoldings.length > 0}

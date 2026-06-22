@@ -23,6 +23,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export interface LeaderDetail {
   address: string;
+  /** HL user-set display name (sparse). */
+  display_name: string | null;
   /** Score v2: 0.4·profit + 0.3·consistency + 0.3·risk for gate-passers; null
    *  when the wallet failed the gate. See docs/plans/2026-05-13-score-v2-design.md. */
   score: number | null;
@@ -291,8 +293,16 @@ export async function getLeaderDetail(rawAddress: string): Promise<LeaderDetail 
     };
   });
 
+  // Display name lives on the master wallet (HL's leaderboard lists masters);
+  // an agent address inherits its master's name.
+  const masterRow =
+    masterAddress === address
+      ? walletRow
+      : await db().query.wallets.findFirst({ where: eq(wallets.address, masterAddress) });
+
   return {
     address: masterAddress,
+    display_name: masterRow?.displayName ?? walletRow.displayName ?? null,
     score: walletRow.score,
     primary_tag: walletRow.primaryTag,
     tags: tagRows.map((t) => ({ type: t.tagType, value: t.tagValue })),

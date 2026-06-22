@@ -28,6 +28,9 @@ export interface LeaderboardWindow {
 export interface LeaderboardRow {
   address: Address;
   accountValue: number;
+  /** User-set display name from app.hyperliquid.xyz (~3-4% of wallets set
+   *  one). Null when unset. */
+  displayName: string | null;
   day: LeaderboardWindow;
   week: LeaderboardWindow;
   month: LeaderboardWindow;
@@ -114,9 +117,14 @@ function parseRow(r: unknown): LeaderboardRow | null {
     };
   }
 
+  const rawName = obj['displayName'];
+  const displayName =
+    typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim().slice(0, 64) : null;
+
   return {
     address,
     accountValue,
+    displayName,
     day: windows['day'] ?? { pnl: 0, roi: 0, vlm: 0 },
     week: windows['week'] ?? { pnl: 0, roi: 0, vlm: 0 },
     month: windows['month'] ?? { pnl: 0, roi: 0, vlm: 0 },

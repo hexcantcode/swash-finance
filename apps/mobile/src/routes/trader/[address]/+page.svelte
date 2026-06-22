@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
-  import { getLeaderDetail, type LeaderDetail } from '$lib/api/leader-detail';
+  import { getLeaderDetail, subscribeLiveSlice, type LeaderDetail } from '$lib/api/leader-detail';
   import {
     shortAddress,
+    traderName,
     effigyUrl,
     formatPnl,
     formatUsd,
@@ -59,6 +60,17 @@
     if (!mounted) return;
     void address;
     void load();
+  });
+
+  // Live positions + fills: subscribe per address and patch `detail` in place
+  // as the trader's slice changes. Re-subscribes when the address changes; the
+  // returned teardown closes the previous stream.
+  $effect(() => {
+    const addr = address;
+    if (!addr) return;
+    return subscribeLiveSlice(addr, (slice) => {
+      if (detail) detail = { ...detail, ...slice };
+    });
   });
 
   function copyAddress() {
@@ -144,7 +156,7 @@
 </script>
 
 <svelte:head>
-  <title>{detail ? shortAddress(detail.address) : 'Trader'} · Swash</title>
+  <title>{detail ? traderName(detail.display_name, detail.address) : 'Trader'} · Swash</title>
 </svelte:head>
 
 <main id="main-content" class="m-page">
@@ -175,8 +187,11 @@
         <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
         <div class="m-detail-meta">
           <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
-            {shortAddress(detail.address, 6, 4)}
+            {traderName(detail.display_name, detail.address, 6, 4)}
           </button>
+          {#if detail.display_name}
+            <span class="m-detail-subaddr">{shortAddress(detail.address, 6, 4)}</span>
+          {/if}
         </div>
       </div>
       <!-- Composite score — the same number the leaderboard ranks by; tapping
@@ -453,6 +468,14 @@
   }
 
   /* One-line plain-language read on who this trader is. */
+  /* Short address caption under a display name — identity stays verifiable. */
+  .m-detail-subaddr {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
+  }
+
   .m-detail-bio {
     margin: 0;
     font-family: var(--font-sans);

@@ -12,6 +12,8 @@ export type LeaderWindow = '1d' | '7d' | '30d';
 
 export interface TopTrader {
   address: string;
+  /** HL user-set display name — shown over the short address when present. */
+  display_name?: string | null;
   primary_tag: string | null;
   score: number | null;
   /** HL-reported realized PnL over the window (USD). */

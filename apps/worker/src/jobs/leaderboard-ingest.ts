@@ -141,6 +141,7 @@ export async function persistAndQueueLeaderboardRows(args: {
           firstSeenAt: now,
           lastSeenAt: now,
           accountValue: r.accountValue.toFixed(8),
+          displayName: r.displayName,
           totalVolumeUsd: r.month.vlm.toFixed(8),
           hlPnl7dUsd: r.week.pnl.toFixed(8),
           hlRoi7d: r.week.roi.toFixed(8),
@@ -156,6 +157,8 @@ export async function persistAndQueueLeaderboardRows(args: {
           firstSeenAt: sql`least(${wallets.firstSeenAt}, excluded.first_seen_at)`,
           lastSeenAt: sql`greatest(${wallets.lastSeenAt}, excluded.last_seen_at)`,
           accountValue: sql`excluded.account_value`,
+          // Keep the last known name if HL drops it from a later snapshot.
+          displayName: sql`coalesce(excluded.display_name, ${wallets.displayName})`,
           totalVolumeUsd: sql`greatest(${wallets.totalVolumeUsd}, excluded.total_volume_usd)`,
           hlPnl7dUsd: sql`excluded.hl_pnl_7d_usd`,
           hlRoi7d: sql`excluded.hl_roi_7d`,

@@ -6,6 +6,8 @@ import { listHoldingsByAddress, type HoldingsByAddress } from './holdings.js';
 
 export interface WeeklyLeaderRow {
   address: string;
+  /** HL user-set display name (sparse). */
+  display_name: string | null;
   primary_tag: string | null;
   score: number | null;
   win_rate: number | null;
@@ -46,6 +48,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
   const rows = await db()
     .select({
       address: wallets.address,
+      display_name: wallets.displayName,
       primary_tag: wallets.primaryTag,
       score: wallets.score,
       winner_rank: wallets.winnerRank,
@@ -79,6 +82,7 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
 
   return rows.map((r) => ({
     address: r.address,
+    display_name: r.display_name,
     primary_tag: r.primary_tag,
     score: r.score,
     winner_rank: r.winner_rank,
@@ -97,6 +101,8 @@ export async function listTopEarners7d(limit = 10): Promise<WeeklyLeaderRow[]> {
 
 export interface MonthlyLeaderRow {
   address: string;
+  /** HL user-set display name (sparse). */
+  display_name: string | null;
   primary_tag: string | null;
   score: number | null;
   roi_30d: number | null;
@@ -124,6 +130,7 @@ export async function listTopMonthlyPnl(limit = 5): Promise<MonthlyLeaderRow[]> 
   const rows = await db()
     .select({
       address: wallets.address,
+      display_name: wallets.displayName,
       primary_tag: wallets.primaryTag,
       score: wallets.score,
       roi_30d: wallets.hlRoi30d,
@@ -147,6 +154,7 @@ export async function listTopMonthlyPnl(limit = 5): Promise<MonthlyLeaderRow[]> 
 
   return rows.map((r) => ({
     address: r.address,
+    display_name: r.display_name,
     primary_tag: r.primary_tag,
     score: r.score,
     roi_30d: numOrNull(r.roi_30d),
@@ -169,6 +177,8 @@ export type LeaderWindow = '1d' | '7d' | '30d';
 
 export interface TopTraderRow {
   address: string;
+  /** HL user-set display name (sparse). */
+  display_name: string | null;
   primary_tag: string | null;
   score: number | null;
   /** HL-reported realized PnL over the window (USD). */
@@ -201,6 +211,7 @@ export async function listTopTradersByWindow(
   const rows = await db()
     .select({
       address: wallets.address,
+      display_name: wallets.displayName,
       primary_tag: wallets.primaryTag,
       score: wallets.score,
       pnl_usd: pnlCol,
@@ -223,6 +234,7 @@ export async function listTopTradersByWindow(
 
   return rows.map((r) => ({
     address: r.address,
+    display_name: r.display_name,
     primary_tag: r.primary_tag,
     score: r.score,
     pnl_usd: numOrNull(r.pnl_usd),

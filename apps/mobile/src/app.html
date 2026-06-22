@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#080B12" />
+    <script>
+      // Apply the persisted theme before first paint to avoid a light flash.
+      try {
+        if (localStorage.getItem('swash-theme') === 'dark') {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch {}
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="any" href="/favicon.png?v=6" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=6" />
