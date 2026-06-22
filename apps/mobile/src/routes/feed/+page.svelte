@@ -209,7 +209,7 @@
       class:is-active={tab === 'sentiment'}
       onclick={() => (tab = 'sentiment')}
     >
-      Sentiment
+      Vibes
     </button>
     <button
       type="button"
@@ -368,7 +368,6 @@
     <!-- Sentiment tab -->
     {#if cohortSentiment.length > 0}
       <section class="m-cohorts safe-x" aria-label="Cohort sentiment">
-        <h2 class="m-sent-head">Cohort sentiment</h2>
         <ul class="m-cohort-list">
           {#each cohortSentiment as c (c.id)}
             {@const b = biasDisplay(c.bias)}

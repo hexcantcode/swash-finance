@@ -144,11 +144,12 @@
     );
   }
 
-  /* Doubled track shifted by -50% loops seamlessly (one full set width). */
+  /* Doubled track shifted by -50% loops seamlessly (one full set width).
+     Wide gap so one trade's "…ago" has clear air before the next item. */
   .m-ticker-track {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-5);
+    gap: var(--space-8);
     white-space: nowrap;
     animation: m-ticker-scroll 60s linear infinite;
     will-change: transform;

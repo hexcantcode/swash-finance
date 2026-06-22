@@ -7,8 +7,28 @@
 
   let { children } = $props();
 
-  // Native-only chrome (status bar etc.); no-op in the browser/PWA.
-  onMount(() => void initNative());
+  // The brand header stays put at the top but fades out as you scroll into
+  // content, fading back in near the top. Scroll-linked opacity (1:1 with
+  // position, no lag) rather than a CSS scroll-timeline, which WKWebView on
+  // iOS doesn't support yet.
+  let headerEl: HTMLElement | null = null;
+  const FADE_OVER = 72; // px of scroll to go fully transparent
+
+  onMount(() => {
+    // Native-only chrome (status bar etc.); no-op in the browser/PWA.
+    void initNative();
+
+    const onScroll = () => {
+      const f = Math.max(0, Math.min(1, 1 - window.scrollY / FADE_OVER));
+      if (!headerEl) return;
+      headerEl.style.opacity = String(f);
+      headerEl.style.transform = `translateY(${(f - 1) * 6}px)`;
+      headerEl.style.pointerEvents = f < 0.05 ? 'none' : '';
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  });
 
   const path = $derived($page.url.pathname);
   // Traders is the main page now (`/` = the leaderboard); `/trader/[address]`
@@ -40,7 +60,7 @@
 <div class="m-shell">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <header class="m-header safe-top safe-x" aria-label="App header">
+  <header class="m-header safe-top safe-x" aria-label="App header" bind:this={headerEl}>
     <a href="/" class="m-header-brand" aria-label="Swash — home">
       <img class="m-header-brand-icon" src="/logoicon.png" alt="" aria-hidden="true" />
       <span class="m-header-brand-text">swash</span>
