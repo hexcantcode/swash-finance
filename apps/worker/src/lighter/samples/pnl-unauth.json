@@ -1,0 +1,7 @@
+{
+  "request": "/api/v1/pnl?by=index&value=702384&resolution=1d&...",
+  "response": {
+    "code": 21100,
+    "message": "account not found"
+  }
+}

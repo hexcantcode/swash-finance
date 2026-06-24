@@ -1,0 +1,32 @@
+{
+  "code": 200,
+  "total": 214,
+  "order_book_stats": [
+    {
+      "symbol": "INTC",
+      "last_trade_price": 134.462,
+      "daily_trades_count": 3284,
+      "daily_base_token_volume": 10644.264,
+      "daily_quote_token_volume": 1426710.632216,
+      "daily_price_change": 3.318657169421329
+    },
+    {
+      "symbol": "PLTR",
+      "last_trade_price": 115.7,
+      "daily_trades_count": 1623,
+      "daily_base_token_volume": 1703.136,
+      "daily_quote_token_volume": 203039.088765,
+      "daily_price_change": -3.461856169012674
+    },
+    {
+      "symbol": "WLD",
+      "last_trade_price": 0.52648,
+      "daily_trades_count": 6915,
+      "daily_base_token_volume": 1907891,
+      "daily_quote_token_volume": 1023545.294654,
+      "daily_price_change": -7.090671654960647
+    }
+  ],
+  "daily_usd_volume": 1139626089.3479013,
+  "daily_trades_count": 1402546
+}

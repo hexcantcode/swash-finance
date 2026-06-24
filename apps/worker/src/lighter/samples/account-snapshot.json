@@ -1,0 +1,86 @@
+{
+  "code": 200,
+  "total": 1,
+  "accounts": [
+    {
+      "code": 0,
+      "account_type": 0,
+      "index": 702384,
+      "l1_address": "0x3f4ec7684F679F83c782e485b358A2D43045d6A2",
+      "cancel_all_time": 0,
+      "total_order_count": 13,
+      "total_isolated_order_count": 0,
+      "pending_order_count": 0,
+      "available_balance": "1554904.057751",
+      "status": 1,
+      "collateral": "1737571.826144",
+      "transaction_time": 1782299368882277,
+      "account_trading_mode": 0,
+      "account_index": 702384,
+      "name": "",
+      "description": "",
+      "can_invite": true,
+      "referral_points_percentage": "",
+      "can_rfq": false,
+      "can_rfq_market_ids": null,
+      "created_at": 0,
+      "metadata": {
+        "color": ""
+      },
+      "positions": [
+        {
+          "market_id": 1,
+          "symbol": "BTC",
+          "initial_margin_fraction": "33.33",
+          "open_order_count": 13,
+          "pending_order_count": 0,
+          "position_tied_order_count": 0,
+          "sign": 1,
+          "position": "8.76486",
+          "avg_entry_price": "62345.1",
+          "position_value": "546127.908768",
+          "unrealized_pnl": "-317.847339",
+          "realized_pnl": "0.000000",
+          "liquidation_price": "0",
+          "total_funding_paid_out": "3.888203",
+          "margin_mode": 0,
+          "allocated_margin": "0.000000"
+        },
+        {
+          "market_id": 16,
+          "symbol": "SUI",
+          "initial_margin_fraction": "33.33",
+          "open_order_count": 0,
+          "pending_order_count": 0,
+          "position_tied_order_count": 0,
+          "sign": -1,
+          "position": "1382.1",
+          "avg_entry_price": "0.75987",
+          "position_value": "961.305834",
+          "unrealized_pnl": "88.912989",
+          "realized_pnl": "0.000000",
+          "liquidation_price": "1182.0339166077254",
+          "total_funding_paid_out": "4.575500",
+          "margin_mode": 0,
+          "allocated_margin": "0.000000"
+        }
+      ],
+      "assets": [
+        {
+          "symbol": "USDC",
+          "asset_id": 3,
+          "balance": "0.000000",
+          "locked_balance": "0.000000",
+          "margin_mode": "disabled",
+          "margin_balance": "1737571.826144245079"
+        }
+      ],
+      "total_asset_value": "1737311.9876529998",
+      "cross_asset_value": "1737311.9876529998",
+      "cross_initial_margin_requirement": "182407.929902",
+      "cross_maintenance_margin_requirement": "6620.551125",
+      "shares": [],
+      "pending_unlocks": []
+    }
+  ]
+}
