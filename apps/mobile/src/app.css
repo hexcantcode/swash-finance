@@ -195,7 +195,7 @@
 
 /* ── Dark theme — "deep-ocean glass" ──────────────────────────────────
  * Set data-theme="dark" on <html> to activate (persisted as `swash-theme`,
- * restored pre-paint in app.html). Base floor is #09151A — a deep desaturated
+ * restored pre-paint in app.html). Base floor is #0C0C12 — a deep desaturated
  * teal, not neutral black; the same teal hue runs up the whole surface ramp and
  * into the frosted glass, so cards read as tinted dark glass rather than gray.
  * Mono-white chrome + bright mint success keep it financial. Same token set as
@@ -203,9 +203,9 @@
  * changes. */
 [data-theme="dark"] {
   /* Surface ramp — teal hue held constant, lightness stepped. */
-  --stripe-bg-deep: #09151A;
+  --stripe-bg-deep: #0C0C12;
   --stripe-bg-primary: #0E1D23;
-  --stripe-bg-secondary: #13262D;
+  --stripe-bg-secondary: #141417;
   --stripe-bg-tertiary: #1A3139;
   --stripe-bg-elevated: #1F3A44;
   --stripe-bg-hover: #284853;
@@ -237,11 +237,11 @@
   --stripe-border-light: rgba(255, 255, 255, 0.14);
   --stripe-border-focus: rgba(255, 255, 255, 0.45);
 
-  /* Liquid Glass — teal-tinted frosting. The fill is drawn from the surface
-     ramp (not neutral gray) so blur pulls the ocean tone through; saturation
-     amplifies it. */
-  --glass-bg-thin: rgba(14, 29, 35, 0.5);
-  --glass-bg: rgba(17, 34, 41, 0.62);
+  /* Surface fill — solid #141417, one notch above the #0C0C12 page floor, so
+     rows / tabs / cards read as a clean flat surface lifted off the background
+     (no translucency, so they don't blend back down into the floor). */
+  --glass-bg-thin: #141417;
+  --glass-bg: #141417;
   --glass-blur: blur(18px) saturate(125%);
   --glass-blur-thin: blur(28px) saturate(145%);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -293,8 +293,8 @@ html.theme-transition *::after {
  * Placed after :root so it wins the cascade at equal specificity. */
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --glass-bg: var(--stripe-bg-primary);
-    --glass-bg-thin: var(--stripe-bg-primary);
+    --glass-bg: var(--stripe-bg-secondary);
+    --glass-bg-thin: var(--stripe-bg-secondary);
     --glass-blur: none;
     --glass-blur-thin: none;
     --glass-highlight: 0 0 0 0 transparent;

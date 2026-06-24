@@ -12,7 +12,7 @@
   // and persists; app.html re-applies the saved choice before first paint.
   // Page-floor colors per theme — keeps the iOS status-bar tint (`theme-color`)
   // in sync with the surface the user is actually looking at.
-  const THEME_COLOR = { dark: '#09151A', light: '#E3E7EE' } as const;
+  const THEME_COLOR = { dark: '#0C0C12', light: '#E3E7EE' } as const;
   let dark = $state(browser && document.documentElement.dataset.theme === 'dark');
   function toggleTheme() {
     dark = !dark;
