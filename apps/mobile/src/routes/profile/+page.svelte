@@ -38,8 +38,6 @@
   const MOCK_PROFILE = {
     balance: { currency: '$', whole: '27,547', cents: '.89' },
     todayChange: '+$2,845.53',
-    changePct: '11.5%',
-    changePositive: true,
     mirrors: [
       { address: '0xaf0fdd39e5d92499b0ed9f68693da99c0ec1e92e', weightPct: 50, contribution30dUsd: 1840 },
       { address: '0x8cc94dc843e1ea7a19805e0cca43001123512b6a', weightPct: 30, contribution30dUsd: 612 },
@@ -95,12 +93,6 @@
           <span class="m-bell-dot" aria-hidden="true"></span>
         </button>
       </div>
-      <span class="m-change-pill" class:is-up={MOCK_PROFILE.changePositive} class:is-down={!MOCK_PROFILE.changePositive}>
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
-          <path d={MOCK_PROFILE.changePositive ? 'M12 6l7 12H5z' : 'M12 18 5 6h14z'} />
-        </svg>
-        {MOCK_PROFILE.changePct}
-      </span>
     </div>
 
     <div class="m-balance-label-row">
@@ -291,14 +283,17 @@
     align-items: center;
     gap: var(--space-2);
   }
-  /* Sized down to match the change pill's height below. */
+  /* Sized to match the theme toggle's height alongside it. */
   .m-hero-btn {
     position: relative;
     display: grid;
     place-items: center;
     width: 28px;
     height: 28px;
-    border-radius: var(--radius-full);
+    /* Override the .tappable 48px touch floor — these are compact chrome. */
+    min-width: 0;
+    min-height: 0;
+    border-radius: var(--radius-md);
   }
   .m-bell-dot {
     position: absolute;
@@ -317,9 +312,12 @@
     position: relative;
     width: 48px;
     height: 28px;
+    /* Override the .tappable 48px touch floor — keep the slim toggle track. */
+    min-width: 0;
+    min-height: 0;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-md);
     background: var(--glass-pressed-bg);
     box-shadow: var(--glass-pressed-inset);
     cursor: pointer;
@@ -332,7 +330,7 @@
     place-items: center;
     width: 24px;
     height: 24px;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-sm);
     background: var(--glass-white-bg);
     box-shadow: var(--glass-white-highlight), var(--shadow-xs);
     color: var(--stripe-text-secondary);
@@ -401,34 +399,6 @@
     font-weight: 600;
     color: var(--stripe-text-tertiary);
     vertical-align: baseline;
-  }
-
-  /* ▲ change pill — chip language, tinted by direction. */
-  .m-change-pill {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    border-radius: var(--radius-full);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-footnote);
-    font-weight: 700;
-  }
-  .m-change-pill.is-up {
-    background: var(--stripe-success-subtle);
-    color: var(--stripe-success);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 2px 12px rgba(22, 199, 132, 0.18);
-  }
-  .m-change-pill.is-down {
-    background: var(--stripe-danger-subtle);
-    color: var(--stripe-danger);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 2px 12px rgba(255, 107, 107, 0.18);
   }
 
   .m-change-row {
