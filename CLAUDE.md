@@ -1,6 +1,6 @@
 # Swash — working notes for agents
 
-Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/api` SvelteKit, `apps/worker`, `packages/{db,scoring,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
+Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/api` SvelteKit BFF, `apps/mobile` SvelteKit client, `apps/worker`, `packages/{db,scoring,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
 
 ---
 
@@ -34,11 +34,31 @@ This is an analytics product; a number on screen is only as trustworthy as the d
 
 ---
 
+## Architecture (current)
+
+Two SvelteKit apps + a worker, all on one Neon DB:
+- **`apps/api`** — the Backend-for-Frontend (BFF). Owns every `/api/*` endpoint, `$lib/server` (queries, HL client, DB), and the `/coins` icon proxy. The only backend the client talks to. (Was `apps/web`; the desktop UI was deleted — see `docs/plans/2026-06-10-mobile-architecture-design.md`.)
+- **`apps/mobile`** — a pure `/api` client (SvelteKit, Capacitor-wrapped for iOS). PWA now, native later. **Invariant:** the client only ever speaks `/api` over HTTP — no `$lib/server` imports, no client→HL connections, no DB reads in loaders. It keeps its own presentation-layer utils (e.g. `coin.ts` category mapping) that intentionally differ from the BFF's.
+- **`apps/worker`** — paced cron + live WS jobs (scoring, leaderboard poll, fills/funding/ledger ingest). See `ecosystem.config.cjs` / `pnpm stack:*`.
+- **`packages/scoring`** — the venue-agnostic scorer. `computeScore({ roi30d, weeksProfitableRatio, maxDrawdownPct })` → 0–100, plus the derivation functions (`buildDailySeries`, `toDailyReturns`, `maxDrawdownPct`, `weeklyProfitableRatio`, `passesGate`, `computeBehavioral`, …) that turn raw fills/fundings/ledger into those inputs. Nothing here is HL-specific.
+
+Local dev: **mobile on :5173, api on :5174** (mobile proxies `/api` + `/coins` → 5174). Launch with `DB_OVER_WS=1` on filtered networks or Neon times out. `pnpm check` / `pnpm build` at the repo root.
+
+## Multi-venue pivot — Lighter alongside Hyperliquid (in progress)
+
+The trading engine is moving from Hyperliquid to **Lighter** (a zk-rollup perps DEX). **Not built yet — do not write engine/execution code.** The first step is analytics only: **fetch Lighter trader data alongside HL and present unified data in the UI.**
+
+Principles for any Lighter work:
+- **Reuse the scorer unchanged.** It's already venue-agnostic — normalize Lighter trades into the existing fill / funding / ledger shapes and feed the same `packages/scoring` functions. Do **not** re-implement ROI / weekly-consistency / drawdown.
+- **Additive, behind a module boundary** (`src/lib/server/lighter/`). Don't touch HL integration, execution code, or the scorer.
+- **`venue` discriminator** on everything new (DB rows, API params) so HL and Lighter share one schema and one read route.
+- MVP brief & open questions: `docs/plans/2026-06-23-lighter-leaderboard-mvp.md`.
+
 ## Other notes
 
-- The web app is a single page (`/` = the leaderboard + Winners + ticker). `/browse` 308-redirects to `/`. There is no theme toggle.
-- Dev: `pnpm dev` (web on :5173). `pnpm check` / `pnpm build` at the repo root.
-- Product model & scoring redesign details: `docs/plans/2026-05-11-*.md`.
+- The product is **analytics-only** today (curated leaderboard + trader/asset detail + feed); no copy execution. `apps/mobile` is the primary surface — multi-page, dark "deep-ocean glass" default theme.
+- `docs/BUILD_SPEC.md` predates the analytics-only, mobile, and Lighter direction — treat **CLAUDE.md + the `docs/plans/*` design docs as current**; BUILD_SPEC is historical context, not a build target.
+- Product model & scoring redesign details: `docs/plans/2026-05-11-*.md`; mobile design docs: `docs/plans/2026-05-19…2026-06-10-mobile-*.md`.
 
 ---
 

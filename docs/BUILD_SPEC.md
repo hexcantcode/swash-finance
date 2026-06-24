@@ -1,6 +1,16 @@
 # Copytrade Platform — Build Specification
 
-> **Single source of truth for building this product.** Every coding agent working on this codebase should read this document fully before writing any code.
+> ⚠️ **STATUS (2026-06-23): HISTORICAL CONTEXT, NOT THE CURRENT BUILD TARGET.**
+> This document describes the original Hyperliquid copy-execution product (v0.5/v1).
+> The product has since pivoted to **analytics-only** (a curated leaderboard +
+> trader/asset detail + feed), is now **mobile-led** (`apps/mobile` client +
+> `apps/api` BFF), and is moving to a **multi-venue** model (Lighter alongside
+> Hyperliquid). No copy execution exists today.
+> For current truth read **`CLAUDE.md`** and the **`docs/plans/*`** design docs.
+> Use the sections below for durable domain facts (HL gotchas, schema rationale,
+> scoring derivations), not as a feature checklist.
+
+> **Original intent:** single source of truth for building this product. Every coding agent should read this fully before writing HL/execution code.
 
 ---
 
