@@ -8,6 +8,18 @@ All probes were unauthenticated GETs against `https://mainnet.zklighter.elliot.a
 
 ---
 
+## UPDATE 2026-06-24 — auth probe result: auth is OWN-ACCOUNT-ONLY (Path 1 ruled out)
+
+Ran a read-only auth token (`ro:<acct>:single:…`) against `/pnl` and `/trades`:
+- **Own account** → `/api/v1/pnl?by=index&value=<own>&resolution=1d&…` returns **HTTP 200 with a full 90-day daily PnL series (91 points)**. The data the scorer needs exists server-side.
+- **Any other account** → `/api/v1/pnl?...value=<other>…` returns **HTTP 401 `20013: "invalid auth: api token not authorized for this account"`**.
+
+→ A Lighter auth token authorizes reading **only its own account**. The token's `single` scope is literal. Since a leaderboard must read thousands of arbitrary traders, **Path 1 (auth-based history) is not viable** — you'd need every trader's own API key.
+
+**Remaining viable paths:** Path 2 (forward-collection — accumulate the public realtime trade firehose going forward; no backfill) or an **opt-in** model (traders supply their own read-only token; only consenting accounts appear). Path 3 (snapshot-only) still available as an interim.
+
+---
+
 ## TL;DR — ⚠️ the chosen path is blocked by the public API
 
 **The public API exposes only realtime + current-snapshot data. There is no public historical trade or PnL access.** That means owner decision #2 ("reconstruct ~90d from trades") **cannot be done from public data** as-is. The 90-day window the scorer needs (`weeksProfitableRatio`, `maxDrawdownPct`) has no public source today. This needs an owner call before Task 1 — see **Decision needed** at the bottom.
@@ -71,8 +83,9 @@ Note: `recentTrades` gives **realized PnL by reconstruction**, not directly — 
 
 Public data can't supply the scorer's 30d/90d inputs. Pick a path:
 
-- **Path 1 — Get Lighter API auth.** Verify whether a Lighter API key can read *arbitrary* accounts' `/api/v1/trades` + `/api/v1/pnl` history (vs only its own — common exchange restriction, and a dealbreaker for a leaderboard if so). If arbitrary reads work, reconstruct-from-trades (decision #2) becomes viable. **Lowest-effort if the key grants broad reads.** Needs: an API key + a 5-min auth probe.
+- ~~**Path 1 — Get Lighter API auth.**~~ **RULED OUT** by the 2026-06-24 auth probe — tokens are own-account-only (`20013` on any other account). Can't read arbitrary traders.
 - **Path 2 — Forward-collection.** Run a realtime collector over the 214 markets' trade streams (WS or polled `recentTrades`), bucket by `account_id`, accumulate ≥90d going forward. No backfill → no 90d leaderboard until ~90d of collection. Heavy ingest; storage pressure on the 512 MB DB.
+- **Path 2b — Opt-in.** Traders supply their own read-only token; we read each consenting account's full `/pnl`+`/trades` history directly (works great per the probe). Only consenting accounts appear — not a "top-of-all-Lighter" board, but real 90d data with zero reconstruction.
 - **Path 3 — Snapshot-only interim board.** Rank by *current* signals (equity, open-position unrealized PnL) using `account` snapshots now; defer the real scorer until history exists. Ships something this week but does **not** use the existing 90d scorer.
 
-My recommendation: **probe Path 1 first** (cheap, and if a key reads arbitrary accounts it unblocks the original plan); fall back to **Path 2** (start collecting now so 90d data exists later) if auth only reads own-account.
+Recommendation: **Path 1 is dead.** Decide between **Path 2** (true crawl, but 90d of waiting before it's meaningful) and **Path 3** (ship a current-standings board now). **Path 2b** is worth considering if an opt-in roster fits the product. This likely warrants revisiting the MVP definition with the owner.
