@@ -3,10 +3,11 @@
 // can import the value constants without tripping SvelteKit's server-only
 // boundary check.
 
-/** Range key used by `/assets/[coin]` — surfaced in the URL as `?range=…`. */
-export type RangeKey = '1h' | '4h' | '1d' | '7d' | '30d';
+/** Range key used by `/assets/[coin]` — surfaced in the URL as `?range=…`.
+ *  `all` is the full available history (daily candles). */
+export type RangeKey = '1h' | '4h' | '1d' | '7d' | '30d' | 'all';
 
-export const RANGE_KEYS = ['1h', '4h', '1d', '7d', '30d'] as const satisfies readonly RangeKey[];
+export const RANGE_KEYS = ['1h', '4h', '1d', '7d', '30d', 'all'] as const satisfies readonly RangeKey[];
 
 export const DEFAULT_RANGE: RangeKey = '1d';
 

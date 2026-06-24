@@ -9,14 +9,15 @@
 import { apiGet } from './client';
 import type { Asset } from './assets';
 
-export type CandleRange = '1h' | '4h' | '1d' | '7d' | '30d';
+export type CandleRange = '1h' | '4h' | '1d' | '7d' | '30d' | 'all';
 
 export const CANDLE_RANGES: { value: CandleRange; label: string }[] = [
   { value: '1h', label: '1H' },
   { value: '4h', label: '4H' },
   { value: '1d', label: '1D' },
   { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
+  { value: '30d', label: '1M' },
+  { value: 'all', label: 'ALL' },
 ];
 
 export interface Candle {

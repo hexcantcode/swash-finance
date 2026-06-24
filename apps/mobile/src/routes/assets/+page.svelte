@@ -352,12 +352,14 @@
      selected (see home page for the same pattern). */
   .m-filter-row {
     display: flex;
-    gap: var(--space-1);
+    justify-content: space-evenly;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
     margin: 0 max(var(--safe-left), var(--space-4)) var(--space-3);
-    padding: var(--space-1);
+    /* No horizontal padding so `space-evenly` controls every gap (edges +
+       between chips) uniformly; vertical padding keeps the pill height. */
+    padding: var(--space-1) 0;
     background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);

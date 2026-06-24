@@ -20,13 +20,17 @@ export type { CandlePoint, OpenPosition, RangeKey, TopTrader, TraderOpen };
 /** Each range maps to a HL candle interval + a lookback window. */
 const RANGE: Record<
   RangeKey,
-  { interval: '1m' | '5m' | '15m' | '1h' | '4h'; lookbackMs: number }
+  { interval: '1m' | '5m' | '15m' | '1h' | '4h' | '1d'; lookbackMs: number }
 > = {
   '1h': { interval: '1m', lookbackMs: 60 * 60 * 1000 },
   '4h': { interval: '5m', lookbackMs: 4 * 60 * 60 * 1000 },
   '1d': { interval: '15m', lookbackMs: 24 * 60 * 60 * 1000 },
   '7d': { interval: '1h', lookbackMs: 7 * 24 * 60 * 60 * 1000 },
   '30d': { interval: '4h', lookbackMs: 30 * 24 * 60 * 60 * 1000 },
+  // Full history: daily candles over a multi-year window. HL caps the
+  // response (~5000 candles), which comfortably covers any coin's lifetime
+  // at this interval, so the array naturally starts at the coin's first day.
+  'all': { interval: '1d', lookbackMs: 5 * 365 * 24 * 60 * 60 * 1000 },
 };
 
 export interface AssetDetail {

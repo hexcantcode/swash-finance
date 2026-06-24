@@ -29,10 +29,6 @@
 
   let asset = $state<Asset | null>(null);
   let candles = $state<Candle[]>([]);
-  // A standalone 30d series used only to derive the 1W/1M price changes — the
-  // assets API only carries the 1D (24h) change. Independent of the chart's
-  // selected range so toggling the chart doesn't disturb the header figures.
-  let changeCandles = $state<Candle[]>([]);
   let range = $state<CandleRange>('1d');
   let chartMode = $state<'line' | 'candle'>('line');
   let hovered = $state<{ price: number; time: number } | null>(null);
@@ -84,15 +80,6 @@
     }
   }
 
-  async function loadChangeCandles() {
-    if (!coin) return;
-    try {
-      changeCandles = await getCandles(coin, '30d');
-    } catch {
-      // Non-fatal — the 1W/1M figures fall back to "—".
-    }
-  }
-
   async function loadTraders() {
     if (!coin) return;
     try {
@@ -109,7 +96,6 @@
     mounted = true;
     void loadAsset();
     void loadCandles();
-    void loadChangeCandles();
     void loadTraders();
   });
 
@@ -132,31 +118,16 @@
     void coin;
     void loadAsset();
     void loadCandles();
-    void loadChangeCandles();
     void loadTraders();
   });
 
-  /** Percent change of the latest close vs the close `lookbackMs` earlier,
-   *  using the candle at or just before that target time. Returns a decimal
-   *  (0.042 = +4.2%), or null if the series can't cover the window. */
-  function windowChange(series: Candle[], lookbackMs: number): number | null {
-    if (series.length < 2) return null;
-    const last = series[series.length - 1]!;
-    const target = last.t - lookbackMs;
-    let ref = series[0]!;
-    for (const c of series) {
-      if (c.t <= target) ref = c;
-      else break;
-    }
-    if (!ref.c) return null;
-    return (last.c - ref.c) / ref.c;
-  }
-
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  // 1D is the canonical 24h field; 1W/1M are derived from the 30d series.
-  const change1d = $derived(asset?.change24h ?? null);
-  const change1w = $derived(windowChange(changeCandles, 7 * DAY_MS));
-  const change1m = $derived(windowChange(changeCandles, 30 * DAY_MS));
+  // Price move across the chart's currently selected range — first candle's
+  // open to the latest close, so it always tracks the visible window.
+  const changeSelected = $derived(
+    candles.length >= 1 && candles[0]!.o
+      ? (candles[candles.length - 1]!.c - candles[0]!.o) / candles[0]!.o
+      : null,
+  );
   const displayName = $derived(coinDisplayName(coin));
 </script>
 
@@ -165,14 +136,7 @@
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <header class="m-detail-header safe-x">
-    <a href="/assets" class="m-back tappable" aria-label="Back to markets">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-    </a>
-    <h1 class="sr-only">{displayName}</h1>
-  </header>
+  <h1 class="sr-only">{displayName}</h1>
 
   <section class="m-asset-hero safe-x">
     <div class="m-asset-hero-id">
@@ -190,26 +154,6 @@
       </div>
     </div>
 
-    {#if asset}
-      <div class="m-asset-hero-changes">
-        <div class="m-change-row">
-          <span class="m-change-label">1D</span>
-          <span class="m-change-val {pnlSignClass(change1d)}">{formatPct(change1d)}</span>
-        </div>
-        <div class="m-change-row">
-          <span class="m-change-label">1W</span>
-          <span class="m-change-val {pnlSignClass(change1w)}">
-            {change1w !== null ? formatPct(change1w) : '—'}
-          </span>
-        </div>
-        <div class="m-change-row">
-          <span class="m-change-label">1M</span>
-          <span class="m-change-val {pnlSignClass(change1m)}">
-            {change1m !== null ? formatPct(change1m) : '—'}
-          </span>
-        </div>
-      </div>
-    {/if}
   </section>
 
   <section class="m-chart safe-x" aria-label="Price chart">
@@ -224,6 +168,11 @@
           <span class="m-chart-readout-price">
             {formatUsd(asset.price, { precise: (asset.price ?? 0) < 100 })}
           </span>
+          {#if changeSelected !== null}
+            <span class="m-chart-readout-change {pnlSignClass(changeSelected)}">
+              {formatPct(changeSelected)}
+            </span>
+          {/if}
         {/if}
       </div>
       <div class="m-chart-mode" role="group" aria-label="Chart type">
@@ -362,28 +311,6 @@
     padding-bottom: calc(var(--safe-bottom) + 80px);
   }
 
-  .m-detail-header {
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-2);
-    display: flex;
-    align-items: center;
-  }
-
-  .m-back {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: var(--radius-md);
-    color: var(--stripe-text-primary);
-    text-decoration: none;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
-  }
-
   /* Identity on the left, the 1D/1W/1M change stack on the right. */
   .m-asset-hero {
     display: flex;
@@ -441,44 +368,6 @@
     letter-spacing: 0.04em;
   }
 
-  /* Right-side changes — three small columns pinned to the top right, each a
-     label stacked above its signed percent. */
-  .m-asset-hero-changes {
-    display: flex;
-    flex-direction: row;
-    gap: var(--space-3);
-    align-items: flex-start;
-  }
-
-  .m-change-row {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-  }
-
-  .m-change-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--stripe-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .m-change-val {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-caption);
-    color: var(--stripe-text-secondary);
-    text-align: center;
-  }
-  .m-change-val:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-change-val:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-
   .m-asset-hero-error {
     color: var(--stripe-danger);
     font-family: var(--font-mono);
@@ -492,10 +381,23 @@
   /* No frame — the chart canvas is transparent, so it sits directly on the
      app's page background. */
   .m-chart-frame {
+    position: relative;
     transition: opacity var(--motion-fast) var(--motion-ease);
   }
   .m-chart-frame.is-loading {
     opacity: 0.6;
+  }
+  /* A thin dotted midline across the chart's vertical center — a fixed visual
+     reference present on every range. Sits over the transparent canvas; the
+     crosshair and series still read clearly above it. */
+  .m-chart-frame::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px dotted var(--stripe-border);
+    pointer-events: none;
   }
 
   /* Header row above the chart: hover readout on the left, type switch on the
@@ -526,6 +428,16 @@
   .m-chart-readout-time {
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
+  }
+  .m-chart-readout-change {
+    font-size: var(--type-caption);
+    color: var(--stripe-text-secondary);
+  }
+  .m-chart-readout-change:global(.k-pnl-positive) {
+    color: var(--stripe-success);
+  }
+  .m-chart-readout-change:global(.k-pnl-negative) {
+    color: var(--stripe-danger);
   }
 
   /* Line/Candle switch — glass pill, same language as the range chips. */

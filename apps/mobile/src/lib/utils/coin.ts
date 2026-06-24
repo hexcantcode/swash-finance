@@ -183,7 +183,7 @@ const COIN_COMMODITY_SYMBOLS: ReadonlySet<string> = new Set([
   // Metals
   'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM', 'COPPER',
   // Energy
-  'NATGAS', 'GAS', 'CL', 'WTI', 'BRENTOIL', 'OIL',
+  'NATGAS', 'CL', 'WTI', 'BRENTOIL', 'OIL',
   // Agriculture
   'WHEAT', 'CORN', 'SOY', 'SOYBEAN',
 ]);
