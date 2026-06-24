@@ -8,6 +8,23 @@ All probes were unauthenticated GETs against `https://mainnet.zklighter.elliot.a
 
 ---
 
+## UPDATE 2026-06-24 (b) — web research: there IS a way to get arbitrary-trader history
+
+The "no public history" conclusion holds **for Lighter's own REST API**, but the realtime trade firehose is account-attributable and a third party already archives it:
+
+- **WS trade stream is per-account (verified live).** `wss://mainnet.zklighter.elliot.ai/stream`, channel `trade:N`, pushes every trade with `ask_account_id` + `bid_account_id` + fees + `*_position_size_before`/`*_entry_quote_before`. No auth. So any continuous collector of this stream builds a full per-account trade history → reconstruct realized PnL / equity / daily series → feed the existing scorer. This is the universal source.
+- **Tardis.dev already archives it — since 2026-04-17.** Tardis captures Lighter's `trade` (+ `order_book`, `ticker`, `market_stats`) channels historically. If their records keep the account ids (the raw WS channel has them — must confirm against a free first-of-month CSV), this is a **ready-made backfill of ~2+ months of per-account trades, purchasable today** — no 90-day wait. Paid API; free first-of-month CSVs to evaluate.
+- **A working third-party tracker exists** — `lighter-research.vercel.app` (Whale Tracker / Wallet Lookup, @trevor_flipper). Proves arbitrary per-trader tracking is doable; method undisclosed but almost certainly WS-stream accumulation. Use only as a QA cross-check (per brief).
+- **Lighter `/export`** endpoint exists (`START_TS_IN_MS`/`END_TS_IN_MS`, ≤12 months) but is own-account auth-gated like `/pnl`/`/trades` — useful only for an opt-in model.
+- **On-chain (Ethereum blobs):** Lighter publishes *aggregated* account-value-delta Merkle data + market data to EIP-4844 blobs. Ephemeral (~18-day retention) and aggregated (not per-trade) → impractical for trade reconstruction.
+- **Dune Analytics** has a Lighter user/flow dashboard, but likely only TVL/flow aggregates (on-chain data is aggregated deltas), not per-trade account-level PnL — unconfirmed; lower priority than WS/Tardis.
+
+**Revised recommendation:** the realistic build is **WS forward-collection** (ours, starting now) **+ a Tardis backfill** (April-onward) to skip the wait — bucket trades by account, reconstruct, feed the scorer. This replaces the dead auth path and the slow "wait 90d" version. (Tardis is a raw market-data archive, not a leaderboard frontend — materially different from the brief's forbidden third-party source, but an owner call.)
+
+Sources: apidocs.lighter.xyz, docs.tardis.dev/historical-data-details/lighter, lighter-research.vercel.app, Lighter whitepaper (blob DA), dune.com/tervelix/lighter-user-and-flow-analytics.
+
+---
+
 ## UPDATE 2026-06-24 — auth probe result: auth is OWN-ACCOUNT-ONLY (Path 1 ruled out)
 
 Ran a read-only auth token (`ro:<acct>:single:…`) against `/pnl` and `/trades`:
