@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import MobilePriceChart from '$lib/components/MobilePriceChart.svelte';
+  import MobileMarketSentimentBar from '$lib/components/MobileMarketSentimentBar.svelte';
   import {
     getAsset,
     getCandles,
@@ -13,6 +14,7 @@
     type TopTrader,
     type TraderOpen,
   } from '$lib/api/asset-detail';
+  import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
   import type { Asset } from '$lib/api/assets';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
   import {
@@ -35,6 +37,9 @@
   let tab = $state<'traders' | 'trades'>('traders');
   let topTraders = $state<TopTrader[]>([]);
   let latestOpens = $state<TraderOpen[]>([]);
+  // Smart-money cohort sentiment for this market, when the cohort feed covers
+  // it (it ranks ~top-20 markets by notional; quieter coins won't appear).
+  let sentiment = $state<MarketSentiment | null>(null);
 
   // The crosshair time is a UTC second-timestamp. Show enough granularity to
   // place the point: a date plus hour:minute, no year (the range is short).
@@ -92,11 +97,24 @@
     }
   }
 
+  async function loadSentiment() {
+    if (!coin) return;
+    try {
+      const { sentiment: cohort } = await getCohortSentiment();
+      const want = coin.toUpperCase();
+      sentiment = cohort?.markets.find((m) => m.coin.toUpperCase() === want) ?? null;
+    } catch {
+      // Non-fatal — the bar just doesn't render.
+      sentiment = null;
+    }
+  }
+
   onMount(() => {
     mounted = true;
     void loadAsset();
     void loadCandles();
     void loadTraders();
+    void loadSentiment();
   });
 
   onDestroy(() => {
@@ -119,6 +137,7 @@
     void loadAsset();
     void loadCandles();
     void loadTraders();
+    void loadSentiment();
   });
 
   // Price move across the chart's currently selected range — first candle's
@@ -157,6 +176,11 @@
   </section>
 
   <section class="m-chart safe-x" aria-label="Price chart">
+    {#if sentiment}
+      <div class="m-chart-sent">
+        <MobileMarketSentimentBar m={sentiment} />
+      </div>
+    {/if}
     <div class="m-chart-head">
       <div class="m-chart-readout" aria-live="polite">
         {#if hovered}
@@ -376,6 +400,11 @@
 
   .m-chart {
     padding-bottom: var(--space-3);
+  }
+
+  /* Smart-money sentiment bar above the chart header. */
+  .m-chart-sent {
+    margin-bottom: var(--space-4);
   }
 
   /* No frame — the chart canvas is transparent, so it sits directly on the

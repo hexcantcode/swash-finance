@@ -91,6 +91,39 @@ Other copytrade tabs on the page (Equities Focused, Top BTC/HYPE/CL Traders) are
 additional system groups — pass their id to `--group` once you confirm the key from
 a fresh page capture.
 
+## Cohort sentiment by market (`GetPerpsMarketParticipation`)
+
+The Discover page's **Cohorts → MARKETS tab** (per-cohort, per-market long/short
+positioning) is one unauthenticated query — **no variables**, returns *every*
+cohort × *every* market in a single ~330 KB response. This is the source for
+per-market "smart money vs. crowd" sentiment (distinct from `CohortSummary`,
+which is each cohort's *overall* net bias only).
+
+```bash
+curl -s 'https://api.hyperdash.com/graphql' \
+  -H 'content-type: application/json' -H 'origin: https://hyperdash.com' \
+  -H 'referer: https://hyperdash.com/' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' \
+  --data '{"operationName":"GetPerpsMarketParticipation","query":"query GetPerpsMarketParticipation { analytics { perpsMarketParticipation { timestamp global { coin longTraderCount shortTraderCount profitableTraderCount losingTraderCount totalLongNotional totalShortNotional } pnlCohorts { cohortId cohortLabel cohortRange markets { coin longTraderCount shortTraderCount profitableTraderCount losingTraderCount totalLongNotional totalShortNotional } } sizeCohorts { cohortId cohortLabel markets { coin longTraderCount shortTraderCount profitableTraderCount losingTraderCount totalLongNotional totalShortNotional } } } } }"}'
+```
+
+Shape: `analytics.perpsMarketParticipation` → `timestamp`, `global[]` (all-trader
+aggregate, per coin), `pnlCohorts[]` (the 6 PnL bands), `sizeCohorts[]` (5 size
+bands). Each cohort has `markets[]`, one row per coin with the six raw fields:
+
+| Field | Use |
+|---|---|
+| `longTraderCount` / `shortTraderCount` | traders long vs short → trader-count L/S split |
+| `profitableTraderCount` / `losingTraderCount` | in-profit vs in-loss → the UPNL split |
+| `totalLongNotional` / `totalShortNotional` | $ long vs short → notional L/S split |
+
+The **Bearish/Bullish label is NOT a field** — Hyperdash derives it client-side
+from the long/short skew. Compute it yourself (one canonical definition).
+It's a **point-in-time snapshot per market**; for per-market history you poll and
+store. (The historical *line* on the page is a separate aggregate query,
+`HistoricalCohortPositioning` → a single `positioning` value over time, not
+per-market.) Same UA/origin gotcha; no key.
+
 ## Refresh cadence
 
 `pnl`/`perpsEquity`/`copyScore` move continuously; re-fetch when refreshing the app

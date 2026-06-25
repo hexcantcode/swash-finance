@@ -27,6 +27,11 @@ export function coinIconUrl(coin: string): string {
   if (aliasedCoin !== undefined) return `/coins/${aliasedCoin}.svg`;
   let bare = coin.replace(/-?PERP$/i, '');
   if (!bare.includes(':') && /^k[A-Z]/.test(bare)) bare = bare.slice(1);
+  // HL's CDN keys HIP-3 icons by a *lowercase* dex prefix (`xyz:SP500`); some
+  // sources (Hyperdash) return it uppercase (`XYZ:SP500`), which 404s. Normalize
+  // the prefix so the proxy resolves it regardless of source casing.
+  const ci = bare.indexOf(':');
+  if (ci !== -1) bare = bare.slice(0, ci).toLowerCase() + bare.slice(ci);
   return `/coins/${bare}.svg`;
 }
 

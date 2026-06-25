@@ -150,7 +150,7 @@ export async function getMostHeld(): Promise<CategorizedMostHeld> {
   };
 }
 
-// ── Cohort sentiment (net long/short bias per realized-PnL band) ────────────
+// ── Cohort market sentiment (Extremely Profitable cohort, long/short by market) ──
 
 export type CohortBias =
   | 'very_bullish'
@@ -161,25 +161,48 @@ export type CohortBias =
   | 'bearish'
   | 'very_bearish';
 
-export interface CohortSentiment {
-  id: string;
-  label: string;
-  emoji: string;
-  range: string;
-  totalTraders: number;
+export interface MarketSentiment {
+  coin: string;
+  longTraders: number;
+  shortTraders: number;
   longNotionalUsd: number;
   shortNotionalUsd: number;
   net: number;
   bias: CohortBias;
 }
 
-interface CohortSentimentResponse {
-  ok: true;
-  cohorts: CohortSentiment[];
+export interface CohortMarketSentiment {
+  label: string;
+  range: string;
+  /** General sentiment — net long/short across all the cohort's markets. */
+  net: number;
+  bias: CohortBias;
+  markets: MarketSentiment[];
 }
 
-export async function getCohortSentiment(): Promise<CohortSentiment[]> {
+/** One realized-PnL tier's overall bias — the cohort table at the top of the
+ *  Sentiment tab. */
+export interface CohortSummary {
+  id: string;
+  label: string;
+  range: string;
+  net: number;
+  bias: CohortBias;
+}
+
+export interface CohortFeed {
+  cohorts: CohortSummary[];
+  sentiment: CohortMarketSentiment | null;
+}
+
+interface CohortSentimentResponse {
+  ok: true;
+  cohorts: CohortSummary[];
+  sentiment: CohortMarketSentiment | null;
+}
+
+export async function getCohortSentiment(): Promise<CohortFeed> {
   const body = await apiGet<CohortSentimentResponse>('/api/feed/cohort-sentiment');
   if (!body.ok) throw new Error('Cohort-sentiment request returned ok:false');
-  return body.cohorts ?? [];
+  return { cohorts: body.cohorts ?? [], sentiment: body.sentiment ?? null };
 }

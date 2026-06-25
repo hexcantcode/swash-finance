@@ -12,10 +12,12 @@
     type TopOpenPosition,
     type CategorizedMostHeld,
     type MostHeldRow,
-    type CohortSentiment,
+    type CohortFeed,
+    type MarketSentiment,
     type CohortBias,
   } from '$lib/api/feed';
-  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import MobileMarketSentimentBar from '$lib/components/MobileMarketSentimentBar.svelte';
+  import { coinDisplayName, coinIconUrl, coinIconBg, coinCategory } from '$lib/utils/coin';
   import { Crown, Gem, Coins, Flower2, Ghost, Skull } from 'lucide-svelte';
   import {
     shortAddress,
@@ -34,7 +36,7 @@
   let fills = $state<LatestFill[]>([]);
   let positions = $state<CategorizedPositions | null>(null);
   let mostHeld = $state<CategorizedMostHeld | null>(null);
-  let cohortSentiment = $state<CohortSentiment[]>([]);
+  let cohortFeed = $state<CohortFeed | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -59,7 +61,7 @@
       fills = mergeFills(latest);
       positions = top;
       mostHeld = held;
-      cohortSentiment = cohorts;
+      cohortFeed = cohorts;
     } catch (err) {
       errorMsg = (err as Error).message || 'Failed to load feed';
     } finally {
@@ -75,7 +77,7 @@
     try {
       if (tab === 'positions') positions = await getTopOpenPositions();
       else if (tab === 'sentiment') {
-        [mostHeld, cohortSentiment] = await Promise.all([getMostHeld(), getCohortSentiment()]);
+        [mostHeld, cohortFeed] = await Promise.all([getMostHeld(), getCohortSentiment()]);
       }
     } catch {
       // Keep the stale snapshot; the next poll retries.
@@ -124,9 +126,25 @@
       : [],
   );
 
-  /** PnL cohort → line icon (lucide). Mirrors the emoji semantics: crown / gem
-   *  / coins for the profitable tiers, wilting flower / ghost / skull for the
-   *  losing tiers. */
+  /** Split the cohort's markets into Stocks & Commodities / Crypto. The dex
+   *  prefix (e.g. `XYZ:` on TradFi markets) is what `coinCategory` needs to tell
+   *  a stock from a coin, so derive it from the coin string. */
+  const cohortGroups = $derived.by(() => {
+    const stocks: MarketSentiment[] = [];
+    const crypto: MarketSentiment[] = [];
+    for (const m of cohortFeed?.sentiment?.markets ?? []) {
+      const ci = m.coin.indexOf(':');
+      const dex = ci === -1 ? null : m.coin.slice(0, ci).toLowerCase();
+      (coinCategory(m.coin, dex) === 'crypto' ? crypto : stocks).push(m);
+    }
+    return ([
+      { label: 'Stocks & Commodities', rows: stocks },
+      { label: 'Crypto', rows: crypto },
+    ] as const).filter((g) => g.rows.length > 0);
+  });
+
+  /** PnL cohort → line icon. Crown / gem / coins for the profitable tiers,
+   *  wilting flower / ghost / skull for the losing tiers. */
   const COHORT_ICONS: Record<string, typeof Crown> = {
     extremely_profitable: Crown,
     very_profitable: Gem,
@@ -159,7 +177,7 @@
 
   /** Green-segment width % for a sentiment bar — long notional as a share of
    *  total directional notional. Falls back to 50/50 when both sides are 0. */
-  function longPct(r: MostHeldRow): number {
+  function longPct(r: { longNotionalUsd: number; shortNotionalUsd: number }): number {
     const total = r.longNotionalUsd + r.shortNotionalUsd;
     return total > 0 ? (r.longNotionalUsd / total) * 100 : 50;
   }
@@ -366,11 +384,12 @@
     {/if}
   {:else}
     <!-- Sentiment tab -->
-    {#if cohortSentiment.length > 0}
-      <section class="m-cohorts safe-x" aria-label="Cohort sentiment">
+    {#if cohortFeed && cohortFeed.cohorts.length > 0}
+      <!-- General sentiment for each realized-PnL cohort. -->
+      <section class="m-cohorts" aria-label="Cohort sentiment">
         <ul class="m-cohort-list">
-          {#each cohortSentiment as c (c.id)}
-            {@const b = biasDisplay(c.bias)}
+          {#each cohortFeed.cohorts as c (c.id)}
+            {@const cb = biasDisplay(c.bias)}
             {@const Icon = COHORT_ICONS[c.id] ?? Coins}
             <li class="m-cohort-row">
               <Icon class="m-cohort-icon" size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -378,13 +397,54 @@
                 <span class="m-cohort-label">{c.label}</span>
                 <span class="m-cohort-range">{c.range}</span>
               </span>
-              <span class="m-cohort-bias is-{b.tone}">
-                {b.label}
-                <span class="m-cohort-arrow" aria-hidden="true">{b.arrow}</span>
+              <span class="m-cohort-bias is-{cb.tone}">
+                {cb.label}
+                <span class="m-cohort-arrow" aria-hidden="true">{cb.arrow}</span>
               </span>
             </li>
           {/each}
         </ul>
+      </section>
+    {/if}
+
+    {#if cohortFeed?.sentiment && cohortFeed.sentiment.markets.length > 0}
+      <!-- Smart-money (Extremely Profitable) positioning by market, by category. -->
+      <section class="m-cohort-markets" aria-label="Smart-money positioning by market">
+        <h2 class="m-sent-head safe-x">{cohortFeed.sentiment.label} · by market</h2>
+        {#each cohortGroups as group (group.label)}
+          <h3 class="m-sub-head safe-x">{group.label}</h3>
+          <ul class="m-list">
+            {#each group.rows as m (m.coin)}
+              {@const b = biasDisplay(m.bias)}
+              <li class="m-sent-row">
+                <div class="m-sent-top">
+                  <span class="m-feed-coin">
+                    {#if coinIconUrl(m.coin)}
+                      <img src={coinIconUrl(m.coin)} style:background-color={coinIconBg(m.coin)} style:padding={coinIconBg(m.coin) ? '2px' : null} alt="" loading="lazy" />
+                    {/if}
+                    {coinDisplayName(m.coin)}
+                  </span>
+                  <span class="m-cohort-bias is-{b.tone}">
+                    {b.label}
+                    <span class="m-cohort-arrow" aria-hidden="true">{b.arrow}</span>
+                  </span>
+                </div>
+                <div
+                  class="m-sent-bar"
+                  role="img"
+                  aria-label={`${formatUsd(m.longNotionalUsd)} long vs ${formatUsd(m.shortNotionalUsd)} short, by ${m.longTraders} long and ${m.shortTraders} short traders`}
+                >
+                  <span class="m-sent-bar-long" style:width={`${longPct(m)}%`}></span>
+                  <span class="m-sent-bar-short" style:width={`${100 - longPct(m)}%`}></span>
+                </div>
+                <div class="m-sent-foot">
+                  <span>{m.longTraders} {m.longTraders === 1 ? 'trader' : 'traders'} long</span>
+                  <span>{m.shortTraders} short</span>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/each}
       </section>
     {/if}
 
@@ -809,10 +869,11 @@
     margin-bottom: var(--space-2);
   }
 
-  /* ── Cohort sentiment (top of the Sentiment tab) ────────────────────── */
+  /* ── Cohort market sentiment (top of the Sentiment tab) ─────────────── */
   .m-cohorts {
     margin-bottom: var(--space-4);
   }
+  /* Cohort table — one row per realized-PnL tier, its general bias on the right. */
   .m-cohort-list {
     list-style: none;
     margin: 0;
@@ -856,6 +917,16 @@
     font-size: var(--type-footnote);
     color: var(--stripe-text-tertiary);
     letter-spacing: 0.02em;
+  }
+  /* Category sub-heading under the "by market" breakdown — lighter than the
+     section head so the two levels read as a hierarchy. */
+  .m-sub-head {
+    font-family: var(--font-sans);
+    font-size: var(--type-caption);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--stripe-text-tertiary);
+    margin: var(--space-3) 0 var(--space-1);
   }
   .m-cohort-bias {
     flex: 0 0 auto;
