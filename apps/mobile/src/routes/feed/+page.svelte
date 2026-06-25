@@ -1,19 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import {
-    getLatestFills,
-    subscribeLatestFills,
-    getTopOpenPositions,
     getMostHeld,
     getCohortSentiment,
-    mergeFills,
-    type LatestFill,
-    type CategorizedPositions,
-    type TopOpenPosition,
+    getHyperdashPositions,
+    getHyperdashTrades,
     type CategorizedMostHeld,
     type MostHeldRow,
     type CohortFeed,
     type MarketSentiment,
+    type MarketPositions,
+    type SmartTrade,
     type CohortBias,
   } from '$lib/api/feed';
   import MobileMarketSentimentBar from '$lib/components/MobileMarketSentimentBar.svelte';
@@ -24,8 +21,6 @@
     effigyUrl,
     formatUsd,
     formatPnl,
-    formatPct,
-    formatLeverage,
     formatRelativeTime,
     pnlSignClass,
   } from '$lib/utils/format';
@@ -33,14 +28,13 @@
   type Tab = 'trades' | 'positions' | 'sentiment';
 
   let tab = $state<Tab>('sentiment');
-  let fills = $state<LatestFill[]>([]);
-  let positions = $state<CategorizedPositions | null>(null);
+  let trades = $state<SmartTrade[]>([]);
+  let positionMarkets = $state<MarketPositions[]>([]);
   let mostHeld = $state<CategorizedMostHeld | null>(null);
   let cohortFeed = $state<CohortFeed | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
-  let stopTrades: (() => void) | null = null;
   let mounted = false;
   let abortCtrl: AbortController | null = null;
 
@@ -52,14 +46,14 @@
     if (!opts.silent) loading = true;
     errorMsg = null;
     try {
-      const [latest, top, held, cohorts] = await Promise.all([
-        getLatestFills(),
-        getTopOpenPositions(),
+      const [tr, pos, held, cohorts] = await Promise.all([
+        getHyperdashTrades(),
+        getHyperdashPositions(),
         getMostHeld(),
         getCohortSentiment(),
       ]);
-      fills = mergeFills(latest);
-      positions = top;
+      trades = tr;
+      positionMarkets = pos;
       mostHeld = held;
       cohortFeed = cohorts;
     } catch (err) {
@@ -69,13 +63,14 @@
     }
   }
 
-  /** Background poll for the positions/sentiment tabs only — trades are pushed
-   *  live over SSE (see onMount). Refreshes just the active tab's dataset; the
-   *  other keeps its last snapshot until the user switches back (the initial
-   *  load() already primed all three, so switches stay instant). */
+  /** Background poll for the active tab only — every dataset is Hyperdash-backed
+   *  and cached server-side, so polling just reflects that cadence. Refreshes
+   *  just the visible tab; the others keep their last snapshot until the user
+   *  switches back (the initial load() already primed all of them). */
   async function refreshActive() {
     try {
-      if (tab === 'positions') positions = await getTopOpenPositions();
+      if (tab === 'trades') trades = await getHyperdashTrades();
+      else if (tab === 'positions') positionMarkets = await getHyperdashPositions();
       else if (tab === 'sentiment') {
         [mostHeld, cohortFeed] = await Promise.all([getMostHeld(), getCohortSentiment()]);
       }
@@ -97,25 +92,12 @@
     mounted = true;
     void load();
     scheduleRefresh();
-    // Trades arrive live over SSE; positions/sentiment still poll above.
-    stopTrades = subscribeLatestFills((f) => {
-      fills = mergeFills(f);
-    });
   });
 
   onDestroy(() => {
     if (pollTimer) clearTimeout(pollTimer);
-    stopTrades?.();
     abortCtrl?.abort();
   });
-
-  const flatPositions = $derived(
-    positions
-      ? [...positions.stocks, ...positions.crypto, ...positions.index].sort(
-          (a, b) => Math.abs(b.unrealizedPnlUsd) - Math.abs(a.unrealizedPnlUsd),
-        )
-      : [],
-  );
 
   const sentimentSections = $derived(
     mostHeld
@@ -180,13 +162,6 @@
   function longPct(r: { longNotionalUsd: number; shortNotionalUsd: number }): number {
     const total = r.longNotionalUsd + r.shortNotionalUsd;
     return total > 0 ? (r.longNotionalUsd / total) * 100 : 50;
-  }
-
-  /** Current mark price implied by the snapshot — position notional divided
-   *  by size, the same mark HL used to value the position. Null when size is
-   *  missing. */
-  function markPx(p: TopOpenPosition): number | null {
-    return p.szBase > 0 ? p.notionalUsd / p.szBase : null;
   }
 
   /** Compact USD price: full number with thousands separators (no cents) at
@@ -271,47 +246,40 @@
       </button>
     </div>
   {:else if tab === 'trades'}
-    {#if fills.length === 0}
-      <div class="m-empty safe-x">No trades yet.</div>
+    {#if trades.length === 0}
+      <div class="m-empty safe-x">No closed trades yet.</div>
     {:else}
+      <!-- Smart-money closed trades — recent round-trips by the copytraders. -->
       <ul class="m-card-list">
-        {#each fills.slice(0, 60) as f (f.key)}
+        {#each trades as t (t.address + t.coin + t.closedAtMs)}
+          {@const isLong = t.direction.toLowerCase() === 'long'}
           <li>
-            <a class="m-feed-row tappable-row" href={`/trader/${f.address}`}>
-              <img
-                class="m-feed-avatar"
-                src={effigyUrl(f.address)}
-                alt=""
-                loading="lazy"
-              />
+            <a class="m-feed-row tappable-row" href={`/trader/${t.address}`}>
+              <img class="m-feed-avatar" src={effigyUrl(t.address)} alt="" loading="lazy" />
               <div class="m-feed-main">
                 <div class="m-feed-line-1">
-                  <span class="m-feed-address">{shortAddress(f.address, 4, 4)}</span>
-                  <!-- A raw fill only tells us buy/sell — a sell can be closing a
-                       long, so labeling it "short" would mislead. -->
-                  <span class="m-feed-action {f.side === 'B' ? 'is-buy' : 'is-sell'}">
-                    {f.side === 'B' ? 'buy' : 'sell'}
+                  <span class="m-feed-address">{t.displayName || shortAddress(t.address, 4, 4)}</span>
+                  <span class="m-feed-action {isLong ? 'is-buy' : 'is-sell'}">
+                    {isLong ? 'long' : 'short'}
                   </span>
                   <span class="m-feed-coin">
-                    {#if coinIconUrl(f.coin)}
-                      <img src={coinIconUrl(f.coin)} style:background-color={coinIconBg(f.coin)} style:padding={coinIconBg(f.coin) ? '2px' : null} alt="" loading="lazy" />
+                    {#if coinIconUrl(t.coin)}
+                      <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '2px' : null} alt="" loading="lazy" />
                     {/if}
-                    {coinDisplayName(f.coin)}
+                    {coinDisplayName(t.coin)}
                   </span>
                 </div>
                 <div class="m-feed-line-2">
-                  <span class="m-feed-size">{fmtSize(f.szBase)} {coinDisplayName(f.coin)}</span>
+                  <span class="m-feed-size">{fmtSize(t.szBase)} {coinDisplayName(t.coin)}</span>
                   <span class="m-feed-dot">·</span>
-                  <span>@ {fmtPrice(f.vwapUsd)}</span>
-                  {#if f.leverage}<span class="m-feed-dot">·</span><span class="m-feed-lev">{f.leverage}x</span>{/if}
-                  {#if f.fillCount > 1}<span class="m-feed-dot">·</span><span>×{f.fillCount}</span>{/if}
+                  <span>{fmtPrice(t.entryPxUsd)} → {fmtPrice(t.exitPxUsd)}</span>
                 </div>
               </div>
               <div class="m-feed-amount">
-                <span class="m-feed-notional {f.side === 'B' ? 'is-buy' : 'is-sell'}">
-                  {formatUsd(f.notionalUsd)}
+                <span class="m-feed-notional {pnlSignClass(t.netPnlUsd)}">
+                  {formatPnl(t.netPnlUsd)}
                 </span>
-                <span class="m-feed-time">{formatRelativeTime(new Date(f.blockTimeMs))}</span>
+                <span class="m-feed-time">{formatRelativeTime(new Date(t.closedAtMs))}</span>
               </div>
             </a>
           </li>
@@ -319,68 +287,50 @@
       </ul>
     {/if}
   {:else if tab === 'positions'}
-    {#if flatPositions.length === 0}
-      <div class="m-empty safe-x">No open positions reported.</div>
+    {#if positionMarkets.length === 0}
+      <div class="m-empty safe-x">No smart-money positions reported.</div>
     {:else}
-      <ul class="m-pos-cards">
-        {#each flatPositions.slice(0, 40) as p, i (p.address + p.coin + i)}
-          {@const cur = markPx(p)}
-          <li>
-            <a
-              class="m-pos-card {p.side === 'long' ? 'is-long' : 'is-short'}"
-              href={`/trader/${p.address}`}
-            >
-              <div class="m-pos-head">
-                <img class="m-pos-avatar" src={effigyUrl(p.address)} alt="" loading="lazy" />
-                <div class="m-pos-id">
-                  <div class="m-pos-addr">{shortAddress(p.address, 4, 4)}</div>
-                  <div class="m-pos-meta">
-                    <span class="m-pos-side {p.side === 'long' ? 'is-long' : 'is-short'}">
-                      {p.side}{formatLeverage(p.leverage) ? ` ${formatLeverage(p.leverage)}` : ''}
-                    </span>
-                    <span class="m-pos-cn">
-                      {#if coinIconUrl(p.coin)}
-                        <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '2px' : null} alt="" loading="lazy" />
-                      {/if}
-                      {coinDisplayName(p.coin)}
-                    </span>
-                  </div>
-                </div>
-                <div class="m-pos-metrics">
-                  {#if p.returnOnEquity !== null}
-                    <div class="m-pos-roi {pnlSignClass(p.returnOnEquity)}">
-                      {p.returnOnEquity >= 0 ? '+' : ''}{formatPct(p.returnOnEquity)}
+      <!-- Where the smart money (highest copy-scores) is positioned, by market. -->
+      {#each positionMarkets as mkt (mkt.coin)}
+        <section class="m-posmkt" aria-label={`${coinDisplayName(mkt.coin)} positions`}>
+          <h3 class="m-posmkt-head safe-x">
+            <span class="m-feed-coin">
+              {#if coinIconUrl(mkt.coin)}
+                <img src={coinIconUrl(mkt.coin)} style:background-color={coinIconBg(mkt.coin)} style:padding={coinIconBg(mkt.coin) ? '2px' : null} alt="" loading="lazy" />
+              {/if}
+              {coinDisplayName(mkt.coin)}
+            </span>
+            <span class="m-posmkt-ls">{mkt.longCount.toLocaleString()} long · {mkt.shortCount.toLocaleString()} short</span>
+          </h3>
+          <ul class="m-card-list">
+            {#each mkt.positions as p (p.address)}
+              <li>
+                <a class="m-feed-row tappable-row" href={`/trader/${p.address}`}>
+                  <img class="m-feed-avatar" src={effigyUrl(p.address)} alt="" loading="lazy" />
+                  <div class="m-feed-main">
+                    <div class="m-feed-line-1">
+                      <span class="m-feed-address">{p.displayName || shortAddress(p.address, 4, 4)}</span>
+                      <span class="m-feed-action {p.side === 'long' ? 'is-buy' : 'is-sell'}">{p.side}</span>
+                      <span class="m-pos-copy">copy {Math.round(p.copyScore)}</span>
                     </div>
-                  {/if}
-                  <div class="m-pos-pnl {pnlSignClass(p.unrealizedPnlUsd)}">
-                    {formatPnl(p.unrealizedPnlUsd)}
+                    <div class="m-feed-line-2">
+                      <span class="m-feed-size">{formatUsd(p.notionalUsd)}</span>
+                      <span class="m-feed-dot">·</span>
+                      <span>entry {fmtPrice(p.entryPxUsd)}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div class="m-pos-grid">
-                <div class="m-pos-cell">
-                  <span class="m-pos-cell-label">entry</span>
-                  <span class="m-pos-cell-val">{fmtPrice(p.entryPxUsd)}</span>
-                </div>
-                <div class="m-pos-cell">
-                  <span class="m-pos-cell-label">current</span>
-                  <span class="m-pos-cell-val {pnlSignClass(p.unrealizedPnlUsd)}">{fmtPrice(cur)}</span>
-                </div>
-                <div class="m-pos-cell">
-                  <span class="m-pos-cell-label">liq. price</span>
-                  <span class="m-pos-cell-val is-liq">{fmtPrice(p.liquidationPxUsd)}</span>
-                </div>
-              </div>
-
-              <div class="m-pos-notional">
-                <span class="m-pos-cell-label">position size</span>
-                <span class="m-pos-notional-val">{formatUsd(p.notionalUsd)}</span>
-              </div>
-            </a>
-          </li>
-        {/each}
-      </ul>
+                  <div class="m-feed-amount">
+                    <span class="m-feed-notional {pnlSignClass(p.unrealizedPnlUsd)}">
+                      {formatPnl(p.unrealizedPnlUsd)}
+                    </span>
+                    <span class="m-feed-time">uPnL</span>
+                  </div>
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/each}
     {/if}
   {:else}
     <!-- Sentiment tab -->
@@ -410,37 +360,13 @@
     {#if cohortFeed?.sentiment && cohortFeed.sentiment.markets.length > 0}
       <!-- Smart-money (Extremely Profitable) positioning by market, by category. -->
       <section class="m-cohort-markets" aria-label="Smart-money positioning by market">
-        <h2 class="m-sent-head safe-x">{cohortFeed.sentiment.label} · by market</h2>
+        <h2 class="m-sent-head safe-x">Smart money by market</h2>
         {#each cohortGroups as group (group.label)}
           <h3 class="m-sub-head safe-x">{group.label}</h3>
           <ul class="m-list">
             {#each group.rows as m (m.coin)}
-              {@const b = biasDisplay(m.bias)}
               <li class="m-sent-row">
-                <div class="m-sent-top">
-                  <span class="m-feed-coin">
-                    {#if coinIconUrl(m.coin)}
-                      <img src={coinIconUrl(m.coin)} style:background-color={coinIconBg(m.coin)} style:padding={coinIconBg(m.coin) ? '2px' : null} alt="" loading="lazy" />
-                    {/if}
-                    {coinDisplayName(m.coin)}
-                  </span>
-                  <span class="m-cohort-bias is-{b.tone}">
-                    {b.label}
-                    <span class="m-cohort-arrow" aria-hidden="true">{b.arrow}</span>
-                  </span>
-                </div>
-                <div
-                  class="m-sent-bar"
-                  role="img"
-                  aria-label={`${formatUsd(m.longNotionalUsd)} long vs ${formatUsd(m.shortNotionalUsd)} short, by ${m.longTraders} long and ${m.shortTraders} short traders`}
-                >
-                  <span class="m-sent-bar-long" style:width={`${longPct(m)}%`}></span>
-                  <span class="m-sent-bar-short" style:width={`${100 - longPct(m)}%`}></span>
-                </div>
-                <div class="m-sent-foot">
-                  <span>{m.longTraders} {m.longTraders === 1 ? 'trader' : 'traders'} long</span>
-                  <span>{m.shortTraders} short</span>
-                </div>
+                <MobileMarketSentimentBar {m} coin={m.coin} />
               </li>
             {/each}
           </ul>
@@ -651,6 +577,13 @@
   .m-feed-notional.is-sell {
     color: var(--stripe-danger);
   }
+  /* Realized/unrealized PnL coloring (closed trades + open positions). */
+  .m-feed-notional:global(.k-pnl-positive) {
+    color: var(--stripe-success);
+  }
+  .m-feed-notional:global(.k-pnl-negative) {
+    color: var(--stripe-danger);
+  }
   .m-feed-time {
     font-family: var(--font-mono);
     font-size: var(--type-caption);
@@ -658,201 +591,28 @@
     white-space: nowrap;
   }
 
-  /* ── Position cards ─────────────────────────────────────────────────── */
-  .m-pos-cards {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  /* ── Positions by market (smart money) ──────────────────────────────── */
+  .m-posmkt {
+    margin-bottom: var(--space-4);
   }
-
-  .m-pos-card {
-    display: block;
-    box-sizing: border-box;
-    margin: 0 max(var(--safe-left), var(--space-4)) var(--space-3);
-    padding: var(--space-3) var(--space-4) var(--space-4);
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--glass-highlight);
-    border-left: 3px solid transparent;
-    color: inherit;
-    text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    transition: background-color var(--motion-fast) var(--motion-ease);
-  }
-  .m-pos-card:active {
-    background-color: var(--tap-feedback-bg);
-  }
-  .m-pos-card.is-long {
-    border-left-color: var(--stripe-success);
-  }
-  .m-pos-card.is-short {
-    border-left-color: var(--stripe-danger);
-  }
-
-  .m-pos-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-width: 0;
-  }
-
-  .m-pos-avatar {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
-    box-shadow: var(--glass-shadow);
-  }
-
-  .m-pos-id {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .m-pos-addr {
-    font-family: var(--font-mono);
-    font-size: var(--type-body);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .m-pos-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 3px;
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-secondary);
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  .m-pos-side {
-    padding: 1px 8px;
-    border-radius: var(--radius-sm);
-    text-transform: lowercase;
-  }
-  .m-pos-side.is-long {
-    background: var(--stripe-success-subtle);
-    color: var(--stripe-success);
-  }
-  .m-pos-side.is-short {
-    background: var(--stripe-danger-subtle);
-    color: var(--stripe-danger);
-  }
-  .m-pos-cn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--stripe-text-primary);
-  }
-  .m-pos-cn img {
-    width: 14px;
-    height: 14px;
-    border-radius: var(--radius-full);
-  }
-
-  /* Right metric column — ROI (hero) with PnL echoed beneath it. */
-  .m-pos-metrics {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-  }
-  .m-pos-roi {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    /* Scale the hero number with viewport width so the longest values
-       (e.g. +874.5%) still fit on narrow phones. */
-    font-size: clamp(var(--type-body), 5.2vw, var(--type-title));
-    font-weight: 600;
-    white-space: nowrap;
-    color: var(--stripe-text-primary);
-  }
-  .m-pos-roi:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-pos-roi:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-  .m-pos-pnl {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-footnote);
-    white-space: nowrap;
-    opacity: 0.85;
-    color: var(--stripe-text-tertiary);
-  }
-  .m-pos-pnl:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-pos-pnl:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-
-  /* entry · current · liq price strip — three equal columns, hairline above. */
-  .m-pos-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--stripe-border);
-  }
-  .m-pos-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-  .m-pos-cell-label {
-    font-family: var(--font-sans);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-  }
-  .m-pos-cell-val {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-subhead);
-    color: var(--stripe-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .m-pos-cell-val.is-liq {
-    color: var(--stripe-danger);
-  }
-  .m-pos-cell-val:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-pos-cell-val:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-
-  .m-pos-notional {
+  .m-posmkt-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    margin-top: var(--space-3);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--stripe-border);
+    margin: var(--space-3) 0 var(--space-1);
   }
-  .m-pos-notional-val {
+  .m-posmkt-ls {
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-subhead);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
+    font-size: var(--type-footnote);
+    color: var(--stripe-text-tertiary);
+    white-space: nowrap;
+  }
+  .m-pos-copy {
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
+    white-space: nowrap;
   }
 
   /* ── Sentiment ──────────────────────────────────────────────────────── */
@@ -876,7 +636,9 @@
   /* Cohort table — one row per realized-PnL tier, its general bias on the right. */
   .m-cohort-list {
     list-style: none;
-    margin: 0;
+    /* Inset to match .m-list / .safe-x so the card aligns with the rest of the
+       tab instead of bleeding to the screen edges. */
+    margin: 0 max(var(--safe-right), var(--space-4)) 0 max(var(--safe-left), var(--space-4));
     padding: 0;
     background: var(--glass-bg);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -885,8 +647,12 @@
     box-shadow: var(--glass-highlight), var(--glass-shadow);
     overflow: hidden;
   }
+  /* Three responsive columns: icon (auto) | identity (flexes + truncates) |
+     bias pill (auto, right-aligned). minmax(0, 1fr) lets the middle column
+     shrink and ellipsis instead of pushing the bias pill off a narrow screen. */
   .m-cohort-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
@@ -895,7 +661,6 @@
     border-bottom: 1px solid var(--stripe-border);
   }
   .m-cohort-row :global(.m-cohort-icon) {
-    flex: 0 0 auto;
     color: var(--stripe-text-secondary);
   }
   .m-cohort-id {
@@ -903,7 +668,6 @@
     flex-direction: column;
     gap: 2px;
     min-width: 0;
-    flex: 1;
   }
   .m-cohort-label {
     font-family: var(--font-sans);
@@ -911,12 +675,18 @@
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .m-cohort-range {
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     color: var(--stripe-text-tertiary);
     letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* Category sub-heading under the "by market" breakdown — lighter than the
      section head so the two levels read as a hierarchy. */

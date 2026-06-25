@@ -206,3 +206,66 @@ export async function getCohortSentiment(): Promise<CohortFeed> {
   if (!body.ok) throw new Error('Cohort-sentiment request returned ok:false');
   return { cohorts: body.cohorts ?? [], sentiment: body.sentiment ?? null };
 }
+
+// ── Hyperdash smart-money positions (by market) ─────────────────────────────
+
+export interface SmartPosition {
+  address: string;
+  displayName: string | null;
+  copyScore: number;
+  verified: boolean;
+  side: 'long' | 'short';
+  szBase: number;
+  notionalUsd: number;
+  entryPxUsd: number;
+  unrealizedPnlUsd: number;
+  accountValueUsd: number;
+}
+
+export interface MarketPositions {
+  coin: string;
+  longCount: number;
+  shortCount: number;
+  longNotionalUsd: number;
+  shortNotionalUsd: number;
+  positions: SmartPosition[];
+}
+
+interface HyperdashPositionsResponse {
+  ok: true;
+  markets: MarketPositions[];
+}
+
+export async function getHyperdashPositions(): Promise<MarketPositions[]> {
+  const body = await apiGet<HyperdashPositionsResponse>('/api/feed/hyperdash-positions');
+  if (!body.ok) throw new Error('Hyperdash-positions request returned ok:false');
+  return body.markets ?? [];
+}
+
+// ── Hyperdash smart-money closed trades ─────────────────────────────────────
+
+export interface SmartTrade {
+  address: string;
+  displayName: string | null;
+  copyScore: number;
+  coin: string;
+  /** 'Long' | 'Short' as Hyperdash reports it. */
+  direction: string;
+  szBase: number;
+  entryPxUsd: number;
+  exitPxUsd: number;
+  netPnlUsd: number;
+  notionalUsd: number;
+  closedAtMs: number;
+}
+
+interface HyperdashTradesResponse {
+  ok: true;
+  trades: SmartTrade[];
+}
+
+export async function getHyperdashTrades(): Promise<SmartTrade[]> {
+  const body = await apiGet<HyperdashTradesResponse>('/api/feed/hyperdash-trades');
+  if (!body.ok) throw new Error('Hyperdash-trades request returned ok:false');
+  return body.trades ?? [];
+}
