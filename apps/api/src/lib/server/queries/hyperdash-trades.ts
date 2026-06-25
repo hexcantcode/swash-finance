@@ -1,28 +1,26 @@
 /**
- * Smart-money closed trades for the feed's Trades tab.
+ * Extremely-Profitable closed trades for the feed's Trades tab.
  *
  * Hyperdash has no global trade feed, so we fan out `getTraderCompletedTrades`
- * across the curated copytraders roster (the same ~100 wallets the trader page
- * is sourced from), merge by close time, and keep the most recent. Each row is
- * a completed round-trip with realized PnL — "what the smart money just closed".
+ * across the Extremely Profitable roster (see hyperdash-ep-traders), merge by
+ * close time, and keep the most recent. Each row is a completed round-trip with
+ * realized PnL — "what the +$1M cohort just closed" (same cohort the Sentiment
+ * and Positions tabs read).
  *
  * Heavy (one request per trader) but slow-moving, so cached generously. Source:
  * Hyperdash public GraphQL. See the `.claude/skills/hyperdash-top-traders` skill.
  */
 
+import { getExtremelyProfitableTraders } from './hyperdash-ep-traders.js';
+
 const HYPERDASH_GRAPHQL = 'https://api.hyperdash.com/graphql';
 
-const ROSTER_GROUP = 'copytraders';
 /** Trades pulled per trader (most recent). */
 const PER_TRADER = 3;
 /** Rows returned to the feed, newest close first. */
 const TOP_N = 40;
 /** Concurrency for the per-trader fan-out. */
 const BATCH = 10;
-
-const ROSTER_QUERY = `query GetSystemGroupTraders($groupId: ID!) {
-  getSystemGroupTraders(groupId: $groupId) { address displayName copyScore }
-}`;
 
 const TRADES_QUERY = `query GetTraderCompletedTrades($address: String!, $pageSize: Int) {
   getTraderCompletedTrades(address: $address, pageSize: $pageSize) {
@@ -87,12 +85,7 @@ async function hd<T>(operationName: string, query: string, variables: unknown): 
 export async function getHyperdashTrades(): Promise<SmartTrade[]> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.data;
 
-  const roster = await hd<{ getSystemGroupTraders: { address: string; displayName: string | null; copyScore: number }[] }>(
-    'GetSystemGroupTraders',
-    ROSTER_QUERY,
-    { groupId: ROSTER_GROUP },
-  );
-  const traders = roster?.getSystemGroupTraders ?? [];
+  const traders = await getExtremelyProfitableTraders();
   if (traders.length === 0) return cache?.data ?? [];
 
   const all: SmartTrade[] = [];

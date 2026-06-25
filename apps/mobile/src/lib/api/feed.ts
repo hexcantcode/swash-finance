@@ -213,13 +213,11 @@ export interface SmartPosition {
   address: string;
   displayName: string | null;
   copyScore: number;
-  verified: boolean;
   side: 'long' | 'short';
   szBase: number;
   notionalUsd: number;
   entryPxUsd: number;
   unrealizedPnlUsd: number;
-  accountValueUsd: number;
 }
 
 export interface MarketPositions {
