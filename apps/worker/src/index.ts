@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
 import { closeDb } from './db.js';
 import { withAdvisoryLock } from './db.js';
+import { runCohortSnapshot } from './jobs/cohort-snapshot.js';
 import { runFillsRetention } from './jobs/fills-retention.js';
 import { runHyperdashIngest } from './jobs/hyperdash-ingest.js';
 import { runLeaderboardPoll } from './jobs/leaderboard-poll.js';
@@ -48,6 +49,18 @@ async function main(): Promise<void> {
     },
   );
 
+  // Snapshot Hyperdash cohort sentiment every 5 min (at :30s, ~29s after their
+  // top-of-5min recompute) into cohort_sentiment_history for the over-time
+  // charts. Idempotent on Hyperdash's snapshot timestamp; self-prunes.
+  const cohortSnapshot = new Cron(
+    '30 */5 * * * *',
+    { name: 'cohort-snapshot', protect: true },
+    async () => {
+      const result = await withAdvisoryLock('worker.cohort_snapshot', () => runCohortSnapshot());
+      if (result === null) log.debug('cohort-snapshot.locked_skip');
+    },
+  );
+
   // Nightly fills retention — runs 30 min after `score` so the day's
   // scoring sees the fuller table before trim. Skips wallets where
   // history_deepened_at IS NOT NULL.
@@ -68,6 +81,7 @@ async function main(): Promise<void> {
       scoreNext: score.nextRun()?.toISOString(),
       leaderboardPollNext: leaderboardPoll.nextRun()?.toISOString(),
       hyperdashNext: hyperdash.nextRun()?.toISOString(),
+      cohortSnapshotNext: cohortSnapshot.nextRun()?.toISOString(),
       fillsRetentionNext: fillsRetention.nextRun()?.toISOString(),
     },
     'worker.scheduled',
@@ -79,6 +93,7 @@ async function main(): Promise<void> {
     score.stop();
     leaderboardPoll.stop();
     hyperdash.stop();
+    cohortSnapshot.stop();
     fillsRetention.stop();
     await closeDb();
     process.exit(0);

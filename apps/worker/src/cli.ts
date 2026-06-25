@@ -1,4 +1,5 @@
 import { runBootstrap } from './jobs/bootstrap.js';
+import { runCohortSnapshot } from './jobs/cohort-snapshot.js';
 import { runHyperdashIngest } from './jobs/hyperdash-ingest.js';
 import { runLeaderCachePoll } from './jobs/leader-cache-poll.js';
 import { runLeaderboardIngest } from './jobs/leaderboard-ingest.js';
@@ -22,6 +23,8 @@ const COMMANDS = {
     'Poll HL leaderboard for top-7d-ROI + top trader-rankers, queue them as curation candidates.',
   hyperdash:
     "Fetch Hyperdash's curated copytraders group, mark them source='hyperdash', and queue for deep ingest (primary roster).",
+  'cohort-snapshot':
+    'One-shot: snapshot Hyperdash cohort sentiment (per-cohort long/short aggregate) into cohort_sentiment_history. The cron worker runs this every 5 min; use this CLI for manual/ad-hoc captures.',
   'trades-watch': 'Long-running WS subscriber: upserts tier-1 wallet rows for every fill.',
   'trades-coin-live':
     'Long-running per-coin WS firehose: filters every fill against the wallets table and writes matched fills + advances leader_cache.last_trade_ms.',
@@ -89,6 +92,10 @@ async function main(): Promise<void> {
         ...(groupId !== undefined ? { groupId } : {}),
         ...(flags['include-all'] ? { includeNonCopyEnabled: true } : {}),
       });
+      break;
+    }
+    case 'cohort-snapshot': {
+      await runCohortSnapshot();
       break;
     }
     case 'leaderboard-poll': {

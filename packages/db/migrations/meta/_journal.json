@@ -64,6 +64,20 @@
       "when": 1779030000002,
       "tag": "0008_wallet_source",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779030000003,
+      "tag": "0009_cohort_sentiment_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779030000004,
+      "tag": "0010_drop_scores_calmar_dsr",
+      "breakpoints": true
     }
   ]
 }
