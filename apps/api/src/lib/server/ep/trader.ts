@@ -1,17 +1,18 @@
 /**
  * Per-trader detail for an EP-cohort wallet: its open positions, recent
- * completed trades, and basic Hyperdash stats (PnL, win rate, top assets).
+ * completed trades, and basic stats (PnL, win rate, top assets).
  *
  * Reuses the same per-trader Hyperdash ops as the feed fan-outs, but for a
- * single address (and a larger trades page). Stats come from the curated
- * copytraders group (the documented source of `winrate` / `topAssets`); when
- * the address isn't in that group, stats are null but positions + trades still
- * return. NO Swash score is computed here.
+ * single address (and a larger trades page). Stats come from the EP roster row
+ * (the single source for cohort stats); `stats` is null only when the address
+ * isn't in the roster — an acceptable edge case, since every tappable trader
+ * comes from the roster. NO Swash score is computed here.
  *
  * Source: Hyperdash public GraphQL. See the `.claude/skills/hyperdash-top-traders` skill.
  */
 
-import { hdFetch, ttlCache } from './shared.js';
+import { getEpRoster, type EpTopAsset } from './roster.js';
+import { hdFetch } from './shared.js';
 
 /** Recent completed trades to pull for the detail view. */
 const TRADES_PAGE = 20;
@@ -27,12 +28,6 @@ const POSITIONS_QUERY = `query TraderPerpPositionsTooltip($address: String!, $ti
 const TRADES_QUERY = `query GetTraderCompletedTrades($address: String!, $pageSize: Int) {
   getTraderCompletedTrades(address: $address, pageSize: $pageSize) {
     trades { endTime coin direction sz avgEntryPx avgExitPx netPnl notional }
-  }
-}`;
-
-const GROUP_QUERY = `query GetSystemGroupTraders($groupId: ID!) {
-  getSystemGroupTraders(groupId: $groupId) {
-    address displayName pnl winrate copyScore topAssets { coin volume pnl }
   }
 }`;
 
@@ -57,19 +52,16 @@ export interface EpTraderTrade {
   closedAtMs: number;
 }
 
-export interface EpTraderTopAsset {
-  coin: string;
-  volumeUsd: number;
-  pnlUsd: number;
-}
-
-/** Basic Hyperdash stats for the wallet; null when it's not in the curated group. */
+/** Basic stats for the wallet from the EP roster; null when it's not in the roster. */
 export interface EpTraderStats {
   pnlUsd: number;
   /** 0–100 (already a percentage). */
   winratePct: number;
   copyScore: number;
-  topAssets: EpTraderTopAsset[];
+  totalTrades: number;
+  sharpe: number;
+  drawdown: number;
+  topAssets: EpTopAsset[];
 }
 
 export interface EpTraderDetail {
@@ -97,39 +89,11 @@ interface RawTrade {
   netPnl: number | null;
   notional: number | null;
 }
-interface RawGroupTrader {
-  address: string;
-  displayName: string | null;
-  pnl: number | string | null;
-  winrate: number | string | null;
-  copyScore: number | null;
-  topAssets: { coin: string; volume: number | string | null; pnl: number | string | null }[] | null;
-}
-
-// The curated group's stats move slowly; cache the whole group once and look up
-// addresses against it (it's the documented source of winrate / topAssets).
-const groupCache = ttlCache<Map<string, RawGroupTrader>>(600_000);
-
-async function getGroupStats(): Promise<Map<string, RawGroupTrader>> {
-  const fresh = groupCache.get();
-  if (fresh) return fresh;
-  try {
-    const data = await hdFetch<{ getSystemGroupTraders?: RawGroupTrader[] }>('GetSystemGroupTraders', GROUP_QUERY, {
-      groupId: 'copytraders',
-    });
-    const rows = data?.getSystemGroupTraders ?? [];
-    if (rows.length === 0) return groupCache.last() ?? new Map();
-    const map = new Map(rows.map((r) => [r.address.toLowerCase(), r]));
-    return groupCache.set(map);
-  } catch {
-    return groupCache.last() ?? new Map();
-  }
-}
 
 export async function getEpTraderDetail(address: string): Promise<EpTraderDetail | null> {
   const nowMs = Date.now();
 
-  const [posData, tradeData, group] = await Promise.all([
+  const [posData, tradeData, roster] = await Promise.all([
     hdFetch<{ traderPerpPositionsTooltip?: { positions: RawPosition[] | null } }>(
       'TraderPerpPositionsTooltip',
       POSITIONS_QUERY,
@@ -139,7 +103,7 @@ export async function getEpTraderDetail(address: string): Promise<EpTraderDetail
       address,
       pageSize: TRADES_PAGE,
     }).catch(() => null),
-    getGroupStats(),
+    getEpRoster(),
   ]);
 
   const positions: EpTraderPosition[] = (posData?.traderPerpPositionsTooltip?.positions ?? [])
@@ -169,17 +133,16 @@ export async function getEpTraderDetail(address: string): Promise<EpTraderDetail
     }))
     .sort((a, b) => b.closedAtMs - a.closedAtMs);
 
-  const row = group.get(address.toLowerCase());
+  const row = roster.find((t) => t.address.toLowerCase() === address.toLowerCase());
   const stats: EpTraderStats | null = row
     ? {
-        pnlUsd: Number(row.pnl) || 0,
-        winratePct: Number(row.winrate) || 0,
-        copyScore: row.copyScore ?? 0,
-        topAssets: (row.topAssets ?? []).map((a) => ({
-          coin: a.coin,
-          volumeUsd: Number(a.volume) || 0,
-          pnlUsd: Number(a.pnl) || 0,
-        })),
+        pnlUsd: row.pnlUsd,
+        winratePct: row.winratePct,
+        copyScore: row.copyScore,
+        totalTrades: row.totalTrades,
+        sharpe: row.sharpe,
+        drawdown: row.drawdown,
+        topAssets: row.topAssets,
       }
     : null;
 
