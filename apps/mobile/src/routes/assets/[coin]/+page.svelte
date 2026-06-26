@@ -310,7 +310,7 @@
               </div>
             </a>
           {:else}
-            <p class="m-trader-empty">No recent opens on {displayName}.</p>
+            <p class="m-trader-empty">No recent trades on {displayName}.</p>
           {/each}
         </div>
       {/if}
