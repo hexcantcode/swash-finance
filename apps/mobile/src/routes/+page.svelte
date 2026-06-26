@@ -13,16 +13,8 @@
   // injects PUBLIC_API_BASE so the same code resolves cross-origin.
 
   const SORTS: { value: LeaderSort; label: string }[] = [
-    { value: 'score', label: 'Score' },
     { value: 'pnl', label: 'Profit' },
-  ];
-
-  // 'all' is the implicit state — no chip selected. Stock + Crypto are the
-  // only chips; clicking the active one toggles back to 'all'.
-  type Focus = 'all' | 'equity' | 'crypto';
-  const FOCI: { value: Exclude<Focus, 'all'>; label: string }[] = [
-    { value: 'equity', label: 'Stock' },
-    { value: 'crypto', label: 'Crypto' },
+    { value: 'winrate', label: 'Win rate' },
   ];
 
   type View = 'card' | 'table';
@@ -48,13 +40,10 @@
   let refreshing = $state(false);
   let errorMsg = $state<string | null>(null);
 
-  // Sort, focus, and search are driven from the URL so deep-links work and the
-  // back button is meaningful. Defaults: composite score, all traders, no search.
+  // Sort and search are driven from the URL so deep-links work and the back
+  // button is meaningful. Defaults: all-time profit, no search.
   const sort = $derived<LeaderSort>(
-    (($page.url.searchParams.get('sort') as LeaderSort | null) ?? 'score'),
-  );
-  const focus = $derived<Focus>(
-    (($page.url.searchParams.get('focus') as Focus | null) ?? 'all'),
+    (($page.url.searchParams.get('sort') as LeaderSort | null) ?? 'pnl'),
   );
   const view = $derived<View>(
     (($page.url.searchParams.get('view') as View | null) ?? 'card'),
@@ -73,7 +62,6 @@
     try {
       const args: Parameters<typeof listLeaders>[0] = { sort, limit: 50 };
       if (search) args.search = search;
-      if (focus !== 'all') args.focus = focus;
       const result = await listLeaders(args);
       rows = result.rows;
       total = result.total;
@@ -88,16 +76,8 @@
 
   function setSort(next: LeaderSort) {
     const url = new URL($page.url);
-    if (next === 'score') url.searchParams.delete('sort');
+    if (next === 'pnl') url.searchParams.delete('sort');
     else url.searchParams.set('sort', next);
-    goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
-  }
-
-  function setFocus(next: Exclude<Focus, 'all'>) {
-    const url = new URL($page.url);
-    // Click the active chip → deselect (back to implicit 'all').
-    if (focus === next) url.searchParams.delete('focus');
-    else url.searchParams.set('focus', next);
     goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
   }
 
@@ -117,12 +97,11 @@
     abortCtrl?.abort();
   });
 
-  // Re-fetch when sort / focus / search change (driven by URL).
+  // Re-fetch when sort / search change (driven by URL).
   $effect(() => {
     if (!mounted) return;
     // Touch the derived values so the effect re-runs on URL change.
     void sort;
-    void focus;
     void search;
     void load({ silent: true });
   });
@@ -148,24 +127,6 @@
           class="m-sort-chip tappable tap-hit"
           class:is-active={sort === opt.value}
           onclick={() => setSort(opt.value)}
-        >
-          {opt.label}
-        </button>
-      {/each}
-    </div>
-    <div
-      class="m-sort-strip m-sort-strip--inline"
-      role="tablist"
-      aria-label="Filter by asset class"
-    >
-      {#each FOCI as opt (opt.value)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={focus === opt.value}
-          class="m-sort-chip tappable tap-hit"
-          class:is-active={focus === opt.value}
-          onclick={() => setFocus(opt.value)}
         >
           {opt.label}
         </button>

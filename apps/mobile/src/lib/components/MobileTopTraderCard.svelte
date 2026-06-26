@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TopTrader } from '$lib/api/leaders-top';
-  import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, traderName, formatPnl, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
@@ -9,38 +9,24 @@
   let { trader }: Props = $props();
 
   const pnlClass = $derived(pnlSignClass(trader.pnl_usd));
-  const roiClass = $derived(pnlSignClass(trader.roi));
-  // Holdings shown as a stack of coin avatars: first 3, then a +N overflow.
-  const shownHoldings = $derived(trader.holdings.top.slice(0, 3));
-  const extraHoldings = $derived(Math.max(0, trader.holdings.total - shownHoldings.length));
+  const winrateText = $derived(`${Math.round(trader.winrate_pct)}%`);
 </script>
 
 <a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${traderName(trader.display_name, trader.address)}`}>
   <div class="m-tcard-top">
     <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
-    {#if shownHoldings.length > 0}
-      <div
-        class="m-tcard-holdings"
-        aria-label={`${trader.holdings.total} open positions: ${shownHoldings
-          .map((h) => `${h.coin}${h.side ? ` ${h.side}` : ''}`)
-          .join(', ')}`}
-      >
-        {#each shownHoldings as h (h.coin)}
-          <img
-            class="m-tcard-hold-icon"
-            class:is-long={h.side === 'long'}
-            class:is-short={h.side === 'short'}
-            src={coinIconUrl(h.coin)}
-            style:background-color={coinIconBg(h.coin)}
-            style:padding={coinIconBg(h.coin) ? '2px' : null}
-            alt=""
-            loading="lazy"
-          />
-        {/each}
-        {#if extraHoldings > 0}
-          <span class="m-tcard-hold-more">+{extraHoldings}</span>
-        {/if}
-      </div>
+    {#if trader.alfa_coin}
+      <span class="m-tcard-alfa" aria-label={`Best coin ${trader.alfa_coin}`}>
+        <img
+          class="m-tcard-alfa-icon"
+          src={coinIconUrl(trader.alfa_coin)}
+          style:background-color={coinIconBg(trader.alfa_coin)}
+          style:padding={coinIconBg(trader.alfa_coin) ? '2px' : null}
+          alt=""
+          loading="lazy"
+        />
+        {trader.alfa_coin}
+      </span>
     {/if}
   </div>
 
@@ -50,8 +36,8 @@
       <span class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</span>
     </div>
     <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">ROI</span>
-      <span class="m-tcard-roi {roiClass}">{formatPct(trader.roi)}</span>
+      <span class="m-tcard-fig-label">Win</span>
+      <span class="m-tcard-winrate">{winrateText}</span>
     </div>
   </div>
 </a>
@@ -93,39 +79,23 @@
     background: var(--stripe-bg-secondary);
   }
 
-  .m-tcard-holdings {
-    display: flex;
+  .m-tcard-alfa {
+    display: inline-flex;
     align-items: center;
+    gap: 4px;
     min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--stripe-text-tertiary);
+    white-space: nowrap;
   }
-
-  .m-tcard-hold-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
+  .m-tcard-alfa-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
     border-radius: var(--radius-full);
     object-fit: cover;
     background: var(--stripe-bg-secondary);
-    /* Ring colored by position side (long=green, short=red); the fallback
-       in the row's tone keeps unknown-side icons reading as a clean stack. */
-    border: 2px solid var(--stripe-bg-secondary);
-  }
-  .m-tcard-hold-icon.is-long {
-    border-color: var(--stripe-success);
-  }
-  .m-tcard-hold-icon.is-short {
-    border-color: var(--stripe-danger);
-  }
-  .m-tcard-hold-icon:not(:first-child) {
-    margin-left: -7px;
-  }
-
-  .m-tcard-hold-more {
-    margin-left: 5px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 10px;
-    color: var(--stripe-text-tertiary);
   }
 
   .m-tcard-figs {
@@ -161,17 +131,15 @@
     line-height: 1.1;
   }
 
-  .m-tcard-roi {
+  .m-tcard-winrate {
     font-size: var(--type-footnote);
     color: var(--stripe-text-secondary);
   }
 
-  .m-tcard-pnl:global(.k-pnl-positive),
-  .m-tcard-roi:global(.k-pnl-positive) {
+  .m-tcard-pnl:global(.k-pnl-positive) {
     color: var(--stripe-success);
   }
-  .m-tcard-pnl:global(.k-pnl-negative),
-  .m-tcard-roi:global(.k-pnl-negative) {
+  .m-tcard-pnl:global(.k-pnl-negative) {
     color: var(--stripe-danger);
   }
 </style>

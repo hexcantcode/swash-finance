@@ -6,7 +6,19 @@
  */
 
 import { apiGet, apiUrl } from './client';
-import type { Holdings } from './leaders';
+
+/** Currently-open positions snapshot — top by notional + total count. Local
+ *  to the detail client (Phase C2 still owns this surface); the list client no
+ *  longer carries holdings. */
+interface Holding {
+  coin: string;
+  notional_usd: number | null;
+  side: 'long' | 'short' | null;
+}
+interface Holdings {
+  top: Holding[];
+  total: number;
+}
 
 export interface RecentFill {
   tid: number;

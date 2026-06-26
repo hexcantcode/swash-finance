@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LeaderRow } from '$lib/api/leaders';
-  import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
+  import { effigyUrl, traderName, formatPnl, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
@@ -10,17 +10,15 @@
 
   let { row, rank }: Props = $props();
 
-  const scoreText = $derived(row.score === null ? '—' : Math.round(row.score).toString());
-  const pnlClass = $derived(pnlSignClass(row.pnl_30d_usd));
-  const roiClass = $derived(pnlSignClass(row.roi));
-  const shownHoldings = $derived(row.holdings.top.slice(0, 3));
-  const extraHoldings = $derived(Math.max(0, row.holdings.total - shownHoldings.length));
+  const pnlClass = $derived(pnlSignClass(row.pnl_usd));
+  // `winrate_pct` is already 0–100, so format it directly.
+  const winrateText = $derived(`${Math.round(row.winrate_pct)}%`);
 </script>
 
 <a
   class="m-leader-row tappable-row"
   href={`/trader/${row.address}`}
-  aria-label={`Trader ${traderName(row.display_name, row.address)}, score ${scoreText}`}
+  aria-label={`Trader ${traderName(row.display_name, row.address)}`}
 >
   <div
     class="m-leader-rank"
@@ -43,52 +41,32 @@
     <div class="m-leader-copy">
       <div class="m-leader-line-1">
         <span class="m-leader-address">{traderName(row.display_name, row.address, 6, 4)}</span>
-        {#if row.heat === 'hot'}<span class="m-hot-chip">Hot</span>{/if}
-        {#if row.winner && row.winner_rank}
-          <span class="m-leader-badge" aria-label="Top earner this week">★ {row.winner_rank}</span>
-        {/if}
       </div>
 
       <div class="m-leader-line-2">
-        {#if shownHoldings.length > 0}
-          <span
-            class="m-leader-holdings"
-            aria-label={`${row.holdings.total} open positions: ${shownHoldings
-              .map((h) => `${h.coin}${h.side ? ` ${h.side}` : ''}`)
-              .join(', ')}`}
-          >
-            {#each shownHoldings as h (h.coin)}
-              <img
-                class="m-leader-hold-icon"
-                class:is-long={h.side === 'long'}
-                class:is-short={h.side === 'short'}
-                src={coinIconUrl(h.coin)}
-                style:background-color={coinIconBg(h.coin)}
-                style:padding={coinIconBg(h.coin) ? '2px' : null}
-                alt=""
-                loading="lazy"
-              />
-            {/each}
-            {#if extraHoldings > 0}
-              <span class="m-leader-hold-more">+{extraHoldings}</span>
-            {/if}
+        {#if row.alfa_coin}
+          <span class="m-leader-alfa" aria-label={`Best coin ${row.alfa_coin}`}>
+            <img
+              class="m-leader-alfa-icon"
+              src={coinIconUrl(row.alfa_coin)}
+              style:background-color={coinIconBg(row.alfa_coin)}
+              style:padding={coinIconBg(row.alfa_coin) ? '2px' : null}
+              alt=""
+              loading="lazy"
+            />
+            {row.alfa_coin}
           </span>
-        {:else}
-          <span class="m-leader-holdings-empty">No holdings</span>
         {/if}
       </div>
     </div>
   </div>
 
   <div class="m-leader-stats">
-    <div class="m-leader-score" aria-label={`Score ${scoreText}`}>
-      {scoreText}
-    </div>
     <div class="m-leader-pnl {pnlClass}">
-      {formatPnl(row.pnl_30d_usd)}
+      {formatPnl(row.pnl_usd)}
     </div>
-    <div class="m-leader-roi {roiClass}">
-      {formatPct(row.roi)}
+    <div class="m-leader-winrate">
+      {winrateText} win
     </div>
   </div>
 </a>
@@ -185,19 +163,6 @@
     white-space: nowrap;
   }
 
-  .m-leader-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    padding: 1px 6px;
-    border-radius: var(--radius-md);
-    font-size: var(--type-caption);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
   .m-leader-line-2 {
     display: flex;
     align-items: center;
@@ -205,99 +170,55 @@
     line-height: 1;
   }
 
-  .m-leader-holdings {
-    display: flex;
+  .m-leader-alfa {
+    display: inline-flex;
     align-items: center;
-    min-width: 0;
-  }
-
-  .m-leader-hold-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    border-radius: var(--radius-full);
-    object-fit: cover;
-    background: var(--stripe-bg-secondary);
-    border: 2px solid var(--stripe-bg-secondary);
-  }
-  .m-leader-hold-icon.is-long {
-    border-color: var(--stripe-success);
-  }
-  .m-leader-hold-icon.is-short {
-    border-color: var(--stripe-danger);
-  }
-  .m-leader-hold-icon:not(:first-child) {
-    margin-left: -7px;
-  }
-
-  .m-leader-hold-more {
-    margin-left: 5px;
-  }
-
-  .m-leader-hold-more,
-  .m-leader-holdings-empty {
+    gap: 5px;
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
     font-size: 10px;
     color: var(--stripe-text-tertiary);
     white-space: nowrap;
   }
+  .m-leader-alfa-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    background: var(--stripe-bg-secondary);
+  }
 
   .m-leader-stats {
     flex: 0 0 auto;
-    display: grid;
-    grid-template-columns: auto;
-    grid-template-rows: auto auto;
-    grid-template-areas:
-      'score pnl'
-      'score roi';
-    column-gap: var(--space-3);
-    row-gap: 0;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
 
-  .m-leader-score {
-    grid-area: score;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 28px;
-    padding: 0 8px;
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--stripe-text-primary);
-    font-size: var(--type-subhead);
-    font-weight: 600;
-    line-height: 1;
-  }
-
   .m-leader-pnl {
-    grid-area: pnl;
     font-size: var(--type-subhead);
     font-weight: 500;
     color: var(--stripe-text-primary);
     min-width: 60px;
   }
 
-  .m-leader-roi {
-    grid-area: roi;
+  .m-leader-winrate {
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
     min-width: 60px;
   }
 
   /* Mirrors the global PnL color rules from the shared design system. */
-  .m-leader-pnl:global(.k-pnl-positive),
-  .m-leader-roi:global(.k-pnl-positive) {
+  .m-leader-pnl:global(.k-pnl-positive) {
     color: var(--stripe-success);
   }
 
-  .m-leader-pnl:global(.k-pnl-negative),
-  .m-leader-roi:global(.k-pnl-negative) {
+  .m-leader-pnl:global(.k-pnl-negative) {
     color: var(--stripe-danger);
   }
 </style>
