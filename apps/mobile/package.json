@@ -16,7 +16,6 @@
     "@capacitor/status-bar": "^8.0.2",
     "@copytrade/db": "workspace:*",
     "@copytrade/hl-client": "workspace:*",
-    "@copytrade/scoring": "workspace:*",
     "@copytrade/shared": "workspace:*",
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.39.1",
