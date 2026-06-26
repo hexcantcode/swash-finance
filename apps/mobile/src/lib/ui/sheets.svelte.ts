@@ -7,7 +7,7 @@
 
 import type { TraitKey } from '@copytrade/shared';
 
-export type AppSheet = 'score' | 'mirror' | 'trait';
+export type AppSheet = 'score' | 'trait';
 
 const state = $state<{ active: AppSheet | null; trait: TraitKey | null }>({
   active: null,

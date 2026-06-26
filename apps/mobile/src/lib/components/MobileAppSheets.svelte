@@ -34,27 +34,6 @@
   </a>
 </MobileSheet>
 
-<MobileSheet
-  open={appSheet.active === 'mirror'}
-  onclose={() => appSheet.close()}
-  label="Mirror trading — coming soon"
->
-  <div class="m-sheet-badge">Coming soon</div>
-  <h2 class="m-sheet-title">Mirror this trader</h2>
-  <p class="m-sheet-body">
-    Mirroring copies a trader's moves to your own wallet automatically — with
-    limits you control. We're putting the final pieces in place; until then,
-    follow their open positions and trades right here.
-  </p>
-  <button
-    type="button"
-    class="m-sheet-cta m-cta-primary tappable"
-    onclick={() => appSheet.close()}
-  >
-    Got it
-  </button>
-</MobileSheet>
-
 {#if trait}
   <MobileSheet
     open={appSheet.active === 'trait'}
@@ -115,23 +94,5 @@
     font-weight: 600;
     color: var(--stripe-accent);
     text-decoration: none;
-  }
-
-  .m-sheet-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    margin-bottom: var(--space-2);
-    border-radius: var(--radius-full);
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .m-sheet-cta {
-    width: 100%;
-    margin-top: var(--space-2);
   }
 </style>
