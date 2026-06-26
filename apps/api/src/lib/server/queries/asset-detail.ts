@@ -1,9 +1,6 @@
 import { hl } from '../hl.js';
-import { listAssets, type AssetRow } from './assets.js';
 import { getEpRoster } from '../ep/roster.js';
 import { getEpTradesForCoin } from '../ep/trades.js';
-import { getEpPositionsForCoin } from '../ep/positions.js';
-import type { MarketPositions } from '../ep/positions.js';
 import {
   RANGE_KEYS,
   parseRange,
@@ -32,20 +29,6 @@ const RANGE: Record<
   // at this interval, so the array naturally starts at the coin's first day.
   'all': { interval: '1d', lookbackMs: 5 * 365 * 24 * 60 * 60 * 1000 },
 };
-
-export interface AssetDetail {
-  asset: AssetRow;
-  range: RangeKey;
-  candles: CandlePoint[];
-  topTraders: TopTrader[];
-  /** Recent closed trades by the EP cohort on this coin, surfaced as the
-   *  "Latest trades" list. (Was per-trader chart-marker opens; the EP module
-   *  exposes completed round-trips, mapped into the same `TraderOpen` shape.) */
-  latestOpens: TraderOpen[];
-  /** EP-cohort open positions on this coin (long/short split + rows), or null
-   *  when the cohort holds nothing here. Source: `getEpPositionsForCoin`. */
-  openPositions: MarketPositions | null;
-}
 
 function num(s: string | null | undefined): number {
   if (s === null || s === undefined) return NaN;
@@ -115,20 +98,4 @@ export async function getLatestOpensOnAsset(coin: string, limit = 10): Promise<T
     side: t.direction.toLowerCase() === 'short' ? 'A' : 'B',
     pxUsd: t.entryPxUsd,
   }));
-}
-
-/** Loader for `/assets/[coin]`. Returns null when the coin isn't in the universe.
- *  Validates the coin against the universe first — calling `candleSnapshot`
- *  for an unknown coin makes HL throw, which would surface as a 500. */
-export async function getAssetDetail(coin: string, range: RangeKey): Promise<AssetDetail | null> {
-  const assetList = await listAssets();
-  const asset = assetList.find((a) => a.coin === coin);
-  if (!asset) return null;
-  const [candles, topTraders, openPositions, latestOpens] = await Promise.all([
-    getAssetCandles(coin, range),
-    getAssetTopTraders(coin, 5),
-    getEpPositionsForCoin(coin),
-    getLatestOpensOnAsset(coin, 10),
-  ]);
-  return { asset, range, candles, topTraders, openPositions, latestOpens };
 }
