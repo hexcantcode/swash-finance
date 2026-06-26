@@ -39,7 +39,6 @@ export interface EpTraderStats {
   pnlUsd: number;
   /** 0–100 (already a percentage). */
   winratePct: number;
-  copyScore: number;
   totalTrades: number;
   sharpe: number;
   drawdown: number;

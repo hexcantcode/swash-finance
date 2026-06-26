@@ -5,8 +5,7 @@
   // swap. The hero carries a "Preview" chip as the honesty marker.
   import { browser } from '$app/environment';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
-  import { effigyUrl, shortAddress, formatPnl, formatUsd, pnlSignClass } from '$lib/utils/format';
-  import { appSheet } from '$lib/ui/sheets.svelte';
+  import { formatPnl, formatUsd, pnlSignClass } from '$lib/utils/format';
 
   // Light/dark toggle — flips data-theme on <html> (see app.css theme system)
   // and persists; app.html re-applies the saved choice before first paint.
@@ -32,17 +31,10 @@
     } catch {}
   }
 
-  // Mirror addresses are real leaderboard wallets (taps genuinely navigate);
-  // weights/contributions are fixtures. Times/details on fills are static
-  // strings so the preview is deterministic.
+  // Times/details on fills are static strings so the preview is deterministic.
   const MOCK_PROFILE = {
     balance: { currency: '$', whole: '27,547', cents: '.89' },
     todayChange: '+$2,845.53',
-    mirrors: [
-      { address: '0xaf0fdd39e5d92499b0ed9f68693da99c0ec1e92e', weightPct: 50, contribution30dUsd: 1840 },
-      { address: '0x8cc94dc843e1ea7a19805e0cca43001123512b6a', weightPct: 30, contribution30dUsd: 612 },
-      { address: '0x2025137a136bea7446deba681cbfc7cf1970840e', weightPct: 20, contribution30dUsd: -208 },
-    ],
     positions: [
       { coin: 'BTC', side: 'long', leverage: 3, sizeUsd: 18400, pnlUsd: 1212 },
       { coin: 'ETH', side: 'short', leverage: 2, sizeUsd: 9750, pnlUsd: -486 },
@@ -131,37 +123,6 @@
         <span class="m-action-label">History</span>
       </button>
     </div>
-  </section>
-
-  <!-- ── Your mirrors — coming-soon teaser. Designed for deletion: removing
-       this section block (and its fixture key) yields the minimal variant. -->
-  <section class="m-profile-section m-psec-1">
-    <header class="m-psec-head safe-x">
-      <h2 class="m-psec-title">Your mirrors</h2>
-      <span class="m-soon-badge">Coming soon</span>
-    </header>
-    <ul class="m-panel">
-      {#each MOCK_PROFILE.mirrors as m (m.address)}
-        <li>
-          <a class="m-mirror-row tappable-row" href={`/trader/${m.address}`}>
-            <img class="m-mirror-avatar" src={effigyUrl(m.address)} alt="" loading="lazy" />
-            <span class="m-mirror-main">
-              <span class="m-mirror-addr">{shortAddress(m.address, 6, 4)}</span>
-              <span class="m-mirror-weight">{m.weightPct}%</span>
-            </span>
-            <span class="m-mirror-stats">
-              <span class="m-mirror-pnl {pnlSignClass(m.contribution30dUsd)}">{formatPnl(m.contribution30dUsd)}</span>
-              <span class="m-mirror-pnl-cap">30D profit</span>
-            </span>
-          </a>
-        </li>
-      {/each}
-      <li>
-        <button type="button" class="m-panel-foot tappable" onclick={() => appSheet.open('mirror')}>
-          Edit allocation →
-        </button>
-      </li>
-    </ul>
   </section>
 
   <!-- ── Open positions ─────────────────────────────────────── -->
@@ -501,17 +462,6 @@
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
   }
-  /* Same near-future vocabulary as the Mirror sheet badge. */
-  .m-soon-badge {
-    padding: 2px 9px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
 
   /* Inset-grouped glass panel — same surface as trader detail's lists. */
   .m-panel {
@@ -530,80 +480,6 @@
   }
   .m-panel > li + li {
     border-top: 1px solid var(--stripe-border);
-  }
-
-  /* ── Mirror rows ─────────────────────────────────────────── */
-  .m-mirror-row {
-    color: inherit;
-    text-decoration: none;
-  }
-  .m-mirror-avatar {
-    width: 28px;
-    height: 28px;
-    flex: 0 0 28px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
-  }
-  .m-mirror-main {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-  .m-mirror-addr {
-    font-family: var(--font-mono);
-    font-size: var(--type-subhead);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .m-mirror-weight {
-    flex: 0 0 auto;
-    padding: 1px 7px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-accent-muted);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-caption);
-    color: var(--stripe-text-secondary);
-  }
-  .m-mirror-stats {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-  .m-mirror-pnl {
-    font-size: var(--type-subhead);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-  }
-  .m-mirror-pnl-cap {
-    font-size: 10px;
-    color: var(--stripe-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  /* Panel footer link — quiet full-width affordance, presses like a row. */
-  .m-panel-foot {
-    width: 100%;
-    min-height: var(--touch-min);
-    padding: var(--space-3) var(--space-4);
-    background: transparent;
-    border: 0;
-    font-family: var(--font-sans);
-    font-size: var(--type-footnote);
-    font-weight: 600;
-    color: var(--stripe-accent);
-    cursor: pointer;
   }
 
   /* ── Shared coin icon with side ring ─────────────────────── */
@@ -712,12 +588,10 @@
   }
 
   /* Sign coloring (global k-pnl-* classes land on scoped elements). */
-  .m-mirror-pnl:global(.k-pnl-positive),
   .m-ppos-pnl:global(.k-pnl-positive),
   .m-fill-pnl:global(.k-pnl-positive) {
     color: var(--stripe-success);
   }
-  .m-mirror-pnl:global(.k-pnl-negative),
   .m-ppos-pnl:global(.k-pnl-negative),
   .m-fill-pnl:global(.k-pnl-negative) {
     color: var(--stripe-danger);
@@ -746,9 +620,6 @@
   }
   .m-hero-right {
     animation-delay: 0.28s;
-  }
-  .m-psec-1 {
-    animation-delay: 0.3s;
   }
   .m-psec-2 {
     animation-delay: 0.38s;

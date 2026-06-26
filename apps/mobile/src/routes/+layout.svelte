@@ -50,7 +50,7 @@
 </script>
 
 <svelte:head>
-  <title>Swash — The right traders. Mirrored to your wallet.</title>
+  <title>Swash — The right traders. Smart-money analytics.</title>
   <meta
     name="description"
     content="Curated, behaviorally classified, statistically corrected leaderboard of the most credible traders on Hyperliquid."
