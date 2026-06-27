@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 5174",
+    "dev": "vite dev --port 5173",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node --env-file=../../.env build/index.js",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
+    "@capacitor/status-bar": "^8.0.2",
     "@copytrade/db": "workspace:*",
     "@copytrade/hl-client": "workspace:*",
-    "@copytrade/scoring": "workspace:*",
     "@copytrade/shared": "workspace:*",
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.39.1",
@@ -22,10 +24,13 @@
     "pg": "^8.13.1",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
+    "serve": "^14.2.6",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
     "@sveltejs/adapter-node": "^5.2.12",
+    "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.15.2",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.0.0",

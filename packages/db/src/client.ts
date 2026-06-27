@@ -36,6 +36,16 @@ export function createDb(config: DbConfig): { db: Db; pool: pg.Pool | NeonPool }
     pool.on('error', (err: Error) => {
       console.error('[db] idle pool client error (recovering):', err.message);
     });
+    // The pool-level 'error' listener only catches errors the Pool itself
+    // surfaces. When a WebSocket-backed client dies (DNS blip, idle
+    // disconnect, server hangup), the underlying Client emits 'error' on
+    // itself — with no listener, Node treats it as fatal and crashes the
+    // process. Attach per-client handlers as each connection is established.
+    pool.on('connect', (client: { on: (ev: string, fn: (err: Error) => void) => void }) => {
+      client.on('error', (err: Error) => {
+        console.error('[db] ws client error (recovering):', err.message);
+      });
+    });
     const db = drizzleNeon(pool, { schema, casing: 'snake_case' }) as unknown as Db;
     return { db, pool };
   }
@@ -51,6 +61,11 @@ export function createDb(config: DbConfig): { db: Db; pool: pg.Pool | NeonPool }
   // on the next query.
   pool.on('error', (err) => {
     console.error('[db] idle pool client error (recovering):', err.message);
+  });
+  pool.on('connect', (client) => {
+    client.on('error', (err: Error) => {
+      console.error('[db] pg client error (recovering):', err.message);
+    });
   });
   const db = drizzlePg(pool, { schema, casing: 'snake_case' });
   return { db, pool };

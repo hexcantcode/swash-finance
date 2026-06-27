@@ -1,80 +1,67 @@
 /*
- * /api/leaders/[address] client. Mirrors the rich detail shape `getLeaderDetail`
- * returns in apps/web. The mobile detail view only renders a subset, but we
- * type the full surface so the mapper has a complete contract — adding new
- * fields to the API later is then a typing-only change here.
+ * /api/leaders/[address] client — mirrors the `EpTraderDetail` shape the BFF
+ * returns from `getEpTraderDetail` (Hyperdash Extremely-Profitable cohort).
+ * Open positions, recent completed trades, and a roster `stats` block. No live
+ * stream — Hyperdash has no live feed, so the page just renders this snapshot.
  */
 
 import { apiGet } from './client';
-import type { Holdings } from './leaders';
 
-export interface RecentFill {
-  tid: number;
-  block_time_ms: number;
+export interface EpTraderPosition {
   coin: string;
-  side: 'A' | 'B' | string;
-  px: number | null;
-  sz: number | null;
-  notional: number | null;
-  closed_pnl: number | null;
-  leverage?: number | null;
+  side: 'long' | 'short';
+  szBase: number;
+  notionalUsd: number;
+  entryPxUsd: number;
+  unrealizedPnlUsd: number;
 }
 
-export interface OpenPosition {
+export interface EpTraderTrade {
   coin: string;
-  side: 'long' | 'short' | null;
-  szBase: number | null;
-  entryPxUsd: number | null;
-  notionalUsd: number | null;
-  unrealizedPnlUsd: number | null;
-  returnOnEquity: number | null;
-  leverage: number | null;
+  /** 'Long' | 'Short' as Hyperdash reports it. */
+  direction: string;
+  szBase: number;
+  entryPxUsd: number;
+  exitPxUsd: number;
+  netPnlUsd: number;
+  notionalUsd: number;
+  closedAtMs: number;
 }
 
-export interface ScoringSnapshot {
-  net_pnl_usd: number | null;
-  net_pnl_pct: number | null;
-  total_trades: number;
-  active_days: number | null;
-  total_volume_usd: number | null;
-  sharpe: number | null;
-  sortino: number | null;
-  psr: number | null;
-  win_rate: number | null;
-  max_drawdown_pct: number | null;
-  avg_hold_seconds: number | null;
-  trades_per_day_avg: number | null;
-  decay_flag: string | null;
-  computed_at: string | null;
+export interface EpTopAsset {
+  coin: string;
+  volumeUsd: number;
+  pnlUsd: number;
 }
 
-export interface LeaderDetail {
+/** Basic stats from the EP roster; null when the address isn't in the roster. */
+export interface EpTraderStats {
+  pnlUsd: number;
+  /** 0–100 (already a percentage). */
+  winratePct: number;
+  totalTrades: number;
+  sharpe: number;
+  drawdown: number;
+  topAssets: EpTopAsset[];
+}
+
+export interface EpTraderDetail {
   address: string;
-  score: number | null;
-  primary_tag: string | null;
-  tags: { type: string; value: string }[];
-  scoring: ScoringSnapshot | null;
-  recent_fills: RecentFill[];
-  open_positions: OpenPosition[];
-  account_value: number | null;
-  leverage: number | null;
-  margin_used: number | null;
-  last_seen_at: string | null;
-  last_trade_at: string | null;
-  total_volume_usd: number | null;
-  /** Top + total snapshot mirrored from /api/holdings shape for convenience. */
-  holdings?: Holdings;
+  displayName: string | null;
+  stats: EpTraderStats | null;
+  positions: EpTraderPosition[];
+  trades: EpTraderTrade[];
 }
 
-interface LeaderDetailResponse {
+interface EpTraderDetailResponse {
   ok: true;
-  data: LeaderDetail;
+  data: EpTraderDetail;
 }
 
-export async function getLeaderDetail(address: string): Promise<LeaderDetail> {
-  const body = await apiGet<LeaderDetailResponse>(
+export async function getEpTraderDetail(address: string): Promise<EpTraderDetail> {
+  const body = await apiGet<EpTraderDetailResponse>(
     `/api/leaders/${encodeURIComponent(address)}`,
   );
-  if (!body.ok) throw new Error('Leader detail request returned ok:false');
+  if (!body.ok) throw new Error('Trader detail request returned ok:false');
   return body.data;
 }

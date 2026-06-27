@@ -52,7 +52,7 @@
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
     From a daily return series — built against an estimated capital base, with deposits and
     withdrawals removed — we compute the usual battery: Sharpe, Sortino, profit factor, win-rate-adjusted
-    expectancy, max drawdown, recovery time, and monthly consistency (copy-traders care more about
+    expectancy, max drawdown, recovery time, and monthly consistency (traders care more about
     "doesn't blow up" than "spiky 10×").
   </p>
   <p class="stripe-text-secondary" style="margin-top: 12px; line-height: 1.7;">
@@ -99,8 +99,8 @@
     </table>
   </div>
   <p class="stripe-text-secondary" style="margin-top: 16px; line-height: 1.7;">
-    The composite is that quality scaled by a <strong>copyability</strong> factor (0–1): how much of
-    the strategy a follower could actually mirror — capital still in the account, sample size,
+    The composite is that quality scaled by a <strong>replicability</strong> factor (0–1): how much of
+    the strategy is real and durable — capital still in the account, sample size,
     track-record length, leverage, single-asset concentration. A withdrawn-out account, a bot
     pattern, or a wallet with no reconstructable capital base scores 0 no matter how good the raw
     numbers look. A wallet with under ~90 days of history is flagged <em>provisional</em>. It's the

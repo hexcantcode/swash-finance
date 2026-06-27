@@ -9,14 +9,15 @@
 import { apiGet } from './client';
 import type { Asset } from './assets';
 
-export type CandleRange = '1h' | '4h' | '1d' | '7d' | '30d';
+export type CandleRange = '1h' | '4h' | '1d' | '7d' | '30d' | 'all';
 
 export const CANDLE_RANGES: { value: CandleRange; label: string }[] = [
   { value: '1h', label: '1H' },
   { value: '4h', label: '4H' },
   { value: '1d', label: '1D' },
   { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
+  { value: '30d', label: '1M' },
+  { value: 'all', label: 'ALL' },
 ];
 
 export interface Candle {
@@ -44,6 +45,57 @@ export async function getCandles(
   );
   if (!body.ok) throw new Error('Candles request returned ok:false');
   return body.candles;
+}
+
+/** Top trader on this coin, by all-time closed PnL. Mirrors the web's
+ *  `TopTrader` shape (apps/web .../asset-ranges.ts) — the canonical source. */
+export interface TopTrader {
+  address: string;
+  totalPnlUsd: number;
+  tradeCount: number;
+  /** SUM(closed_pnl) / SUM(|sz·px|), decimal; null when no closed notional. */
+  roi: number | null;
+}
+
+/** A position-open event surfaced in the "Latest trades" tab. `side`: 'B' =
+ *  opened long, 'A' = opened short. */
+export interface TraderOpen {
+  address: string;
+  blockTimeMs: number;
+  side: 'B' | 'A';
+  pxUsd: number;
+}
+
+interface TopTradersResponse {
+  ok: true;
+  topTraders: TopTrader[];
+}
+
+interface LatestOpensResponse {
+  ok: true;
+  latestOpens: TraderOpen[];
+}
+
+export async function getTopTraders(
+  coin: string,
+  limit = 5,
+): Promise<TopTrader[]> {
+  const body = await apiGet<TopTradersResponse>(
+    `/api/assets/${encodeURIComponent(coin)}/top-traders?limit=${limit}`,
+  );
+  if (!body.ok) throw new Error('Top-traders request returned ok:false');
+  return body.topTraders;
+}
+
+export async function getLatestOpens(
+  coin: string,
+  limit = 10,
+): Promise<TraderOpen[]> {
+  const body = await apiGet<LatestOpensResponse>(
+    `/api/assets/${encodeURIComponent(coin)}/latest-trades?limit=${limit}`,
+  );
+  if (!body.ok) throw new Error('Latest-trades request returned ok:false');
+  return body.latestOpens;
 }
 
 interface ListAssetsResponse {

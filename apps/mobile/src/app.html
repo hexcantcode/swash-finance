@@ -2,16 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#080B12" />
-    <link rel="icon" type="image/png" sizes="any" href="/favicon.png?v=5" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=5" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png?v=5" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png?v=5" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#E3E7EE" />
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash, and sync
+      // the status-bar tint (theme-color) to the chosen page floor.
+      try {
+        var dark = localStorage.getItem('swash-theme') === 'dark';
+        if (dark) document.documentElement.dataset.theme = 'dark';
+        var tc = document.querySelector('meta[name="theme-color"]');
+        if (tc) tc.setAttribute('content', dark ? '#0C0C12' : '#E3E7EE');
+      } catch (e) {}
+    </script>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="any" href="/favicon.png?v=6" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=6" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png?v=6" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png?v=6" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     %sveltekit.head%

@@ -27,6 +27,11 @@ export function coinIconUrl(coin: string): string {
   if (aliasedCoin !== undefined) return `/coins/${aliasedCoin}.svg`;
   let bare = coin.replace(/-?PERP$/i, '');
   if (!bare.includes(':') && /^k[A-Z]/.test(bare)) bare = bare.slice(1);
+  // HL's CDN keys HIP-3 icons by a *lowercase* dex prefix (`xyz:SP500`); some
+  // sources (Hyperdash) return it uppercase (`XYZ:SP500`), which 404s. Normalize
+  // the prefix so the proxy resolves it regardless of source casing.
+  const ci = bare.indexOf(':');
+  if (ci !== -1) bare = bare.slice(0, ci).toLowerCase() + bare.slice(ci);
   return `/coins/${bare}.svg`;
 }
 
@@ -109,6 +114,21 @@ export function coinNeedsWhiteBg(coin: string): boolean {
 }
 
 /**
+ * Per-symbol icon disc color, keyed by bare symbol. For logos HL serves as
+ * transparent glyphs that read best on a specific brand-colored disc rather
+ * than the neutral default fill — HYPE's mint mark on Hyperliquid's dark teal.
+ */
+export const COIN_ICON_BG: ReadonlyMap<string, string> = new Map([
+  ['HYPE', '#0a1a20'],
+  ['XPL', '#152F28'],
+]);
+
+/** Custom disc color for a coin's icon, or null to use the default fill. */
+export function coinIconBg(coin: string): string | null {
+  return COIN_ICON_BG.get(bareSymbol(coin)) ?? null;
+}
+
+/**
  * Symbols hidden from the assets table entirely. Reasons include: redundant
  * ticker duplicates of a coin already on main under a different name
  * (1000PEPE ≡ main's kPEPE), and HIP-3 listings we've decided not to surface
@@ -168,7 +188,7 @@ const COIN_COMMODITY_SYMBOLS: ReadonlySet<string> = new Set([
   // Metals
   'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM', 'COPPER',
   // Energy
-  'NATGAS', 'GAS', 'CL', 'WTI', 'BRENTOIL', 'OIL',
+  'NATGAS', 'CL', 'WTI', 'BRENTOIL', 'OIL',
   // Agriculture
   'WHEAT', 'CORN', 'SOY', 'SOYBEAN',
 ]);

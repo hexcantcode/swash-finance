@@ -1,23 +1,21 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
-  import { getLeaderDetail, type LeaderDetail } from '$lib/api/leader-detail';
+  import { getEpTraderDetail, type EpTraderDetail } from '$lib/api/leader-detail';
   import {
     shortAddress,
+    traderName,
     effigyUrl,
     formatPnl,
     formatUsd,
-    formatPct,
-    formatNumber,
-    formatDuration,
     formatRelativeTime,
     pnlSignClass,
   } from '$lib/utils/format';
-  import { coinDisplayName, coinIconUrl } from '$lib/utils/coin';
+  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   const address = $derived($page.params['address'] ?? '');
 
-  let detail = $state<LeaderDetail | null>(null);
+  let detail = $state<EpTraderDetail | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
   let abortCtrl: AbortController | null = null;
@@ -30,7 +28,7 @@
     loading = true;
     errorMsg = null;
     try {
-      detail = await getLeaderDetail(address);
+      detail = await getEpTraderDetail(address);
     } catch (err) {
       errorMsg = (err as Error).message || 'Failed to load trader';
     } finally {
@@ -55,21 +53,16 @@
     if (!address) return;
     void navigator.clipboard?.writeText(address);
   }
+
+  const stats = $derived(detail?.stats ?? null);
 </script>
 
 <svelte:head>
-  <title>{detail ? shortAddress(detail.address) : 'Trader'} · Swash</title>
+  <title>{detail ? traderName(detail.displayName, detail.address) : 'Trader'} · Swash</title>
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <header class="m-detail-header safe-x">
-    <a href="/traders" class="m-back tappable" aria-label="Back to leaderboard">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-    </a>
-    <h1 class="sr-only">Trader detail</h1>
-  </header>
+  <h1 class="sr-only">Trader detail</h1>
 
   {#if loading}
     <section class="m-detail-hero safe-x">
@@ -80,72 +73,87 @@
   {:else if errorMsg}
     <div class="m-error safe-x" role="alert">
       <p>{errorMsg}</p>
-      <button type="button" class="m-error-retry tappable" onclick={() => load()}>Retry</button>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>Retry</button>
     </div>
   {:else if detail}
     <section class="m-detail-hero safe-x">
-      <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
-      <div class="m-detail-identity">
-        <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
-          {shortAddress(detail.address, 6, 4)}
-        </button>
-        {#if detail.primary_tag}
-          <span class="m-detail-tag">{detail.primary_tag}</span>
-        {/if}
-      </div>
-
-      {#if detail.score !== null}
-        <div class="m-detail-score">
-          <span class="m-detail-score-num">{Math.round(detail.score)}</span>
-          <span class="m-detail-score-label">composite score</span>
+      <div class="m-detail-id">
+        <img class="m-detail-avatar" src={effigyUrl(detail.address)} alt="" />
+        <div class="m-detail-meta">
+          <button type="button" class="m-detail-address tappable" onclick={copyAddress} aria-label="Copy address">
+            {traderName(detail.displayName, detail.address, 6, 4)}
+          </button>
+          {#if detail.displayName}
+            <span class="m-detail-subaddr">{shortAddress(detail.address, 6, 4)}</span>
+          {/if}
         </div>
+      </div>
+    </section>
+
+    {#if stats}
+      <section class="m-detail-stats safe-x" aria-label="Key metrics">
+        <div class="m-stat">
+          <div class="m-stat-label">All-time profit</div>
+          <div class="m-stat-value {pnlSignClass(stats.pnlUsd)}">{formatPnl(stats.pnlUsd)}</div>
+        </div>
+        <div class="m-stat">
+          <div class="m-stat-label">Win rate</div>
+          <div class="m-stat-value">{Math.round(stats.winratePct)}%</div>
+        </div>
+        <div class="m-stat">
+          <div class="m-stat-label">Trades</div>
+          <div class="m-stat-value">{stats.totalTrades}</div>
+        </div>
+        <div class="m-stat">
+          <div class="m-stat-label">Sharpe</div>
+          <div class="m-stat-value">{stats.sharpe.toFixed(2)}</div>
+        </div>
+        <div class="m-stat">
+          <div class="m-stat-label">Max drawdown</div>
+          <div class="m-stat-value">{Math.round(stats.drawdown)}%</div>
+        </div>
+      </section>
+
+      {#if stats.topAssets.length > 0}
+        <section class="m-detail-section safe-x">
+          <h2 class="m-section-title">Top markets</h2>
+          <ul class="m-position-list">
+            {#each stats.topAssets as a (a.coin)}
+              <li class="m-position-row">
+                <div class="m-position-icon">
+                  {#if coinIconUrl(a.coin)}
+                    <img src={coinIconUrl(a.coin)} style:background-color={coinIconBg(a.coin)} style:padding={coinIconBg(a.coin) ? '4px' : null} alt="" loading="lazy" />
+                  {/if}
+                </div>
+                <div class="m-position-main">
+                  <div class="m-position-coin">{coinDisplayName(a.coin)}</div>
+                </div>
+                <div class="m-position-stats">
+                  <div class="m-position-notional">{formatUsd(a.volumeUsd)}</div>
+                  <div class="m-position-pnl {pnlSignClass(a.pnlUsd)}">{formatPnl(a.pnlUsd)}</div>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        </section>
       {/if}
-    </section>
+    {/if}
 
-    <section class="m-detail-stats safe-x" aria-label="Key metrics">
-      <div class="m-stat">
-        <div class="m-stat-label">Net PnL</div>
-        <div class="m-stat-value {pnlSignClass(detail.scoring?.net_pnl_usd)}">
-          {formatPnl(detail.scoring?.net_pnl_usd ?? null)}
-        </div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Equity</div>
-        <div class="m-stat-value">{formatUsd(detail.account_value)}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Win rate</div>
-        <div class="m-stat-value">{formatPct(detail.scoring?.win_rate ?? null, 0)}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Sharpe</div>
-        <div class="m-stat-value">{formatNumber(detail.scoring?.sharpe ?? null)}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Trades</div>
-        <div class="m-stat-value">{detail.scoring?.total_trades ?? '—'}</div>
-      </div>
-      <div class="m-stat">
-        <div class="m-stat-label">Avg hold</div>
-        <div class="m-stat-value">{formatDuration(detail.scoring?.avg_hold_seconds ?? null)}</div>
-      </div>
-    </section>
-
-    {#if detail.open_positions.length > 0}
+    {#if detail.positions.length > 0}
       <section class="m-detail-section safe-x">
-        <h2 class="m-section-title">Open positions ({detail.open_positions.length})</h2>
+        <h2 class="m-section-title">Open positions ({detail.positions.length})</h2>
         <ul class="m-position-list">
-          {#each detail.open_positions.slice(0, 10) as p, i (i + p.coin)}
+          {#each detail.positions.slice(0, 10) as p, i (i + p.coin)}
             <li class="m-position-row">
               <div class="m-position-icon">
                 {#if coinIconUrl(p.coin)}
-                  <img src={coinIconUrl(p.coin)} alt="" loading="lazy" />
+                  <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '4px' : null} alt="" loading="lazy" />
                 {/if}
               </div>
               <div class="m-position-main">
                 <div class="m-position-coin">{coinDisplayName(p.coin)}</div>
                 <div class="m-position-side {p.side === 'long' ? 'is-long' : 'is-short'}">
-                  {p.side ?? '—'} · {p.leverage ? `${p.leverage}x` : ''}
+                  {p.side}
                 </div>
               </div>
               <div class="m-position-stats">
@@ -160,31 +168,28 @@
       </section>
     {/if}
 
-    {#if detail.recent_fills.length > 0}
+    {#if detail.trades.length > 0}
       <section class="m-detail-section safe-x">
         <h2 class="m-section-title">Recent trades</h2>
         <ul class="m-position-list">
-          {#each detail.recent_fills.slice(0, 15) as f (f.tid)}
+          {#each detail.trades.slice(0, 15) as t, i (i + t.coin)}
             <li class="m-position-row">
               <div class="m-position-icon">
-                {#if coinIconUrl(f.coin)}
-                  <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
+                {#if coinIconUrl(t.coin)}
+                  <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '4px' : null} alt="" loading="lazy" />
                 {/if}
               </div>
               <div class="m-position-main">
-                <div class="m-position-coin">{coinDisplayName(f.coin)}</div>
+                <div class="m-position-coin">{coinDisplayName(t.coin)}</div>
                 <div class="m-position-side">
-                  {f.side === 'B' ? 'Buy' : f.side === 'A' ? 'Sell' : f.side}
-                  · {formatRelativeTime(new Date(f.block_time_ms))}
+                  {t.direction} · {formatRelativeTime(new Date(t.closedAtMs))}
                 </div>
               </div>
               <div class="m-position-stats">
-                <div class="m-position-notional">{formatUsd(f.notional)}</div>
-                {#if f.closed_pnl !== null && f.closed_pnl !== 0}
-                  <div class="m-position-pnl {pnlSignClass(f.closed_pnl)}">
-                    {formatPnl(f.closed_pnl)}
-                  </div>
-                {/if}
+                <div class="m-position-notional">{formatUsd(t.notionalUsd)}</div>
+                <div class="m-position-pnl {pnlSignClass(t.netPnlUsd)}">
+                  {formatPnl(t.netPnlUsd)}
+                </div>
               </div>
             </li>
           {/each}
@@ -199,111 +204,63 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding-bottom: calc(var(--safe-bottom) + 80px);
+    padding-bottom: calc(var(--safe-bottom) + 96px);
   }
 
-  .m-detail-header {
-    padding-top: max(var(--safe-top), var(--space-2));
-    padding-bottom: var(--space-2);
-    display: flex;
-    align-items: center;
-  }
-
-  .m-back {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: var(--radius-md);
-    color: var(--stripe-text-primary);
-    text-decoration: none;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--stripe-border);
-    box-shadow: var(--glass-highlight);
-  }
-
+  /* Hero: identity row. */
   .m-detail-hero {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-3);
     padding-top: var(--space-3);
-    padding-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
+  }
+
+  .m-detail-id {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
   }
 
   .m-detail-avatar {
-    width: 72px;
-    height: 72px;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
     border: 1.5px solid var(--stripe-border-light);
     box-shadow: var(--glass-shadow);
   }
 
-  .m-detail-identity {
+  .m-detail-meta {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    min-width: 0;
   }
 
   .m-detail-address {
     font-family: var(--font-mono);
     font-size: var(--type-title);
+    line-height: 1.15;
     color: var(--stripe-text-primary);
     background: transparent;
     border: none;
-    padding: 4px 8px;
-    border-radius: var(--radius-md);
+    padding: 0;
+    text-align: left;
     cursor: pointer;
   }
 
-  .m-detail-tag {
-    text-transform: capitalize;
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-secondary);
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border);
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-  }
-
-  /* Composite score = the one teal-accented surface on the page. */
-  .m-detail-score {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: var(--space-3);
-    padding: var(--space-3) var(--space-6);
-    background: var(--stripe-accent-subtle);
-    border: 1px solid var(--stripe-border-focus);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight);
-  }
-
-  .m-detail-score-num {
+  .m-detail-subaddr {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 48px;
-    line-height: 1;
-    color: var(--stripe-accent-light);
-    font-weight: 700;
-  }
-
-  .m-detail-score-label {
-    font-family: var(--font-mono);
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 4px;
   }
 
   .m-detail-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3);
     padding-top: var(--space-2);
     padding-bottom: var(--space-5);
@@ -350,13 +307,11 @@
   }
 
   .m-section-title {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--type-body);
+    font-weight: 600;
+    color: var(--stripe-text-primary);
     margin: 0 0 var(--space-3);
-    font-weight: 500;
   }
 
   .m-position-list {
@@ -391,7 +346,6 @@
     height: 32px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
     box-shadow: var(--glass-shadow);
     overflow: hidden;
   }
@@ -465,21 +419,5 @@
     margin-top: var(--space-1);
   }
 
-  .m-error,
-  .m-empty {
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--stripe-text-secondary);
-  }
-
-  .m-error-retry {
-    margin-top: var(--space-3);
-    padding: 10px 20px;
-    background: var(--stripe-accent-subtle);
-    color: var(--stripe-accent);
-    border: 1px solid var(--stripe-accent);
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    cursor: pointer;
-  }
+  /* Error/empty states come from the shared layer in lib/styles/mobile.css. */
 </style>

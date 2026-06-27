@@ -1,0 +1,183 @@
+/**
+ * Same-origin coin-icon URL.
+ *
+ * Two sources, both served by us:
+ * - Per-symbol overrides at `/icons/{SYMBOL}.png` — for coins HL's CDN doesn't
+ *   host a logo for. Files live in `apps/api/static/icons/`.
+ * - Proxy to HL's CDN at `/coins/{coin}.svg` for everything else — see
+ *   `apps/api/src/routes/coins/[coin].svg/+server.ts`. The proxy adds a memory
+ *   cache + long Cache-Control headers so we hit `app.hyperliquid.xyz` at most
+ *   once per coin per process.
+ *
+ * Coin mapping rules:
+ * - Main perps:  `coin = SYMBOL`              → `/coins/SYMBOL.svg`
+ * - HIP-3 perps: `coin = dex:SYMBOL`          → `/coins/dex:SYMBOL.svg`
+ * - 1000× tickers (kPEPE, kSHIB, …) reuse the underlying asset's logo since
+ *   HL doesn't host the k-prefixed variant.
+ */
+export function coinIconUrl(coin: string): string {
+  const sym = bareSymbol(coin);
+  if (COIN_LOGO_OVERRIDES.has(sym)) return `/icons/${sym}.png`;
+  // Logo alias: HL's CDN doesn't host a logo for some symbols (e.g. `cash:WTI`,
+  // `xyz:WTI` both 404), but does host an equivalent listing of the same
+  // commodity (e.g. `xyz:CL` — HL's other crude-oil ticker). The alias map is
+  // keyed by bare symbol so every dex prefix of that symbol picks up the same
+  // working logo.
+  const aliasedCoin = COIN_LOGO_ALIASES.get(sym);
+  if (aliasedCoin !== undefined) return `/coins/${aliasedCoin}.svg`;
+  let bare = coin.replace(/-?PERP$/i, '');
+  if (!bare.includes(':') && /^k[A-Z]/.test(bare)) bare = bare.slice(1);
+  return `/coins/${bare}.svg`;
+}
+
+/** Extract the bare symbol from a coin string (drops a `dex:` prefix). */
+function bareSymbol(coin: string): string {
+  const i = coin.indexOf(':');
+  return (i === -1 ? coin : coin.slice(i + 1)).toUpperCase();
+}
+
+/**
+ * Display label for a coin — the bare symbol with original case preserved
+ * (so `kPEPE` stays `kPEPE`, not `KPEPE`). Strips a HIP-3 `dex:` prefix to
+ * match how rows are labelled in the assets table.
+ */
+export function coinDisplayName(coin: string): string {
+  const i = coin.indexOf(':');
+  return i === -1 ? coin : coin.slice(i + 1);
+}
+
+/**
+ * Logos that HL serves as dark/transparent silhouettes — they disappear into
+ * the dark page background unless we put a white disc behind them.
+ * Add to this list when a logo audit turns up another offender.
+ */
+export const COIN_WHITE_BG_SYMBOLS: ReadonlySet<string> = new Set([
+  'FARTCOIN', 'INJ', 'ONDO', 'MEGA', 'DYM', 'ADA',
+  'SEI', 'AR', 'CTX', 'NIL', '2Z', 'GALA',
+  'CC', 'POPCAT', 'CFX',
+  'XLM', 'TENCENT', 'WLD', 'XRP', 'NEAR',
+  'ETH',
+]);
+
+/**
+ * Symbols we ship a local logo for, served from `apps/api/static/icons/`.
+ * Add a file `{SYMBOL}.png` (or `.svg`) under that directory and an entry
+ * here — `coinIconUrl` will route to it ahead of the HL CDN proxy.
+ */
+export const COIN_LOGO_OVERRIDES: ReadonlySet<string> = new Set([
+  'NATGAS', 'URNM', 'WHEAT', 'KWEB', 'BIRD', 'CAR',
+  'BMNR', 'TENCENT', 'XIAOMI', 'EBAY', 'GAS',
+  'USENERGY', 'SEMI', 'MSFT', 'COPPER', 'SMSN', 'INTC',
+]);
+
+/**
+ * Logo aliases for symbols HL's CDN doesn't host — keyed by bare symbol, value
+ * is the fully-qualified coin string to fetch the logo for instead. Used when
+ * the same commodity exists under multiple tickers and only one is hosted.
+ *
+ * Pattern: a `bare:SYMBOL` that 404s on HL's CDN is aliased to a working
+ * variant of the same commodity. Bare-symbol key means every dex prefix
+ * (`cash:WTI`, `xyz:WTI`, …) picks up the same alias without per-prefix
+ * entries.
+ */
+export const COIN_LOGO_ALIASES: ReadonlyMap<string, string> = new Map([
+  // WTI crude oil → use HL's other crude listing (`xyz:CL`) which the CDN does
+  // host. Same commodity, both barrel logos look identical on HL.
+  ['WTI', 'xyz:CL'],
+  // PURRDAT (xyz HIP-3 listing) has no CDN logo — reuse the PURR mascot since
+  // the name is PURR-themed.
+  ['PURRDAT', 'PURR'],
+  // SpaceX exposure trades under two tickers on different dexes: `vntl:SPACEX`
+  // and `xyz:SPCX`. HL's CDN only hosts the rocket logo at the vntl path, so
+  // both bare symbols alias to that. We surface only `xyz:SPCX` on the page
+  // (see COIN_EXCLUDE_COINS below) — the SPACEX alias still resolves the icon
+  // for any legacy fills/positions that reference the vntl listing.
+  ['SPACEX', 'vntl:SPACEX'],
+  ['SPCX', 'vntl:SPACEX'],
+]);
+
+/**
+ * Symbols HL's CDN does NOT host AND we don't ship an override for. Broken
+ * `<img>`s hide via `onerror`. Kept as data so we can render a styled
+ * fallback (initials tile) or short-circuit the upstream fetch later.
+ */
+export const COIN_KNOWN_NO_LOGO: ReadonlySet<string> = new Set([]);
+
+/** Whether this coin's icon should render on a white disc. */
+export function coinNeedsWhiteBg(coin: string): boolean {
+  return COIN_WHITE_BG_SYMBOLS.has(bareSymbol(coin));
+}
+
+/**
+ * Symbols hidden from the assets table entirely. Reasons include: redundant
+ * ticker duplicates of a coin already on main under a different name
+ * (1000PEPE ≡ main's kPEPE), and HIP-3 listings we've decided not to surface
+ * (LIGHTER — but note the unrelated `LIT` perp is kept).
+ */
+export const COIN_EXCLUDE_SYMBOLS: ReadonlySet<string> = new Set([
+  '1000PEPE',
+  'PEOPLE',
+  'LIGHTER',
+  'GLDMINE',
+  'BASED',
+  'RTX',
+  'USDE',
+  'WTI',
+  'SOY',
+]);
+
+/**
+ * Coin-level exclusions (full `dex:SYMBOL` keys). Used when one dex hosts a
+ * duplicate listing we don't want to surface but we DO want to keep the same
+ * symbol on a different dex. Bare-symbol exclusion above would drop every
+ * dex's variant; this targets a specific listing.
+ */
+export const COIN_EXCLUDE_COINS: ReadonlySet<string> = new Set([
+  // SpaceX exposure: `vntl:SPACEX` duplicates `xyz:SPCX`. Keep xyz, drop vntl
+  // (which has thinner depth). Logo for both still resolves via the SPACEX /
+  // SPCX entries in COIN_LOGO_ALIASES above.
+  'vntl:SPACEX',
+]);
+
+/** Whether this coin should be omitted from the assets table. */
+export function coinIsExcluded(coin: string): boolean {
+  return COIN_EXCLUDE_SYMBOLS.has(bareSymbol(coin)) || COIN_EXCLUDE_COINS.has(coin);
+}
+
+/**
+ * Coarse classification for the assets-page filter tabs.
+ *
+ * - `index`: any basket/index instrument — broad country indices (SP500,
+ *   JP225, …), country/sector ETFs (EWJ, KWEB, XLE, …), vntl sector themes
+ *   (BIOTECH, ROBOT, …), and crypto market-cap indices (BTCD, TOTAL2,
+ *   OTHERS). Matched by an explicit symbol set so it overrides any
+ *   per-dex default.
+ * - `crypto`: main HL perp dex + crypto-native HIP-3 dexes (hyna, abcd),
+ *   minus anything caught by the index set above.
+ * - `stocks`: everything else — individual TradFi tickers (TSLA, NVDA, …),
+ *   commodities (GOLD, COPPER, NATGAS, …) and FX (EUR, JPY).
+ */
+export type CoinCategory = 'crypto' | 'stocks' | 'index';
+
+export const HIP3_CRYPTO_DEXES: ReadonlySet<string> = new Set(['hyna', 'abcd', 'para']);
+
+const COIN_INDEX_SYMBOLS: ReadonlySet<string> = new Set([
+  // Broad country / region indices
+  'JP225', 'KR200', 'SP500', 'US500', 'USA100', 'USA500',
+  // Country / region ETFs
+  'EWJ', 'EWY', 'EWZ', 'KWEB',
+  // US sector indices / ETFs
+  'XLE', 'SEMI', 'SEMIS', 'USTECH', 'USENERGY', 'USBOND', 'SMALL2000',
+  // vntl sector themes
+  'BIOTECH', 'DEFENSE', 'ENERGY', 'INFOTECH', 'MAG7', 'NUCLEAR', 'ROBOT',
+  // Other index-like
+  'DRAM', 'XYZ100',
+  // Crypto market-cap indices
+  'BTCD', 'OTHERS', 'TOTAL2',
+]);
+
+export function coinCategory(coin: string, dex: string | null): CoinCategory {
+  if (COIN_INDEX_SYMBOLS.has(bareSymbol(coin))) return 'index';
+  if (dex === null || HIP3_CRYPTO_DEXES.has(dex)) return 'crypto';
+  return 'stocks';
+}

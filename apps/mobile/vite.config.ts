@@ -18,11 +18,11 @@ export default defineConfig({
       // apps/web. The `/coins/[coin].svg` proxy is web's HL-CDN passthrough
       // (see `coinIconUrl`), so it needs the same forwarding as `/api`.
       '/api': {
-        target: 'http://localhost:5173',
+        target: 'http://localhost:5174',
         changeOrigin: true,
       },
       '/coins': {
-        target: 'http://localhost:5173',
+        target: 'http://localhost:5174',
         changeOrigin: true,
       },
     },

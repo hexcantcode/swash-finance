@@ -5,7 +5,7 @@
  * ===========================================
  * SWASH DESIGN SYSTEM — Mobile (parliament navy)
  * Deep navy backgrounds, frosted-glass chrome, monochrome white accent.
- * Dark mode only. Sora + Space Mono. Layered by elevation.
+ * Dark mode only. Figtree throughout (one font). Layered by elevation.
  *
  * Mobile-specific tokens (touch sizing, safe-area, motion) live in
  * lib/styles/mobile.css and layer on top of the shared system.
@@ -56,7 +56,11 @@
   --color-border-light: rgba(255, 255, 255, 0.14);
 
   --font-sans: 'Figtree', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Space Mono', ui-monospace, monospace;
+  /* One font app-wide. The token name stays `--font-mono` so existing
+   * call-sites keep working, but it resolves to Figtree — places that
+   * relied on column-aligned digits already declare
+   * `font-variant-numeric: tabular-nums`, which Figtree honors. */
+  --font-mono: 'Figtree', system-ui, -apple-system, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 7px;
@@ -80,56 +84,21 @@
      1024 instead. */
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Theme system
+ *   :root                      → Light theme (active default) + theme-agnostic
+ *                                tokens (spacing, radii, motion, fonts).
+ *   [data-theme="dark"]        → Dark theme override; activate by setting the
+ *                                attribute on <html>. Inert by default — kept
+ *                                in code so the original navy palette is one
+ *                                attribute away if we add a toggle later.
+ *
+ * Same set of variables in both blocks. Components only read --stripe-*,
+ * --glass-*, etc.; they never branch on theme.
+ * ───────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --stripe-bg-deep: #080B12;
-  --stripe-bg-primary: #12151B;
-  --stripe-bg-secondary: #1A1E25;
-  --stripe-bg-tertiary: #242931;
-  --stripe-bg-elevated: #2D333D;
-  --stripe-bg-hover: #363D48;
-
-  /* Brand accent — ranking highlights, scoring, ticker live pulse, buttons.
-     Monochrome: active chrome is bright white, faint white fills for subtle/muted. */
-  --stripe-accent: #FFFFFF;
-  --stripe-accent-light: #FFFFFF;
-  --stripe-accent-dark: rgba(255, 255, 255, 0.55);
-  --stripe-accent-subtle: rgba(255, 255, 255, 0.14);
-  --stripe-accent-muted: rgba(255, 255, 255, 0.08);
-
-  /* Positive financial outcomes — PnL, ROI, buy side in ticker. (Red = downside.) */
-  --stripe-success: #16C784;
-  --stripe-success-subtle: rgba(22, 199, 132, 0.16);
-  --stripe-danger: #FF6B6B;
-  --stripe-danger-subtle: rgba(255, 107, 107, 0.16);
-  --stripe-warning: #f5a623;
-  --stripe-warning-subtle: rgba(245, 166, 35, 0.14);
-
-  --stripe-text-primary: rgba(255, 255, 255, 0.95);
-  --stripe-text-secondary: rgba(255, 255, 255, 0.72);
-  --stripe-text-tertiary: rgba(255, 255, 255, 0.50);
-  --stripe-text-muted: rgba(255, 255, 255, 0.34);
-
-  --stripe-border: rgba(255, 255, 255, 0.09);
-  --stripe-border-light: rgba(255, 255, 255, 0.14);
-  --stripe-border-focus: rgba(255, 255, 255, 0.45);
-
-  /* ── Frosted-glass tokens ──────────────────────────────────
-     Neutral-grey translucency over the near-black base. Applied to
-     framing surfaces only (fixed chrome + container panels), never to
-     every row — keeps backdrop-filter cost low. */
-  --glass-bg: rgba(26, 30, 37, 0.62);
-  --glass-bg-strong: rgba(12, 15, 20, 0.82);
-  --glass-blur: blur(18px) saturate(120%);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-
-  /* "White glass" — lighter frosted tint for interactive chrome (bottom-nav
-     menu, segmented controls, filter chips, sort/tab rows). Sits a step above
-     the darker content glass so controls read as elevated, not as panels. */
-  --glass-white-bg: rgba(255, 255, 255, 0.06);
-  --glass-white-border: rgba(255, 255, 255, 0.14);
-  --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-
+  /* ── Layout / motion / shape — theme-agnostic ─────────────────────── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -142,15 +111,180 @@
   --space-16: 64px;
   --space-20: 80px;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.24), 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-focus: 0 0 0 3px var(--stripe-border-focus);
-
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
+
+  /* ── Light theme palette ──────────────────────────────────────────── */
+  /* Page floor is a clearly-gray tone — Apple's light Liquid Glass relies on
+     the page sitting a notch darker than the material so the glass visibly
+     lifts above it. Pure white pages flatten the effect. */
+  --stripe-bg-deep: #E3E7EE;
+  --stripe-bg-primary: #FFFFFF;
+  --stripe-bg-secondary: #F4F6F9;
+  --stripe-bg-tertiary: #ECEFF3;
+  --stripe-bg-elevated: #FFFFFF;
+  --stripe-bg-hover: #DDE2E8;
+
+  /* Monochrome accent — near-black on light, mirroring the dark theme's
+     "active chrome is one tone" rule. */
+  --stripe-accent: #0A0F1A;
+  --stripe-accent-light: #1A1F2A;
+  --stripe-accent-dark: rgba(10, 15, 26, 0.55);
+  --stripe-accent-subtle: rgba(10, 15, 26, 0.10);
+  --stripe-accent-muted: rgba(10, 15, 26, 0.06);
+
+  /* Brand teal for the bottom-nav text + icons. */
+  --nav-fg: #009C85;
+
+  /* Financial colors — pulled a touch darker than the dark-theme values so
+     they keep AA contrast on a white surface. */
+  --stripe-success: #0E9F66;
+  --stripe-success-subtle: rgba(14, 159, 102, 0.14);
+  --stripe-danger: #DC2A2A;
+  --stripe-danger-subtle: rgba(220, 42, 42, 0.10);
+  --stripe-warning: #C2782A;
+  --stripe-warning-subtle: rgba(194, 120, 42, 0.12);
+
+  --stripe-text-primary: rgba(10, 15, 26, 0.95);
+  --stripe-text-secondary: rgba(10, 15, 26, 0.66);
+  --stripe-text-tertiary: rgba(10, 15, 26, 0.48);
+  --stripe-text-muted: rgba(10, 15, 26, 0.32);
+
+  --stripe-border: rgba(10, 15, 26, 0.08);
+  --stripe-border-light: rgba(10, 15, 26, 0.12);
+  --stripe-border-focus: rgba(10, 15, 26, 0.40);
+
+  /* Liquid Glass — light material. Real frosting comes from blur + saturation
+     pulling color out of whatever's behind, not from a heavy fill. Thin fill
+     stays barely-there so chrome reads as see-through glass; regular fill is
+     a touch heavier so content containers (chip strips, cards) hold their
+     own visual group. Saturation 200% amplifies tints picked up via blur. */
+  --glass-bg-thin: rgba(255, 255, 255, 0.15);
+  --glass-bg: rgba(247, 249, 252, 0.5);
+  --glass-blur: blur(22px) saturate(190%);
+  --glass-blur-thin: blur(30px) saturate(220%) brightness(108%);
+  /* Highlight pairs a top specular sheen with a soft inner glow — the "thick
+     glass" tell: light bouncing inside the material, not just along its top
+     edge. The glow ring is faint enough that it stacks cleanly on every
+     glass surface in the app. */
+  --glass-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 0 20px rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(10, 15, 26, 0.12);
+
+  /* "White glass" wash for standalone chrome (the bell, etc.) — a clean
+     near-opaque off-white that sits visibly above the gray page floor. */
+  --glass-white-bg: rgba(252, 253, 255, 0.85);
+  --glass-white-border: rgba(10, 15, 26, 0.10);
+  --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  /* Pressed/selected = soft dark wash + inset shadow. Same recipe as dark,
+     just inverted: white loses brightness as it presses into the surface. */
+  --glass-pressed-bg: rgba(10, 15, 26, 0.08);
+  --glass-pressed-inset:
+    inset 0 1px 2px rgba(10, 15, 26, 0.18),
+    inset 0 0 0 0.5px rgba(10, 15, 26, 0.08);
+
+  --shadow-xs: 0 1px 2px rgba(10, 15, 26, 0.08);
+  --shadow-sm: 0 2px 4px rgba(10, 15, 26, 0.10), 0 0 1px rgba(10, 15, 26, 0.06);
+  --shadow-md: 0 4px 12px rgba(10, 15, 26, 0.14), 0 0 1px rgba(10, 15, 26, 0.06);
+  --shadow-lg: 0 8px 24px rgba(10, 15, 26, 0.18), 0 0 1px rgba(10, 15, 26, 0.06);
+  --shadow-focus: 0 0 0 3px var(--stripe-border-focus);
+}
+
+/* ── Dark theme — "deep-ocean glass" ──────────────────────────────────
+ * Set data-theme="dark" on <html> to activate (persisted as `swash-theme`,
+ * restored pre-paint in app.html). Base floor is #0C0C12 — a deep desaturated
+ * teal, not neutral black; the same teal hue runs up the whole surface ramp and
+ * into the frosted glass, so cards read as tinted dark glass rather than gray.
+ * Mono-white chrome + bright mint success keep it financial. Same token set as
+ * :root, so components (which only read the stripe and glass tokens) need no
+ * changes. */
+[data-theme="dark"] {
+  /* Surface ramp — teal hue held constant, lightness stepped. */
+  --stripe-bg-deep: #0C0C12;
+  --stripe-bg-primary: #0E1D23;
+  --stripe-bg-secondary: #141417;
+  --stripe-bg-tertiary: #1A3139;
+  --stripe-bg-elevated: #1F3A44;
+  --stripe-bg-hover: #284853;
+
+  /* Active chrome is one tone — white on dark. */
+  --stripe-accent: #FFFFFF;
+  --stripe-accent-light: #FFFFFF;
+  --stripe-accent-dark: rgba(255, 255, 255, 0.55);
+  --stripe-accent-subtle: rgba(255, 255, 255, 0.14);
+  --stripe-accent-muted: rgba(255, 255, 255, 0.08);
+
+  /* Brand teal for the bottom nav — bright enough to read on the dark nav glass. */
+  --nav-fg: #009C85;
+
+  /* Financial — brightened so they pop against the teal floor. */
+  --stripe-success: #16C784;
+  --stripe-success-subtle: rgba(22, 199, 132, 0.16);
+  --stripe-danger: #E5484D;
+  --stripe-danger-subtle: rgba(229, 72, 77, 0.16);
+  --stripe-warning: #F5A623;
+  --stripe-warning-subtle: rgba(245, 166, 35, 0.14);
+
+  --stripe-text-primary: rgba(255, 255, 255, 0.95);
+  --stripe-text-secondary: rgba(255, 255, 255, 0.72);
+  --stripe-text-tertiary: rgba(255, 255, 255, 0.50);
+  --stripe-text-muted: rgba(255, 255, 255, 0.34);
+
+  --stripe-border: rgba(255, 255, 255, 0.09);
+  --stripe-border-light: rgba(255, 255, 255, 0.14);
+  --stripe-border-focus: rgba(255, 255, 255, 0.45);
+
+  /* Surface fill — solid #141417, one notch above the #0C0C12 page floor, so
+     rows / tabs / cards read as a clean flat surface lifted off the background
+     (no translucency, so they don't blend back down into the floor). */
+  --glass-bg-thin: #141417;
+  --glass-bg: #141417;
+  --glass-blur: blur(18px) saturate(125%);
+  --glass-blur-thin: blur(28px) saturate(145%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+
+  --glass-white-bg: rgba(255, 255, 255, 0.12);
+  --glass-white-border: rgba(255, 255, 255, 0.14);
+  --glass-white-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+
+  --glass-pressed-bg: rgba(0, 0, 0, 0.30);
+  --glass-pressed-inset:
+    inset 0 1px 2px rgba(0, 0, 0, 0.50),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.40);
+
+  /* Shadows deepened to read on the darker floor. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.30), 0 0 1px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 0 1px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* Theme crossfade — the profile toggle adds `.theme-transition` to <html> for
+ * the duration of a light↔dark flip, then removes it. Scoping it to that class
+ * means surfaces fade between palettes on switch without permanent transitions
+ * fighting hover/press states the rest of the time. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 280ms ease,
+    border-color 280ms ease,
+    color 280ms ease,
+    fill 280ms ease,
+    box-shadow 280ms ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: none !important;
+  }
 }
 
 /* Accessibility: when the OS asks for reduced transparency, collapse the glass
@@ -159,9 +293,10 @@
  * Placed after :root so it wins the cascade at equal specificity. */
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --glass-bg: var(--stripe-bg-primary);
-    --glass-bg-strong: var(--stripe-bg-deep);
+    --glass-bg: var(--stripe-bg-secondary);
+    --glass-bg-thin: var(--stripe-bg-secondary);
     --glass-blur: none;
+    --glass-blur-thin: none;
     --glass-highlight: 0 0 0 0 transparent;
     --glass-white-bg: var(--stripe-bg-secondary);
     --glass-white-highlight: 0 0 0 0 transparent;
@@ -178,7 +313,10 @@
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`): blocks horizontal bleed without forcing
+   * `overflow-y` to compute as `auto`, which would turn <html> and <body>
+   * into their own scroll containers and break document scroll on iOS. */
+  overflow-x: clip;
   background: var(--stripe-bg-deep);
   color: var(--stripe-text-primary);
   font-family: var(--font-sans);

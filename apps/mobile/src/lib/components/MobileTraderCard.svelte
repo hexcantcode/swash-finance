@@ -1,158 +1,182 @@
 <script lang="ts">
-  import type { TopTrader } from '$lib/api/leaders-top';
-  import { effigyUrl, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
-  import { coinIconUrl } from '$lib/utils/coin';
+  import type { LeaderRow } from '$lib/api/leaders';
+  import { effigyUrl, traderName, formatPnl, formatNumber, pnlSignClass } from '$lib/utils/format';
+  import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
 
   interface Props {
-    trader: TopTrader;
+    row: LeaderRow;
   }
-  let { trader }: Props = $props();
+  let { row }: Props = $props();
 
-  const pnlClass = $derived(pnlSignClass(trader.pnl_usd));
-  const roiClass = $derived(pnlSignClass(trader.roi));
-  // Holdings shown as a stack of coin avatars: first 3, then a +N overflow.
-  const shownHoldings = $derived(trader.holdings.top.slice(0, 3));
-  const extraHoldings = $derived(Math.max(0, trader.holdings.total - shownHoldings.length));
+  const pnlClass = $derived(pnlSignClass(row.pnl_usd));
+  // `winrate_pct` is already 0–100, so format it directly (formatPct would ×100).
+  const winrateText = $derived(`${Math.round(row.winrate_pct)}%`);
 </script>
 
-<a class="m-tcard tappable" href={`/trader/${trader.address}`} aria-label={`Trader ${trader.address}`}>
-  <div class="m-tcard-top">
-    <img class="m-tcard-avatar" src={effigyUrl(trader.address)} alt="" loading="lazy" />
-    {#if shownHoldings.length > 0}
-      <div class="m-tcard-holdings">
-        {#each shownHoldings as h (h.coin)}
-          <img class="m-tcard-hold-icon" src={coinIconUrl(h.coin)} alt="" loading="lazy" />
-        {/each}
-        {#if extraHoldings > 0}
-          <span class="m-tcard-hold-more">+{extraHoldings}</span>
-        {/if}
-      </div>
+<article class="m-trader-card">
+  <a
+    class="m-trader-card-link"
+    href={`/trader/${row.address}`}
+    aria-label={`Trader ${traderName(row.display_name, row.address)}`}
+  ></a>
+
+  <div class="m-trader-head">
+    <img
+      class="m-trader-avatar"
+      src={effigyUrl(row.address)}
+      alt=""
+      loading="lazy"
+    />
+    <div class="m-trader-id">
+      <span class="m-trader-addr">
+        {traderName(row.display_name, row.address, 6, 4)}
+      </span>
+    </div>
+    {#if row.alfa_coin}
+      <span class="m-trader-alfa" aria-label={`Best coin ${row.alfa_coin}`}>
+        <img
+          class="m-trader-alfa-icon"
+          src={coinIconUrl(row.alfa_coin)}
+          style:background-color={coinIconBg(row.alfa_coin)}
+          style:padding={coinIconBg(row.alfa_coin) ? '2px' : null}
+          alt=""
+          loading="lazy"
+        />
+        {row.alfa_coin}
+      </span>
     {/if}
   </div>
 
-  <div class="m-tcard-figs">
-    <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">PnL</span>
-      <span class="m-tcard-pnl {pnlClass}">{formatPnl(trader.pnl_usd)}</span>
+  <div class="m-trader-body">
+    <div class="m-trader-fig">
+      <span class="m-trader-fig-val {pnlClass}">{formatPnl(row.pnl_usd)}</span>
+      <span class="m-trader-fig-label">All-time profit</span>
     </div>
-    <div class="m-tcard-fig">
-      <span class="m-tcard-fig-label">ROI</span>
-      <span class="m-tcard-roi {roiClass}">{formatPct(trader.roi)}</span>
+    <div class="m-trader-fig">
+      <span class="m-trader-fig-val">{winrateText}</span>
+      <span class="m-trader-fig-label">Win rate</span>
+    </div>
+    <div class="m-trader-fig">
+      <span class="m-trader-fig-val">{formatNumber(row.total_trades, 0)}</span>
+      <span class="m-trader-fig-label">Trades</span>
     </div>
   </div>
-</a>
+</article>
 
 <style>
-  .m-tcard {
-    flex: 0 0 auto;
-    width: 152px;
-    scroll-snap-align: start;
+  .m-trader-card {
+    position: relative;
     display: flex;
     flex-direction: column;
-    /* Override .tappable's align/justify center so rows fill the full width
-       (otherwise the filled top row is inset and shows side "padding"). */
-    align-items: stretch;
-    justify-content: flex-start;
-    text-decoration: none;
     color: inherit;
     background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
     overflow: hidden;
   }
 
-  /* Full-width filled header row — flush to the frame, same tone as the
-     assets filter chips (--glass-bg). The card's overflow:hidden + radius
-     clips its top corners to match the frame. */
-  .m-tcard-top {
+  .m-trader-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+
+  /* ── Header row ───────────────────────────────────────── */
+  .m-trader-head {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    min-width: 0;
-    padding: 7px 10px;
-    background: var(--glass-bg);
+    padding: var(--space-2) var(--space-4);
   }
 
-  .m-tcard-avatar {
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
+  .m-trader-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
     border-radius: var(--radius-full);
     background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
-  }
-
-  .m-tcard-holdings {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-  }
-
-  .m-tcard-hold-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    border-radius: var(--radius-full);
     object-fit: cover;
-    background: var(--stripe-bg-secondary);
-    /* Ring in the row's tone so overlapping icons read as a stack. */
-    border: 2px solid var(--stripe-bg-secondary);
-  }
-  .m-tcard-hold-icon:not(:first-child) {
-    margin-left: -7px;
   }
 
-  .m-tcard-hold-more {
-    margin-left: 5px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 10px;
-    color: var(--stripe-text-tertiary);
-  }
-
-  .m-tcard-figs {
-    display: flex;
-    gap: var(--space-4);
-    padding: 8px 10px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .m-tcard-fig {
+  .m-trader-id {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 4px;
     min-width: 0;
+    flex: 1;
   }
 
-  /* Small stat label — same compact scale as the timeframe filter buttons. */
-  .m-tcard-fig-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-muted);
-  }
-
-  .m-tcard-pnl {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-callout);
+  .m-trader-addr {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: var(--type-subhead);
     font-weight: 600;
     color: var(--stripe-text-primary);
     line-height: 1.1;
+    letter-spacing: -0.01em;
   }
 
-  .m-tcard-roi {
+  /* "Alfa" coin chip — the trader's best coin by PnL. */
+  .m-trader-alfa {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    background: var(--stripe-accent-muted);
+    font-family: var(--font-mono);
     font-size: var(--type-footnote);
     color: var(--stripe-text-secondary);
   }
+  .m-trader-alfa-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    background: var(--stripe-bg-secondary);
+  }
 
-  .m-tcard-pnl:global(.k-pnl-positive),
-  .m-tcard-roi:global(.k-pnl-positive) {
+  /* ── Body row — figures ───────────────────────────────── */
+  .m-trader-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--stripe-border);
+  }
+
+  .m-trader-fig {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .m-trader-fig-val {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--stripe-text-primary);
+    line-height: 1.15;
+  }
+  .m-trader-fig-val:global(.k-pnl-positive) {
     color: var(--stripe-success);
   }
-  .m-tcard-pnl:global(.k-pnl-negative),
-  .m-tcard-roi:global(.k-pnl-negative) {
+  .m-trader-fig-val:global(.k-pnl-negative) {
     color: var(--stripe-danger);
+  }
+  .m-trader-fig-label {
+    font-family: var(--font-mono);
+    font-size: var(--type-footnote);
+    color: var(--stripe-text-tertiary);
+    letter-spacing: 0.02em;
   }
 </style>

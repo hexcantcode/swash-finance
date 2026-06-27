@@ -1,244 +1,222 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import MobileTraderCard from '$lib/components/MobileTraderCard.svelte';
-  import MobileAssetRow from '$lib/components/MobileAssetRow.svelte';
-  import { listTopTraders, type TopTrader, type LeaderWindow } from '$lib/api/leaders-top';
-  import { listAssets, type Asset } from '$lib/api/assets';
-  import { coinCategory, coinDisplayName, coinIconUrl, coinNeedsWhiteBg, type CoinCategory } from '$lib/utils/coin';
-  import { formatUsd, formatPct, pnlSignClass } from '$lib/utils/format';
+  import MobileLeaderRow from '$lib/components/MobileLeaderRow.svelte';
+  import MobileTicker from '$lib/components/MobileTicker.svelte';
+  import { listLeaders, type LeaderRow, type LeaderSort } from '$lib/api/leaders';
 
-  // ── Top traders ──────────────────────────────────────────
-  const WINDOWS: { value: LeaderWindow; label: string }[] = [
-    { value: '1d', label: '1d' },
-    { value: '7d', label: '7d' },
-    { value: '30d', label: '1m' },
+  // Client-only data loading. No server-side data fetch here — apps/web owns
+  // the canonical leaderboard query and exposes it at /api/leaders. The Vite
+  // dev proxy routes that path to apps/web (port 5173); the Capacitor build
+  // injects PUBLIC_API_BASE so the same code resolves cross-origin.
+
+  const SORTS: { value: LeaderSort; label: string }[] = [
+    { value: 'pnl', label: 'Profit' },
+    { value: 'winrate', label: 'Win rate' },
   ];
-  let tf = $state<LeaderWindow>('7d');
-  let traders = $state<TopTrader[]>([]);
-  let tradersLoading = $state(true);
-  let tradersError = $state<string | null>(null);
+
+  type View = 'card' | 'table';
+  // Inline Lucide-style paths (stroke 1.6, 24×24 viewBox) — Table = Rows3,
+  // Card = single bordered card with a header divider. Kept inline to match
+  // the bottom-nav icon convention (no runtime icon dep).
+  const VIEWS: { value: View; label: string; iconPath: string }[] = [
+    {
+      value: 'table',
+      label: 'Table view',
+      iconPath: 'M3 6h18 M3 12h18 M3 18h18',
+    },
+    {
+      value: 'card',
+      label: 'Card view',
+      iconPath: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M3 10h18',
+    },
+  ];
+
+  let rows = $state<LeaderRow[]>([]);
+  let total = $state(0);
+  let loading = $state(true);
+  let refreshing = $state(false);
+  let errorMsg = $state<string | null>(null);
+
+  // Sort and search are driven from the URL so deep-links work and the back
+  // button is meaningful. Defaults: all-time profit, no search.
+  const sort = $derived<LeaderSort>(
+    (($page.url.searchParams.get('sort') as LeaderSort | null) ?? 'pnl'),
+  );
+  const view = $derived<View>(
+    (($page.url.searchParams.get('view') as View | null) ?? 'card'),
+  );
+  const search = $derived($page.url.searchParams.get('search') ?? '');
+
   let mounted = false;
-  let tradersCtrl: AbortController | null = null;
+  let abortCtrl: AbortController | null = null;
 
-  const windowLabel = $derived(WINDOWS.find((w) => w.value === tf)?.label ?? '');
-
-  async function loadTraders() {
-    tradersCtrl?.abort();
-    tradersCtrl = new AbortController();
-    tradersLoading = true;
-    tradersError = null;
+  async function load(opts: { silent?: boolean } = {}) {
+    abortCtrl?.abort();
+    abortCtrl = new AbortController();
+    if (opts.silent) refreshing = true;
+    else loading = true;
+    errorMsg = null;
     try {
-      traders = await listTopTraders(tf, 12);
+      const args: Parameters<typeof listLeaders>[0] = { sort, limit: 50 };
+      if (search) args.search = search;
+      const result = await listLeaders(args);
+      rows = result.rows;
+      total = result.total;
     } catch (err) {
-      tradersError = (err as Error).message || 'Failed to load top traders';
+      if ((err as Error).name === 'AbortError') return;
+      errorMsg = (err as Error).message || 'Failed to load leaderboard';
     } finally {
-      tradersLoading = false;
+      loading = false;
+      refreshing = false;
     }
   }
 
-  // ── Assets + featured companies ──────────────────────────
-  // Hand-picked private-company markets surfaced as featured cards. Display
-  // labels are nicer than the bare ticker. A card self-hides if its market
-  // isn't in the live asset list.
-  const FEATURED: { coin: string; label: string }[] = [
-    { coin: 'vntl:OPENAI', label: 'OpenAI' },
-    { coin: 'vntl:ANTHROPIC', label: 'Anthropic' },
-    { coin: 'xyz:SPCX', label: 'SpaceX' },
-  ];
-
-  const CATEGORIES: { value: CoinCategory; label: string }[] = [
-    { value: 'stocks', label: 'Stock' },
-    { value: 'crypto', label: 'Crypto' },
-    { value: 'commodity', label: 'Commodity' },
-    { value: 'index', label: 'Index' },
-  ];
-
-  let assets = $state<Asset[]>([]);
-  let assetsLoading = $state(true);
-  let assetsError = $state<string | null>(null);
-  let activeCategory = $state<CoinCategory | null>(null);
-  let favActive = $state(false);
-
-  async function loadAssets() {
-    assetsLoading = true;
-    assetsError = null;
-    try {
-      assets = await listAssets();
-    } catch (err) {
-      assetsError = (err as Error).message || 'Failed to load assets';
-    } finally {
-      assetsLoading = false;
-    }
+  function setSort(next: LeaderSort) {
+    const url = new URL($page.url);
+    if (next === 'pnl') url.searchParams.delete('sort');
+    else url.searchParams.set('sort', next);
+    goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
   }
 
-  const featured = $derived(
-    FEATURED.map((f) => {
-      const asset = assets.find((a) => a.coin === f.coin);
-      return asset ? { ...f, asset } : null;
-    }).filter((x): x is { coin: string; label: string; asset: Asset } => x !== null),
-  );
-
-  // Top 25 by 24h volume, optionally filtered to the active category.
-  const topAssets = $derived(
-    [...assets]
-      .filter((a) => activeCategory === null || coinCategory(a.coin, a.dex) === activeCategory)
-      .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0))
-      .slice(0, 25),
-  );
-
-  function selectCategory(cat: CoinCategory) {
-    favActive = false;
-    activeCategory = activeCategory === cat ? null : cat;
-  }
-  function toggleFav() {
-    favActive = !favActive;
-    if (favActive) activeCategory = null;
+  function setView(next: View) {
+    const url = new URL($page.url);
+    if (next === 'card') url.searchParams.delete('view');
+    else url.searchParams.set('view', next);
+    goto(`${url.pathname}${url.search}`, { replaceState: true, keepFocus: true });
   }
 
   onMount(() => {
     mounted = true;
-    void loadAssets();
-    void loadTraders();
+    void load();
   });
 
+  onDestroy(() => {
+    abortCtrl?.abort();
+  });
+
+  // Re-fetch when sort / search change (driven by URL).
   $effect(() => {
     if (!mounted) return;
-    void tf;
-    void loadTraders();
+    // Touch the derived values so the effect re-runs on URL change.
+    void sort;
+    void search;
+    void load({ silent: true });
   });
 </script>
 
 <svelte:head>
-  <title>Swash — Top traders, mirrored to your wallet</title>
+  <title>Leaderboard · Swash</title>
 </svelte:head>
 
 <main id="main-content" class="m-page">
-  <!-- ── Top Traders ─────────────────────────────────────── -->
-  <section class="m-home-section">
-    <header class="m-section-head safe-x">
-      <h2 class="m-section-title">Top Traders</h2>
-      <div class="m-seg" role="tablist" aria-label="Top traders timeframe">
-        {#each WINDOWS as w (w.value)}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tf === w.value}
-            class="m-seg-btn tappable"
-            class:is-active={tf === w.value}
-            onclick={() => (tf = w.value)}
-          >
-            {w.label}
-          </button>
-        {/each}
-      </div>
-    </header>
-
-    {#if tradersLoading}
-      <div class="m-tcard-scroll m-scroll-fade safe-x" aria-busy="true">
-        {#each Array(4) as _, i (i)}
-          <div class="m-skeleton m-tcard-skel"></div>
-        {/each}
-      </div>
-    {:else if tradersError}
-      <div class="m-mini-error safe-x" role="alert">{tradersError}</div>
-    {:else if traders.length === 0}
-      <div class="m-mini-empty safe-x">No {windowLabel} data yet.</div>
-    {:else}
-      <div class="m-tcard-scroll m-scroll-fade safe-x">
-        {#each traders as t (t.address)}
-          <MobileTraderCard trader={t} />
-        {/each}
-      </div>
-    {/if}
-  </section>
-
-  <!-- ── Featured companies ──────────────────────────────── -->
-  {#if featured.length > 0}
-    <section class="m-home-section">
-      <header class="m-section-head safe-x">
-        <h2 class="m-section-title">Pre-IPOs</h2>
-      </header>
-      <div class="m-company-row m-scroll-fade safe-x">
-        {#each featured as f (f.coin)}
-          <a class="m-company-card tappable" href={`/assets/${encodeURIComponent(f.coin)}`}>
-            <div class="m-company-icon" class:is-white={coinNeedsWhiteBg(f.coin)}>
-              {#if coinIconUrl(f.coin)}
-                <img src={coinIconUrl(f.coin)} alt="" loading="lazy" />
-              {/if}
-            </div>
-            <span class="m-company-name">{f.label}</span>
-            <span class="m-company-price">
-              {formatUsd(f.asset.price, { precise: (f.asset.price ?? 0) < 100 })}
-            </span>
-            <span class="m-company-change {pnlSignClass(f.asset.change24h)}">
-              {formatPct(f.asset.change24h)}
-            </span>
-          </a>
-        {/each}
-      </div>
-    </section>
-  {/if}
-
-  <!-- ── Assets ──────────────────────────────────────────── -->
-  <section class="m-home-section">
-    <header class="m-section-head safe-x">
-      <h2 class="m-section-title">Assets</h2>
-      <a href="/assets" class="m-see-all tappable">See all</a>
-    </header>
-
-    <div class="m-filter-row m-scroll-fade safe-x" role="tablist" aria-label="Asset filters">
-      <button
-        type="button"
-        class="m-filter-chip m-filter-star tappable"
-        class:is-active={favActive}
-        aria-pressed={favActive}
-        aria-label="Favorites"
-        onclick={toggleFav}
-      >
-        <svg viewBox="0 0 24 24" width="15" height="15" fill={favActive ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      </button>
-      {#each CATEGORIES as c (c.value)}
+  <MobileTicker />
+  <div class="m-strip-row">
+    <div
+      class="m-sort-strip m-sort-strip--inline"
+      role="tablist"
+      aria-label="Sort leaderboard"
+    >
+      {#each SORTS as opt (opt.value)}
         <button
           type="button"
           role="tab"
-          aria-selected={activeCategory === c.value}
-          class="m-filter-chip tappable"
-          class:is-active={activeCategory === c.value}
-          onclick={() => selectCategory(c.value)}
+          aria-selected={sort === opt.value}
+          class="m-sort-chip tappable tap-hit"
+          class:is-active={sort === opt.value}
+          onclick={() => setSort(opt.value)}
         >
-          {c.label}
+          {opt.label}
         </button>
       {/each}
     </div>
+    <div
+      class="m-sort-strip m-sort-strip--inline m-view-strip"
+      role="tablist"
+      aria-label="View mode"
+    >
+      {#each VIEWS as opt (opt.value)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === opt.value}
+          aria-label={opt.label}
+          title={opt.label}
+          class="m-sort-chip m-view-chip tappable tap-hit"
+          class:is-active={view === opt.value}
+          onclick={() => setView(opt.value)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d={opt.iconPath} />
+          </svg>
+        </button>
+      {/each}
+    </div>
+  </div>
 
-    {#if assetsLoading}
-      <ul class="m-card-list" aria-busy="true">
-        {#each Array(6) as _, i (i)}
+  {#if refreshing && !loading}
+    <div class="m-loading-bar" aria-hidden="true"></div>
+  {/if}
+
+  {#if loading}
+    {#if view === 'table'}
+      <ul class="m-list" aria-busy="true" aria-label="Loading leaderboard">
+        {#each Array(8) as _, i (i)}
           <li class="m-skeleton-row">
-            <span class="m-skeleton m-skeleton-avatar"></span>
+            <span class="m-skeleton m-skeleton-rank"></span>
             <span class="m-skeleton-main">
               <span class="m-skeleton m-skeleton-line"></span>
               <span class="m-skeleton m-skeleton-line-sm"></span>
             </span>
+            <span class="m-skeleton m-skeleton-score"></span>
           </li>
         {/each}
       </ul>
-    {:else if assetsError}
-      <div class="m-mini-error safe-x" role="alert">{assetsError}</div>
-    {:else if favActive}
-      <div class="m-mini-empty safe-x">No favorites yet — tap ☆ on an asset to save it.</div>
-    {:else if topAssets.length === 0}
-      <div class="m-mini-empty safe-x">No assets in this category.</div>
     {:else}
-      <ul class="m-card-list">
-        {#each topAssets as a (a.coin)}
-          <li><MobileAssetRow asset={a} showVolume={false} /></li>
+      <div class="m-cards" aria-busy="true" aria-label="Loading leaderboard">
+        {#each Array(6) as _, i (i)}
+          <div class="m-skeleton m-card-skel"></div>
         {/each}
-      </ul>
+      </div>
     {/if}
-  </section>
+  {:else if errorMsg}
+    <div class="m-error safe-x" role="alert">
+      <p>{errorMsg}</p>
+      <button type="button" class="m-error-retry m-btn tappable" onclick={() => load()}>
+        Retry
+      </button>
+    </div>
+  {:else if rows.length === 0}
+    <div class="m-empty safe-x">
+      <p>No traders match this filter.</p>
+    </div>
+  {:else if view === 'table'}
+    <ul class="m-list">
+      {#each rows as row, i (row.address)}
+        <li>
+          <MobileLeaderRow {row} rank={i + 1} />
+        </li>
+      {/each}
+    </ul>
+  {:else}
+    <div class="m-cards">
+      {#each rows as row (row.address)}
+        <MobileTraderCard {row} />
+      {/each}
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -247,257 +225,116 @@
     flex-direction: column;
     min-height: 100vh;
     padding-top: var(--space-3);
-    padding-bottom: calc(var(--safe-bottom) + 80px);
+    padding-bottom: calc(var(--safe-bottom) + 80px); /* bottom nav clearance */
   }
 
-  .m-home-section {
-    margin-bottom: var(--space-4);
-  }
-
-  /* Right-edge fade for the horizontal scrollers — softens the clipped last
-     card into a "more to scroll" cue instead of a hard chop. Left stays crisp
-     so the first card lines up at the page inset. */
-  .m-scroll-fade {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      #000 0,
-      #000 calc(100% - 28px),
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to right,
-      #000 0,
-      #000 calc(100% - 28px),
-      transparent 100%
-    );
-  }
-
-  .m-section-head {
+  /* Sort strip — glass container, same language as the bottom-nav and the
+     home/assets filter strips. */
+  .m-sort-strip {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
-  }
-
-  .m-section-title {
-    font-family: var(--font-sans);
-    font-size: var(--type-headline);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-    margin: 0;
-  }
-
-  .m-see-all {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-accent);
-    text-decoration: none;
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-  }
-
-  /* Segmented control (1d / 7d / 1m) — small, compact, squarish. */
-  .m-seg {
-    display: inline-flex;
-    gap: 4px;
-  }
-  .m-seg-btn {
-    min-height: 22px;
-    padding: 2px 7px;
-    border-radius: var(--radius-sm);
-    background: var(--glass-white-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
-    color: var(--stripe-text-secondary);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    cursor: pointer;
-  }
-  /* Selected = the only chip with a visible border; unselected are borderless
-     filled chips. The border is the highlight. */
-  .m-seg-btn.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
-    color: var(--stripe-text-primary);
-  }
-
-  /* Horizontal trader-card strip. Explicit side insets (not the .safe-x
-     utility) so the first card's left edge lines up at 16px with the section
-     titles, featured cards, and assets list — overflow containers don't honor
-     the utility's padding reliably. */
-  .m-tcard-scroll {
-    display: flex;
-    gap: var(--space-3);
+    gap: var(--space-1);
     overflow-x: auto;
-    scroll-snap-type: x proximity;
-    /* Without this, snap aligns the first card to the scrollport edge on load,
-       scrolling the left padding out of view (card lands at L=0). Matching the
-       inset keeps it lined up at 16px with the rest of the page. */
-    scroll-padding-left: max(var(--safe-left), var(--space-4));
-    -webkit-overflow-scrolling: touch;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
-    padding-left: max(var(--safe-left), var(--space-4));
-    padding-right: max(var(--safe-right), var(--space-4));
-    padding-bottom: var(--space-1);
-  }
-  .m-tcard-scroll::-webkit-scrollbar {
-    display: none;
-  }
-  .m-tcard-skel {
-    flex: 0 0 auto;
-    width: 152px;
-    height: 96px;
-    border-radius: var(--radius-lg);
-  }
-
-  /* Featured company cards — narrower than trader cards. */
-  .m-company-row {
-    display: flex;
-    gap: var(--space-3);
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-left: max(var(--safe-left), var(--space-4));
-    padding-right: max(var(--safe-right), var(--space-4));
-  }
-  .m-company-row::-webkit-scrollbar {
-    display: none;
-  }
-  /* Single-line pill cards: icon · ticker · price · change, all on one row.
-     Width sizes to content so the card stays short and compact. */
-  .m-company-card {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 7px 12px;
-    text-decoration: none;
-    color: inherit;
+    margin: var(--space-2) max(var(--safe-left), var(--space-4)) var(--space-3);
+    padding: var(--space-1);
     background: var(--glass-bg);
-    border-radius: var(--radius-md);
-    white-space: nowrap;
-  }
-  .m-company-icon {
-    flex: 0 0 22px;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--radius-full);
-    background: var(--stripe-bg-secondary);
-    border: 1px solid var(--stripe-border-light);
-    overflow: hidden;
-  }
-  .m-company-icon.is-white {
-    background: #fff;
-  }
-  .m-company-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .m-company-name {
-    font-family: var(--font-sans);
-    font-size: var(--type-footnote);
-    font-weight: 600;
-    color: var(--stripe-text-primary);
-  }
-  .m-company-price {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-primary);
-  }
-  .m-company-change {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-  }
-  .m-company-change:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-company-change:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-
-  /* Asset filter row — horizontally scrollable, one line. Explicit insets to
-     match the rest (see .m-tcard-scroll note). */
-  .m-filter-row {
-    display: flex;
-    gap: var(--space-2);
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-left: max(var(--safe-left), var(--space-4));
-    padding-right: max(var(--safe-right), var(--space-4));
-    margin-bottom: var(--space-3);
-  }
-  .m-filter-row::-webkit-scrollbar {
-    display: none;
-  }
-  .m-filter-chip {
-    flex: 0 0 auto;
-    min-height: 34px;
-    padding: 6px 14px;
-    border-radius: var(--radius-md);
-    background: var(--glass-white-bg);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid transparent;
-    box-shadow: var(--glass-white-highlight);
-    color: var(--stripe-text-secondary);
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    cursor: pointer;
-    white-space: nowrap;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-highlight);
   }
-  .m-filter-chip.is-active {
-    border-color: rgba(255, 255, 255, 0.45);
-    color: var(--stripe-text-primary);
+  .m-sort-strip::-webkit-scrollbar {
+    display: none;
   }
-  .m-filter-star {
+
+  /* Strip holding three glass frames: sort (score/pnl) · focus (stock/crypto) ·
+     view (table/card icons). Each frame hugs its chips. They sit one row when
+     there's room; on a narrow phone the row wraps so the view frame drops to a
+     second line rather than a control scrolling out of reach. */
+  .m-strip-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: clamp(4px, 1.5vw, var(--space-2));
+    margin: var(--space-2) max(var(--safe-left), var(--space-4)) var(--space-3);
+    /* Cap to the actual viewport so the frames wrap to the real screen width
+       even if something else widens the page. */
+    max-width: calc(100vw - 2 * max(var(--safe-left), var(--space-4)));
+    box-sizing: border-box;
+  }
+  .m-sort-strip--inline {
+    margin: 0;
+    /* Text frames grow to share the full row width; the view frame stays
+       compact (override below). */
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .m-view-strip {
+    flex: 0 0 auto;
+  }
+
+  /* Icon-only chip: square the padding so the SVG sits centered instead of
+     inheriting the text chip's wider horizontal padding. */
+  .m-view-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 12px;
+    padding: 6px clamp(6px, 1.8vw, 9px);
+  }
+  /* View toggle stays icon-sized — don't let the chip-grow rule stretch it. */
+  .m-view-strip .m-sort-chip {
+    flex: 0 0 auto;
   }
 
-  .m-mini-error,
-  .m-mini-empty {
-    padding: var(--space-5) var(--space-4);
+  /* Horizontal padding + type shrink with the viewport (clamp) so all three
+     frames fit one row on small iPhones; the row still scrolls as a fallback
+     on the very narrowest screens. */
+  .m-sort-chip {
+    flex: 1 1 0;
+    text-align: center;
+    padding: 6px clamp(7px, 2vw, 12px);
+    min-height: 32px;
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-  }
-  .m-mini-error {
-    color: var(--stripe-danger);
+    font-size: clamp(10px, 2.8vw, var(--type-footnote));
+    cursor: pointer;
+    white-space: nowrap;
   }
 
-  /* Skeleton rows reused from the list screens. */
-  .m-skeleton-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    min-height: var(--touch-comfortable);
+  /* Active = pressed into the container's glass surface. */
+  .m-sort-chip.is-active {
+    background: var(--glass-pressed-bg);
+    box-shadow: var(--glass-pressed-inset);
+    color: var(--stripe-text-primary);
   }
-  .m-skeleton-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-full);
-  }
-  .m-skeleton-main {
-    flex: 1;
+
+  /* Card stack — replaces the old list. Inset to the page edges so cards
+     stand apart from the screen frame; gap matches the home-page section
+     spacing. */
+  .m-cards {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-3);
+    margin: 0 max(var(--safe-left), var(--space-4));
   }
-  .m-skeleton-line {
+  .m-card-skel {
+    height: 188px;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Page-specific skeleton bones (shared row/line bones + error/empty states
+     live in lib/styles/mobile.css). Sized to MobileLeaderRow's proportions so
+     there's no layout jump when rows hydrate. */
+  .m-skeleton-rank {
+    width: 24px;
     height: 14px;
-    width: 60%;
   }
-  .m-skeleton-line-sm {
-    height: 10px;
-    width: 40%;
+  .m-skeleton-score {
+    width: 48px;
+    height: 28px;
   }
 </style>

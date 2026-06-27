@@ -115,8 +115,20 @@ export function formatRelativeTime(input: Date | string | null | undefined, now:
   return `${Math.floor(delta / (365 * DAY))}y ago`;
 }
 
+/** Preferred trader label: the HL display name when set, else the short
+ *  address. One place decides the precedence so every surface agrees. */
+export function traderName(
+  displayName: string | null | undefined,
+  address: string,
+  prefix = 6,
+  suffix = 4,
+): string {
+  const name = displayName?.trim();
+  return name ? name : shortAddress(address, prefix, suffix);
+}
+
 export function effigyUrl(address: string): string {
-  return `https://api.dicebear.com/9.x/identicon/svg?seed=${address.toLowerCase()}`;
+  return `https://api.dicebear.com/9.x/croodles/svg?seed=${address.toLowerCase()}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 }
 
 export function scoreClass(score: number | null | undefined): string {

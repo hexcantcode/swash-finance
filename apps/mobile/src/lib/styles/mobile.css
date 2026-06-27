@@ -109,6 +109,78 @@ body {
   transform: scale(0.98);
 }
 
+/* ── Button primitive ──────────────────────────────────────────────
+ * One material language for every button in the app. Owns surface only —
+ * size / padding / font are the caller's job. Pair with .tappable to inherit
+ * the 48px touch floor and press micro-motion. Active state matches the
+ * bottom-nav pill and selected chips: the button presses into a recess
+ * (--glass-pressed-bg + inset), the top sheen is dropped. */
+.m-btn {
+  background: var(--glass-white-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-white-highlight);
+  color: var(--stripe-text-primary);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.m-btn:active {
+  background: var(--glass-pressed-bg);
+  box-shadow: var(--glass-pressed-inset);
+}
+
+/* Primary CTA — the one full-strength action surface in the app (Mirror).
+ * Shared by the trader cards, the trader detail page, and the coming-soon
+ * sheet so the nudge reads identically everywhere. */
+.m-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-md);
+  background-image: url('/buttonbg.png');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: var(--type-subhead);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 8px rgba(10, 15, 26, 0.25);
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+.m-cta-primary:active {
+  transform: scale(0.97);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 1px 4px rgba(10, 15, 26, 0.2);
+}
+
+/* Invisible hit-area extender for controls whose *visual* size is deliberately
+ * compact (segmented buttons, filter chips, "See all"). Keeps the rendered box
+ * as-is but stretches the tappable region vertically to the 44px iOS floor via
+ * an absolutely-positioned pseudo-element. Width stays 100% (no horizontal
+ * min) so adjacent chips in a row don't steal each other's taps. */
+.tap-hit {
+  position: relative;
+}
+.tap-hit::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+}
+
 /* Row-style tap target — full width, left-aligned, separator-friendly. */
 .tappable-row {
   display: flex;
@@ -206,6 +278,77 @@ body {
   background-repeat: no-repeat;
   border-radius: var(--radius-md);
   animation: m-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+/* Shared skeleton bones — one definition for the avatar-row loading shape so
+ * pages don't each carry a drifting copy. Pages only add page-specific bones
+ * (e.g. rank/score blocks) locally. */
+.m-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--touch-comfortable);
+}
+.m-skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+}
+.m-skeleton-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.m-skeleton-line {
+  height: 14px;
+  width: 60%;
+}
+.m-skeleton-line-sm {
+  height: 10px;
+  width: 40%;
+}
+
+/* "Hot" micro-chip — shown next to a trader's address only when their heat
+ * tag is `hot`. Smallest member of the badge family (Preview / Coming soon):
+ * accent-subtle fill, 10px uppercase mono. Steady/cooling render nothing on
+ * cards — the cooled-lately nuance lives on the trader detail page. */
+.m-hot-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--stripe-accent-subtle);
+  color: var(--stripe-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Shared empty / error states — full-bleed (page-level) and mini (section). */
+.m-error,
+.m-empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--stripe-text-secondary);
+}
+.m-error-retry {
+  margin-top: var(--space-3);
+  padding: 10px 20px;
+  font-family: var(--font-mono);
+}
+.m-mini-error,
+.m-mini-empty {
+  padding: var(--space-5) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--type-footnote);
+  color: var(--stripe-text-tertiary);
+}
+.m-mini-error {
+  color: var(--stripe-danger);
 }
 
 /* Pull-to-refresh visual hint — page-level header that shows while loading. */

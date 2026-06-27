@@ -2,11 +2,11 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm --filter @copytrade/web build"
+    "buildCommand": "corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm --filter @copytrade/mobile build"
   },
   "deploy": {
-    "startCommand": "pnpm --filter @copytrade/web start",
-    "healthcheckPath": "/api/stats",
+    "startCommand": "pnpm --filter @copytrade/mobile exec serve -s build -l $PORT",
+    "healthcheckPath": "/",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5

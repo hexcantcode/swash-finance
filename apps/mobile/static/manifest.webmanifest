@@ -1,0 +1,15 @@
+{
+  "name": "Swash",
+  "short_name": "Swash",
+  "description": "Hyperliquid copy-trading leaderboard and live trader analytics.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080B12",
+  "theme_color": "#080B12",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

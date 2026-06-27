@@ -1,24 +1,16 @@
 # Swash — working notes for agents
 
-Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/web` SvelteKit, `apps/worker`, `packages/{db,scoring,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
+Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/api` SvelteKit BFF, `apps/mobile` SvelteKit client, `apps/worker`, `packages/{db,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
 
 ---
 
-## DB migration state (drift resolved 2026-05-17)
+## DB state (EP single-roster pivot — 2026-06-26)
 
-Main and the live Neon DB are in sync: 6 migrations applied (`0000`–`0005`), all SQL files committed under `packages/db/migrations/`, all meta snapshots present in `packages/db/migrations/meta/`. `pnpm db:generate` / `db:migrate` / `db:push` are safe to run from main.
+After the EP pivot the live Neon DB holds **one table: `cohort_sentiment_history`**. The old ingest/scoring pipeline tables (`wallets`, `fills`, `fundings`, `ledger_updates`, `scores`, `wallet_tags`, `leader_cache`, `discovery_queue`, `audit_log`) and the `leaders` / `tracked_wallets` views were dropped in migration `0011_drop_pipeline_tables` (applied 2026-06-26; reclaimed the ~364 MB `fills` bloat). Earlier, `0010` dropped the dead `scores.calmar`/`scores.dsr` columns and `0009` added `cohort_sentiment_history`.
 
-**Loose ends from the old drift, still in the DB:**
-- `scores.calmar` and `scores.dsr` columns still exist in the live DB but are not referenced by any code on main. Migration `0003_abandoned_tempest` dropped them; they were manually re-added at the time as a stopgap when main code still read them, then main was cleaned up but the columns weren't dropped again. Safe to drop in a future migration; harmless if left.
+**`pnpm db:generate` is BROKEN on this repo** — meta snapshots stop at `0005` while the journal runs past it, so generate throws an interactive prompt that would corrupt unrelated tables. Hand-author migrations instead: add the `.sql` under `packages/db/migrations/` + an entry in `migrations/meta/_journal.json`, then `DB_OVER_WS=1 pnpm --filter @copytrade/db migrate` (the runner needs only the journal + SQL, not snapshots). In a fresh git worktree, copy the repo-root `.env` in first (it's gitignored).
 
-**`data-sources` branch is stale** (~140 commits behind main) — do **not** merge it. Its only unique contribution was migrations `0003`/`0004`, which have since landed on main directly. If anything on `data-sources` is still wanted, cherry-pick the specific commits rather than merging.
-
-### Out-of-band SQL applies
-
-One SQL file in `packages/db/sql/` was applied via Neon MCP outside Drizzle:
-- `packages/db/sql/2026-05-16-leaders-view-and-history.sql` — creates the `leaders` view and adds `wallets.history_deepened_at` / `history_oldest_ms`.
-
-New SQL should go through Drizzle (`pnpm db:generate` then `db:migrate`). For DDL Drizzle can't autogenerate (views, complex triggers), hand-edit the generated migration file to append the SQL.
+**`data-sources` branch is stale** — do **not** merge it.
 
 ---
 
@@ -26,19 +18,40 @@ New SQL should go through Drizzle (`pnpm db:generate` then `db:migrate`). For DD
 
 This is an analytics product; a number on screen is only as trustworthy as the discipline behind it.
 
-1. **One canonical definition per data point.** Every metric/figure (ROI, PnL, win rate, composite score, 7d window numbers, …) is computed/owned in exactly one place — the relevant `packages/scoring` function or `packages/db` column / server query. Components and loaders **read** that canonical value; they never recompute, re-derive, or "fix up" the same quantity locally. If you find the same number being calculated in two places, that's a bug — collapse it to one.
+1. **One canonical definition per data point.** Every metric/figure (PnL, win rate, cohort net/bias, …) is computed/owned in exactly one place — the relevant `apps/api/src/lib/server/ep/` function (e.g. `biasFor` in `ep/sentiment.ts`, transport in `ep/shared.ts`) or `packages/db` column / server query. Components and loaders **read** that canonical value; they never recompute, re-derive, or "fix up" the same quantity locally. If you find the same number being calculated in two places, that's a bug — collapse it to one.
 
-2. **A data-point change isn't done until every consumer is updated.** When you change how something is computed, named, scaled, or shaped, trace the full chain — `packages/scoring` / DB column → server query (`apps/web/src/lib/server/queries/*`) → `+page.server.ts` loader → component props → display formatting (`$lib/utils/format.ts`) — and update them together in the same change. Before claiming done, grep for the field name across `apps/web/src` and `packages/` and confirm nothing stale remains.
+2. **A data-point change isn't done until every consumer is updated.** When you change how something is computed, named, scaled, or shaped, trace the full chain — `packages/scoring` / DB column → server query (`apps/api/src/lib/server/queries/*`) → `+page.server.ts` loader → component props → display formatting (`$lib/utils/format.ts`) — and update them together in the same change. Before claiming done, grep for the field name across `apps/api/src` and `packages/` and confirm nothing stale remains.
 
 3. **Renames & removals are not "just" backend changes.** Dropping or renaming a column/metric breaks every component and type that referenced it. List those consumers up front and decide what each should show instead (a different metric? hidden? "—"?) — don't leave a component pointing at a field that no longer exists.
 
 ---
 
+## Architecture (current)
+
+Two SvelteKit apps + a worker, all on one Neon DB:
+- **`apps/api`** — the Backend-for-Frontend (BFF). Owns every `/api/*` endpoint, `$lib/server` (queries, HL client, DB), and the `/coins` icon proxy. The only backend the client talks to. Since the EP pivot the trader list/detail, asset pages, and most feed endpoints are sourced from **`$lib/server/ep/`** (the Extremely Profitable Hyperdash module — `roster`, `positions`, `trades`, `sentiment`, per-trader `trader`, `feed` aggregations + `shared` transport). `cohort-sentiment` / `hyperdash-positions` / `hyperdash-trades` queries remain (feed track).
+- **`apps/mobile`** — a pure `/api` client (SvelteKit, Capacitor-wrapped for iOS). PWA now, native later. **Invariant:** the client only ever speaks `/api` over HTTP — no `$lib/server` imports, no client→HL connections, no DB reads in loaders. It keeps its own presentation-layer utils (e.g. `coin.ts` category mapping) that intentionally differ from the BFF's.
+- **`apps/worker`** — after the EP pivot the only job is **`cohort-snapshot`** (a 5-min cron that snapshots Hyperdash cohort sentiment into `cohort_sentiment_history`). All the old ingest/scoring/leaderboard jobs were deleted. See `ecosystem.config.cjs`.
+
+The EP cohort (Hyperdash `exploreTraders`, +$1M all-time PnL) is the single wallet roster; copy-trade was dropped. Design + plan: `docs/plans/2026-06-25-ep-cohort-single-roster-design.md`, `docs/plans/2026-06-25-ep-single-roster-implementation.md`. Future HL-native data: `docs/plans/2026-06-25-hyperdash-independence-migration.md`.
+
+Local dev: **mobile on :5173, api on :5174** (mobile proxies `/api` + `/coins` → 5174). Launch with `DB_OVER_WS=1` on filtered networks or Neon times out. `pnpm check` / `pnpm build` at the repo root.
+
+## Multi-venue pivot — Lighter alongside Hyperliquid (in progress)
+
+The trading engine is moving from Hyperliquid to **Lighter** (a zk-rollup perps DEX). **Not built yet — do not write engine/execution code.** The first step is analytics only: **fetch Lighter trader data alongside HL and present unified data in the UI.**
+
+Principles for any Lighter work:
+- **Reuse the scorer unchanged.** It's already venue-agnostic — normalize Lighter trades into the existing fill / funding / ledger shapes and feed the same `packages/scoring` functions. Do **not** re-implement ROI / weekly-consistency / drawdown.
+- **Additive, behind a module boundary** (`src/lib/server/lighter/`). Don't touch HL integration, execution code, or the scorer.
+- **`venue` discriminator** on everything new (DB rows, API params) so HL and Lighter share one schema and one read route.
+- MVP brief & open questions: `docs/plans/2026-06-23-lighter-leaderboard-mvp.md`.
+
 ## Other notes
 
-- The web app is a single page (`/` = the leaderboard + Winners + ticker). `/browse` 308-redirects to `/`. There is no theme toggle.
-- Dev: `pnpm dev` (web on :5173). `pnpm check` / `pnpm build` at the repo root.
-- Product model & scoring redesign details: `docs/plans/2026-05-11-*.md`.
+- The product is **analytics-only** today (curated leaderboard + trader/asset detail + feed); no copy execution. `apps/mobile` is the primary surface — multi-page, dark "deep-ocean glass" default theme.
+- `docs/BUILD_SPEC.md` predates the analytics-only, mobile, and Lighter direction — treat **CLAUDE.md + the `docs/plans/*` design docs as current**; BUILD_SPEC is historical context, not a build target.
+- Product model & scoring redesign details: `docs/plans/2026-05-11-*.md`; mobile design docs: `docs/plans/2026-05-19…2026-06-10-mobile-*.md`.
 
 ---
 
@@ -108,7 +121,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 In this repo, "verified" concretely means:
 - `pnpm check` and `pnpm build` pass at the repo root.
-- For any renamed/removed/reshaped data point: `grep` the field name across `apps/web/src` and `packages/` returns no stale references (per the STRICT RULE).
+- For any renamed/removed/reshaped data point: `grep` the field name across `apps/api/src` and `packages/` returns no stale references (per the STRICT RULE).
 - DB changes go through Drizzle (`pnpm db:generate` → `db:migrate`), not ad-hoc SQL, unless the migration state notes above say otherwise.
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

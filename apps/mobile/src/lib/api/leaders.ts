@@ -1,69 +1,49 @@
 /*
  * /api/leaders client.
  *
- * The canonical shape (`LeaderCard`) lives in apps/web's
- * src/lib/server/queries/leaders.ts. Mobile defines a narrower view-model
- * (`LeaderRow`) that surfaces only what the list UI shows; the mapper here
- * is the only place that knows the full API shape, so the rest of mobile
- * never touches fields it doesn't display.
+ * The canonical shape (`EpLeaderCard`) lives in apps/api's
+ * src/lib/server/queries/ep-leaders.ts. The list is now the Extremely
+ * Profitable Hyperdash roster — no Swash score, no account value, no 30d
+ * curve, no heat/winner tags, no live holdings. The card surfaces all-time
+ * cohort PnL, win rate, trade count, and the trader's best ("alfa") coin.
  */
 
 import { apiGet, type ApiOk } from './client';
 
-export type LeaderSort = 'score' | 'pnl' | 'equity' | 'frequency';
+export type LeaderSort = 'pnl' | 'winrate';
 
-/** Currently-open positions snapshot — top by notional + total count.
- *  Mirrors HoldingsByAddress in apps/web/.../queries/holdings.ts. */
-export interface Holding {
+/** A top asset for a trader (coin + volume + pnl), from the EP roster. */
+export interface TopAsset {
   coin: string;
-  notional_usd: number | null;
-  side: 'long' | 'short' | null;
+  volumeUsd: number;
+  pnlUsd: number;
 }
 
-export interface Holdings {
-  top: Holding[];
-  total: number;
-}
-
-/** Mobile-only view of a leader row. Subset of apps/web's `LeaderCard`. */
+/** Mobile view of a leader row — mirrors apps/api's `EpLeaderCard`. */
 export interface LeaderRow {
   address: string;
-  score: number | null;
-  primary_tag: string | null;
-  account_value: number | null;
-  total_pnl_usd: number | null;
-  roi: number | null;
-  win_rate: number | null;
-  sharpe: number | null;
-  primary_asset: string | null;
+  /** Hyperdash display name — shown over the short address when present. */
+  display_name: string | null;
+  /** All-time cohort PnL (USD) — the card headline. NOT a 30d figure. */
+  pnl_usd: number;
+  /** 0–100 (already a percentage). */
+  winrate_pct: number;
+  total_trades: number;
+  /** Trader's best coin by PnL — drives the "alfa coin" chip. Null when the
+   *  trader has no top assets. */
   alfa_coin: string | null;
-  holdings: Holdings;
-  winner: boolean;
-  winner_rank: number | null;
+  /** Top 3 assets by PnL. */
+  top_assets: TopAsset[];
 }
 
 interface RawLeaderCard {
   address: string;
-  score: number | null;
-  primary_tag: string | null;
-  account_value: number | null;
-  metrics: {
-    total_pnl_usd: number | null;
-    roi: number | null;
-    win_rate: number | null;
-    sharpe: number | null;
-    sortino: number | null;
-    psr: number | null;
-    max_drawdown_pct: number | null;
-    total_trades: number;
-    avg_hold_seconds: number | null;
-    trades_per_month: number | null;
-  };
-  primary_asset: string | null;
-  alfa_coin: string | null;
-  holdings: Holdings;
-  winner: boolean;
-  winner_rank: number | null;
+  displayName?: string | null;
+  pnlUsd: number;
+  winratePct: number;
+  totalTrades: number;
+  alfaCoin: string | null;
+  topAssets: TopAsset[];
 }
 
 interface ListLeadersResponse {
@@ -113,18 +93,12 @@ export async function listLeaders(args: LeaderListArgs = {}): Promise<LeaderList
 function toLeaderRow(card: RawLeaderCard): LeaderRow {
   return {
     address: card.address,
-    score: card.score,
-    primary_tag: card.primary_tag,
-    account_value: card.account_value,
-    total_pnl_usd: card.metrics.total_pnl_usd,
-    roi: card.metrics.roi,
-    win_rate: card.metrics.win_rate,
-    sharpe: card.metrics.sharpe,
-    primary_asset: card.primary_asset,
-    alfa_coin: card.alfa_coin,
-    holdings: card.holdings,
-    winner: card.winner,
-    winner_rank: card.winner_rank,
+    display_name: card.displayName ?? null,
+    pnl_usd: card.pnlUsd,
+    winrate_pct: card.winratePct,
+    total_trades: card.totalTrades,
+    alfa_coin: card.alfaCoin,
+    top_assets: card.topAssets,
   };
 }
 
