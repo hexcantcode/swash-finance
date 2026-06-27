@@ -5,8 +5,8 @@
     "buildCommand": "corepack enable && pnpm install --frozen-lockfile --ignore-scripts"
   },
   "deploy": {
-    "startCommand": "pnpm --filter @copytrade/worker start",
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
+    "startCommand": "pnpm --filter @copytrade/worker run cohort-snapshot",
+    "cronSchedule": "1-59/5 * * * *",
+    "restartPolicyType": "NEVER"
   }
 }
