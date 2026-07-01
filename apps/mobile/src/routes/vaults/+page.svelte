@@ -62,7 +62,7 @@
   {:else if vaults.length === 0}
     <div class="m-empty safe-x">No vaults to show yet.</div>
   {:else}
-    <ul class="m-card-list">
+    <ul class="m-vault-list safe-x">
       {#each vaults as v (v.coin)}
         <li>
           <a class="m-vault-row tappable-row" href={`/vaults/${encodeURIComponent(v.coin)}`}>
@@ -71,10 +71,9 @@
                 <img src={coinIconUrl(v.coin)} alt="" loading="lazy" />
               {/if}
             </span>
-            <div class="m-vault-main">
-              <div class="m-vault-name">{coinDisplayName(v.coin)}</div>
-              <div class="m-vault-held">{heldLine(v)}</div>
-              <div class="m-vault-breadth">{v.contributors ?? v.traders} pro traders</div>
+            <div class="m-vault-copy">
+              <span class="m-vault-name">{coinDisplayName(v.coin)}</span>
+              <span class="m-vault-sub">{heldLine(v)} · {v.contributors ?? v.traders} pros</span>
             </div>
             <div class="m-vault-call is-{v.direction}">
               <span class="m-vault-dir">{v.direction === 'flat' ? 'FLAT' : v.direction.toUpperCase()}</span>
@@ -127,16 +126,28 @@
     color: var(--stripe-text-secondary);
   }
 
+  .m-vault-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
   .m-vault-row {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    min-height: var(--touch-comfortable);
+    padding: var(--space-2) var(--space-1);
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--stripe-border);
+  }
+  .m-vault-row:last-child {
+    border-bottom: none;
   }
   .m-vault-icon {
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-full);
     overflow: hidden;
     background: var(--stripe-bg-secondary);
@@ -149,8 +160,8 @@
     height: 100%;
     object-fit: contain;
   }
-  .m-vault-main {
-    flex: 1;
+  .m-vault-copy {
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -162,14 +173,13 @@
     font-weight: 600;
     color: var(--stripe-text-primary);
   }
-  .m-vault-held {
+  .m-vault-sub {
     font-family: var(--font-mono);
     font-size: var(--type-footnote);
     color: var(--stripe-text-secondary);
-  }
-  .m-vault-breadth {
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .m-vault-call {
     flex: 0 0 auto;
