@@ -1,6 +1,23 @@
 # Swash — working notes for agents
 
-Repo: `github.com/hexcantcode/swash.finance` · monorepo (`apps/api` SvelteKit BFF, `apps/mobile` SvelteKit client, `apps/worker`, `packages/{db,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
+Repo: `github.com/hexcantcode/swash-finance` · monorepo (`apps/api` SvelteKit BFF, `apps/mobile` SvelteKit client, `apps/worker`, `packages/{db,shared,hl-client}`) · pnpm workspace · DB = Neon Postgres + Drizzle.
+
+## Repo, branches & deploy (current — 2026-07-01)
+
+- **Canonical repo: `hexcantcode/swash-finance`** (this is `origin`). The old
+  `hexcantcode/swash.finance` is **DEPRECATED** — do not push/PR there; it's kept only
+  as read-only history.
+- **Deployed on Railway**, project `adventurous-alignment` (may be renamed `swash`):
+  three services from `main` — **api** (`swashfinance-production.up.railway.app`),
+  **mobile** (`mobile-production-9cad.up.railway.app`), **worker** (cohort-snapshot cron).
+  `git push origin main` auto-deploys. Deploy runbook + the pnpm-monorepo gotcha:
+  `docs/RAILWAY.md`.
+- **Branches:** `main` = the deployed EP-pivot app. `conviction-vaults` = active
+  Conviction Vault work built on the **pre-pivot** base (see `docs/plans/2026-07-01-conviction-vault-master-plan.md`); it must be reconciled onto the EP/main base later.
+  `backup/pre-pivot-wip` + `archive/*` = safety backups.
+- **Data source:** the app currently reads **Hyperdash** (MVP). The plan to replace it
+  with our own HL-native backend (foundation for the vaults) is
+  `docs/plans/2026-07-01-hl-native-backend-plan.md`.
 
 ---
 
