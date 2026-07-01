@@ -24,6 +24,9 @@ import pg8000.dbapi
 
 ASSETS = ["BTC", "xyz:SP500"]
 LEV_CAP = 3.0
+CONV_POWER = 1.5       # emphasize conviction (weight = q · conviction^CONV_POWER).
+                       # >1 makes high-conviction (big fraction of own book) dominate;
+                       # raw notional size never enters. Calibrate in Part VII.
 BREADTH_MIN = 3        # relaxed for the thin early sample (calibrate later)
 S_ON, S_OFF = 0.12, 0.08
 
@@ -72,11 +75,12 @@ def main():
         qi = q.get(wallet, 0.0)
         if qi <= 0:
             continue
-        conv = min(notional / equity, LEV_CAP)
+        conv = min(notional / equity, LEV_CAP) ** CONV_POWER
         d = 1.0 if szi > 0 else -1.0
+        w = qi * conv
         a = agg.setdefault((ts, coin), [0.0, 0.0, 0])
-        a[0] += d * qi * conv
-        a[1] += qi * conv
+        a[0] += d * w
+        a[1] += w
         a[2] += 1
 
     rows = []
