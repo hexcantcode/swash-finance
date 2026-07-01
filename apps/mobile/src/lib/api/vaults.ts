@@ -43,10 +43,17 @@ export interface VaultContributor {
   score: number | null;
 }
 
+export interface VaultNavPoint {
+  ts: number;
+  vaultNav: number;
+  assetNav: number;
+}
+
 export interface VaultDetail {
   summary: VaultSummary;
   skewHistory: VaultSkewPoint[];
   contributors: VaultContributor[];
+  navHistory: VaultNavPoint[];
 }
 
 interface VaultDetailResponse {
@@ -54,10 +61,16 @@ interface VaultDetailResponse {
   summary: VaultSummary;
   skewHistory: VaultSkewPoint[];
   contributors: VaultContributor[];
+  navHistory: VaultNavPoint[];
 }
 
 export async function getVaultDetail(coin: string): Promise<VaultDetail | null> {
   const body = await apiGet<VaultDetailResponse>(`/api/vaults/${encodeURIComponent(coin)}`);
   if (!body.ok) return null;
-  return { summary: body.summary, skewHistory: body.skewHistory, contributors: body.contributors };
+  return {
+    summary: body.summary,
+    skewHistory: body.skewHistory,
+    contributors: body.contributors,
+    navHistory: body.navHistory ?? [],
+  };
 }

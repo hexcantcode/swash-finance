@@ -45,6 +45,26 @@
       })
       .join(' ');
   });
+
+  // Vault-vs-asset comparison (paper NAV, both indexed to 100). Gated on some history.
+  const NAV_GATE = 3;
+  const navChart = $derived.by(() => {
+    const h = detail?.navHistory ?? [];
+    if (h.length < NAV_GATE) return null;
+    const all = h.flatMap((p) => [p.vaultNav, p.assetNav]);
+    const lo = Math.min(...all);
+    const rng = Math.max(...all) - lo || 1;
+    const line = (key: 'vaultNav' | 'assetNav') =>
+      h
+        .map((p, i) => {
+          const x = (i / (h.length - 1)) * W;
+          const y = (1 - (p[key] - lo) / rng) * H;
+          return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+        })
+        .join(' ');
+    const last = h[h.length - 1]!;
+    return { vault: line('vaultNav'), asset: line('assetNav'), vaultLast: last.vaultNav, assetLast: last.assetNav };
+  });
 </script>
 
 <svelte:head>
@@ -86,6 +106,24 @@
         <div class="m-vd-axis"><span>long</span><span>short</span></div>
       {:else}
         <p class="m-vd-thin">Track builds as snapshots accrue (every 30 min).</p>
+      {/if}
+    </section>
+
+    <!-- Vault vs. holding the asset (paper NAV) -->
+    <section class="m-vd-section safe-x">
+      <h2 class="m-vd-h2">Vault vs. holding {coinDisplayName(coin)}</h2>
+      {#if navChart}
+        <svg class="m-vd-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+          <path d={navChart.asset} class="m-vd-nav-asset" fill="none" />
+          <path d={navChart.vault} class="m-vd-nav-vault" fill="none" />
+        </svg>
+        <div class="m-vd-legend">
+          <span class="m-vd-leg is-vault">Vault {navChart.vaultLast.toFixed(1)}</span>
+          <span class="m-vd-leg is-asset">Hold {navChart.assetLast.toFixed(1)}</span>
+        </div>
+        <p class="m-vd-thin">Paper · since inception, base 100 · observed, not a validated result.</p>
+      {:else}
+        <p class="m-vd-thin">The vault-vs-hold comparison builds as history accrues.</p>
       {/if}
     </section>
 
@@ -197,6 +235,19 @@
     margin-top: 2px;
   }
   .m-vd-thin { font-size: var(--type-footnote); color: var(--stripe-text-tertiary); margin: 0; }
+
+  .m-vd-nav-vault { stroke: var(--stripe-accent); stroke-width: 2; }
+  .m-vd-nav-asset { stroke: var(--stripe-text-tertiary); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .m-vd-legend {
+    display: flex;
+    gap: var(--space-3);
+    margin: var(--space-1) 0 2px;
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-vd-leg.is-vault { color: var(--stripe-accent); }
+  .m-vd-leg.is-asset { color: var(--stripe-text-tertiary); }
 
   .m-vd-traders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
   .m-vd-trader { display: flex; align-items: center; gap: var(--space-3); }

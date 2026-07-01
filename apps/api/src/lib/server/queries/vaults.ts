@@ -60,10 +60,19 @@ export interface VaultContributor {
   score: number | null;
 }
 
+export interface VaultNavPoint {
+  ts: number;
+  /** paper vault NAV, indexed to 100 at inception. */
+  vaultNav: number;
+  /** buy-and-hold asset NAV, indexed to 100. */
+  assetNav: number;
+}
+
 export interface VaultDetail {
   summary: VaultSummary;
   skewHistory: VaultSkewPoint[];
   contributors: VaultContributor[];
+  navHistory: VaultNavPoint[];
 }
 
 /** One vault's detail: latest signal summary + skew history + contributing traders. */
@@ -130,7 +139,21 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
     score: c.copy_score === null ? null : Math.round(Number(c.copy_score)),
   }));
 
-  return { summary, skewHistory, contributors };
+  // Paper NAV comparison (vault vs buy-and-hold), if computed yet.
+  let navHistory: VaultNavPoint[] = [];
+  try {
+    const { rows: navRows } = await pool.query(
+      `SELECT ts, vault_nav, asset_nav FROM vault_nav WHERE coin = $1 ORDER BY ts ASC`,
+      [coin],
+    );
+    navHistory = navRows.map((n): VaultNavPoint => ({
+      ts: Number(n.ts), vaultNav: Number(n.vault_nav), assetNav: Number(n.asset_nav),
+    }));
+  } catch {
+    // vault_nav not created yet — comparison chart stays gated.
+  }
+
+  return { summary, skewHistory, contributors, navHistory };
 }
 
 /** Top-12 vaults by EP-cohort volume, each with its latest signal. */
