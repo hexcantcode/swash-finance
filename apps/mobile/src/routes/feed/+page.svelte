@@ -1,12 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import {
-    getMostHeld,
     getCohortSentiment,
     getHyperdashPositions,
     getHyperdashTrades,
-    type CategorizedMostHeld,
-    type MostHeldRow,
     type CohortFeed,
     type MarketSentiment,
     type MarketPositions,
@@ -29,8 +26,9 @@
 
   let tab = $state<Tab>('sentiment');
   let trades = $state<SmartTrade[]>([]);
+  // Hide noise: only surface closed trades with a meaningful realized P/L (≥ $1k either way).
+  let visibleTrades = $derived(trades.filter((t) => Math.abs(t.netPnlUsd) >= 1000));
   let positionMarkets = $state<MarketPositions[]>([]);
-  let mostHeld = $state<CategorizedMostHeld | null>(null);
   let cohortFeed = $state<CohortFeed | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
@@ -46,15 +44,13 @@
     if (!opts.silent) loading = true;
     errorMsg = null;
     try {
-      const [tr, pos, held, cohorts] = await Promise.all([
+      const [tr, pos, cohorts] = await Promise.all([
         getHyperdashTrades(),
         getHyperdashPositions(),
-        getMostHeld(),
         getCohortSentiment(),
       ]);
       trades = tr;
       positionMarkets = pos;
-      mostHeld = held;
       cohortFeed = cohorts;
     } catch (err) {
       errorMsg = (err as Error).message || 'Failed to load feed';
@@ -72,7 +68,7 @@
       if (tab === 'trades') trades = await getHyperdashTrades();
       else if (tab === 'positions') positionMarkets = await getHyperdashPositions();
       else if (tab === 'sentiment') {
-        [mostHeld, cohortFeed] = await Promise.all([getMostHeld(), getCohortSentiment()]);
+        cohortFeed = await getCohortSentiment();
       }
     } catch {
       // Keep the stale snapshot; the next poll retries.
@@ -98,15 +94,6 @@
     if (pollTimer) clearTimeout(pollTimer);
     abortCtrl?.abort();
   });
-
-  const sentimentSections = $derived(
-    mostHeld
-      ? ([
-          { label: 'Stock & Commodity', rows: mostHeld.stocks },
-          { label: 'Crypto', rows: mostHeld.crypto },
-        ] as const).filter((s) => s.rows.length > 0)
-      : [],
-  );
 
   /** Split the cohort's markets into Stocks & Commodities / Crypto. The dex
    *  prefix (e.g. `XYZ:` on TradFi markets) is what `coinCategory` needs to tell
@@ -157,13 +144,6 @@
     }
   }
 
-  /** Green-segment width % for a sentiment bar — long notional as a share of
-   *  total directional notional. Falls back to 50/50 when both sides are 0. */
-  function longPct(r: { longNotionalUsd: number; shortNotionalUsd: number }): number {
-    const total = r.longNotionalUsd + r.shortNotionalUsd;
-    return total > 0 ? (r.longNotionalUsd / total) * 100 : 50;
-  }
-
   /** Compact USD price: full number with thousands separators (no cents) at
    *  ≥ $1000, two decimals below, more for sub-dollar coins. Keeps the
    *  three-column price strip readable on narrow phones. '—' when absent. */
@@ -202,17 +182,7 @@
       class:is-active={tab === 'sentiment'}
       onclick={() => (tab = 'sentiment')}
     >
-      Vibes
-    </button>
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === 'positions'}
-      class="m-tab tappable tap-hit"
-      class:is-active={tab === 'positions'}
-      onclick={() => (tab = 'positions')}
-    >
-      Positions
+      Sentiment
     </button>
     <button
       type="button"
@@ -223,6 +193,16 @@
       onclick={() => (tab = 'trades')}
     >
       Trades
+    </button>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === 'positions'}
+      class="m-tab tappable tap-hit"
+      class:is-active={tab === 'positions'}
+      onclick={() => (tab = 'positions')}
+    >
+      Positions
     </button>
   </div>
 
@@ -246,12 +226,12 @@
       </button>
     </div>
   {:else if tab === 'trades'}
-    {#if trades.length === 0}
+    {#if visibleTrades.length === 0}
       <div class="m-empty safe-x">No closed trades yet.</div>
     {:else}
-      <!-- Smart-money closed trades — recent round-trips by the copytraders. -->
+      <!-- Smart-money closed trades — recent round-trips by the EP cohort. -->
       <ul class="m-card-list">
-        {#each trades as t (t.address + t.coin + t.closedAtMs)}
+        {#each visibleTrades as t (t.address + t.coin + t.closedAtMs)}
           {@const isLong = t.direction.toLowerCase() === 'long'}
           <li>
             <a class="m-feed-row tappable-row" href={`/trader/${t.address}`}>
@@ -311,10 +291,9 @@
                     <div class="m-feed-line-1">
                       <span class="m-feed-address">{p.displayName || shortAddress(p.address, 4, 4)}</span>
                       <span class="m-feed-action {p.side === 'long' ? 'is-buy' : 'is-sell'}">{p.side}</span>
-                      <span class="m-pos-copy">copy {Math.round(p.copyScore)}</span>
                     </div>
                     <div class="m-feed-line-2">
-                      <span class="m-feed-size">{formatUsd(p.notionalUsd)}</span>
+                      <span class="m-feed-size">size {formatUsd(p.notionalUsd)}</span>
                       <span class="m-feed-dot">·</span>
                       <span>entry {fmtPrice(p.entryPxUsd)}</span>
                     </div>
@@ -374,48 +353,6 @@
       </section>
     {/if}
 
-    {#if sentimentSections.length === 0}
-      <div class="m-empty safe-x">No positions to summarize.</div>
-    {:else}
-      <div class="m-sentiment">
-        {#each sentimentSections as section (section.label)}
-        <h2 class="m-sent-head safe-x">{section.label}</h2>
-        <ul class="m-list">
-          {#each section.rows as r (r.coin)}
-            <li class="m-sent-row">
-              <div class="m-sent-top">
-                <span class="m-feed-coin">
-                  {#if coinIconUrl(r.coin)}
-                    <img src={coinIconUrl(r.coin)} style:background-color={coinIconBg(r.coin)} style:padding={coinIconBg(r.coin) ? '2px' : null} alt="" loading="lazy" />
-                  {/if}
-                  {coinDisplayName(r.coin)}
-                </span>
-                <!-- $ at stake is the primary measure (it's what the bar is
-                     weighted by); trader counts are the secondary read below. -->
-                <span class="m-sent-notionals">
-                  <span class="is-long">{formatUsd(r.longNotionalUsd)} long</span>
-                  <span class="m-sent-sep">·</span>
-                  <span class="is-short">{formatUsd(r.shortNotionalUsd)} short</span>
-                </span>
-              </div>
-              <div
-                class="m-sent-bar"
-                role="img"
-                aria-label={`${formatUsd(r.longNotionalUsd)} long vs ${formatUsd(r.shortNotionalUsd)} short, by ${r.longCount} long and ${r.shortCount} short traders`}
-              >
-                <span class="m-sent-bar-long" style:width={`${longPct(r)}%`}></span>
-                <span class="m-sent-bar-short" style:width={`${100 - longPct(r)}%`}></span>
-              </div>
-              <div class="m-sent-foot">
-                <span>{r.longCount} {r.longCount === 1 ? 'trader' : 'traders'} long</span>
-                <span>{r.shortCount} short</span>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/each}
-      </div>
-    {/if}
   {/if}
 </main>
 
@@ -608,12 +545,6 @@
     color: var(--stripe-text-tertiary);
     white-space: nowrap;
   }
-  .m-pos-copy {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-    white-space: nowrap;
-  }
 
   /* ── Sentiment ──────────────────────────────────────────────────────── */
   .m-sent-head {
@@ -624,9 +555,6 @@
     text-transform: uppercase;
     color: var(--stripe-text-secondary);
     margin: var(--space-4) 0 var(--space-2);
-  }
-  .m-sentiment > .m-list:not(:last-child) {
-    margin-bottom: var(--space-2);
   }
 
   /* ── Cohort market sentiment (top of the Sentiment tab) ─────────────── */
@@ -733,59 +661,6 @@
     flex-direction: column;
     gap: 6px;
     padding: var(--space-3) var(--space-4);
-  }
-
-  .m-sent-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    font-family: var(--font-mono);
-    font-size: var(--type-callout);
-  }
-
-  .m-sent-notionals {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-footnote);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .m-sent-sep {
-    color: var(--stripe-text-tertiary);
-  }
-  .is-long {
-    color: var(--stripe-success);
-  }
-  .is-short {
-    color: var(--stripe-danger);
-  }
-
-  /* Dollar-weighted long/short bar — green | red, proportional to notional. */
-  .m-sent-bar {
-    display: flex;
-    height: 8px;
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    background: var(--stripe-bg-secondary);
-  }
-  .m-sent-bar-long {
-    background: var(--stripe-success);
-  }
-  .m-sent-bar-short {
-    background: var(--stripe-danger);
-  }
-
-  .m-sent-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
   }
 
   /* Skeleton bones and error/empty states come from the shared layer in

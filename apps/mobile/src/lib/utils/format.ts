@@ -25,12 +25,22 @@ export function formatPnl(value: number | string | null | undefined): string {
   return `${sign}$${USD_FORMATTER.format(Math.round(abs))}`;
 }
 
-export function formatUsd(value: number | string | null | undefined, opts: { precise?: boolean } = {}): string {
+export function formatUsd(
+  value: number | string | null | undefined,
+  opts: { precise?: boolean; decimals?: number } = {},
+): string {
   if (value === null || value === undefined) return '–';
   const n = typeof value === 'string' ? Number.parseFloat(value) : value;
   if (!Number.isFinite(n)) return '–';
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
+  // Fixed fraction digits (e.g. a price shown to exactly N decimals), grouped.
+  if (opts.decimals !== undefined) {
+    return `${sign}$${abs.toLocaleString('en-US', {
+      minimumFractionDigits: opts.decimals,
+      maximumFractionDigits: opts.decimals,
+    })}`;
+  }
   if (opts.precise) {
     return `${sign}$${abs.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
   }

@@ -1,15 +1,15 @@
 <script lang="ts">
   /*
-   * Live trade tape — a continuous marquee of the latest fills, mirroring the
-   * web app's TradeTicker. Self-contained: fetches once on mount (it's
-   * non-critical chrome, so failures stay silent and the bar just hides).
+   * Trade tape — a continuous marquee of the EP cohort's recent closed trades,
+   * the same source as the feed's Trades tab. Self-contained: fetches once on
+   * mount (it's non-critical chrome, so failures stay silent and the bar hides).
    */
   import { onMount } from 'svelte';
-  import { getLatestFills, mergeFills, type LatestFill } from '$lib/api/feed';
+  import { getHyperdashTrades, type SmartTrade } from '$lib/api/feed';
   import { coinDisplayName } from '$lib/utils/coin';
   import { effigyUrl, formatRelativeTime, formatUsd } from '$lib/utils/format';
 
-  let trades = $state<LatestFill[]>([]);
+  let trades = $state<SmartTrade[]>([]);
   // Track first-load completion so we can hold the bar's space with a skeleton
   // until data arrives — avoids the tape popping in late and shoving the page
   // content below it down.
@@ -21,7 +21,7 @@
 
   onMount(async () => {
     try {
-      trades = mergeFills(await getLatestFills()).slice(0, 24);
+      trades = (await getHyperdashTrades()).slice(0, 24);
     } catch {
       // Non-critical: leave trades empty so the ticker simply doesn't render.
     } finally {
@@ -37,12 +37,12 @@
   <div class="m-ticker" role="region" aria-label="Recent trades">
     <span class="m-ticker-live">
       <span class="m-ticker-pulse" aria-hidden="true"></span>
-      Live
     </span>
     <div class="m-ticker-mask">
       <div class="m-ticker-track">
-        {#each doubled as t, i (i + '-' + t.key)}
+        {#each doubled as t, i (i + '-' + t.address + t.coin + t.closedAtMs)}
           {@const dup = i >= trades.length}
+          {@const isLong = t.direction.toLowerCase() === 'long'}
           <a
             class="m-ticker-item"
             href={`/trader/${t.address}`}
@@ -57,14 +57,14 @@
               class="m-ticker-avatar"
             />
             <span
-              class="m-ticker-side {t.side === 'B' ? 'is-buy' : 'is-sell'}"
+              class="m-ticker-side {isLong ? 'is-buy' : 'is-sell'}"
               aria-hidden="true"
             >
-              {t.side === 'B' ? '↗' : '↘'}
+              {isLong ? '↗' : '↘'}
             </span>
             <span class="m-ticker-coin">{coinDisplayName(t.coin)}</span>
             <span class="m-ticker-notional">{formatUsd(t.notionalUsd)}</span>
-            <span class="m-ticker-time">{formatRelativeTime(new Date(t.blockTimeMs))}</span>
+            <span class="m-ticker-time">{formatRelativeTime(new Date(t.closedAtMs))}</span>
           </a>
         {/each}
       </div>
@@ -76,7 +76,6 @@
   <div class="m-ticker" aria-hidden="true">
     <span class="m-ticker-live">
       <span class="m-ticker-pulse"></span>
-      Live
     </span>
     <div class="m-ticker-mask">
       <div class="m-ticker-track m-ticker-track-skeleton">

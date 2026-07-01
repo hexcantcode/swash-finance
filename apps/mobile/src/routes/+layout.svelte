@@ -31,20 +31,21 @@
   });
 
   const path = $derived($page.url.pathname);
-  // Traders is the main page now (`/` = the leaderboard); `/trader/[address]`
-  // keeps the Traders tab lit too. The brand header shows on every page.
-  const tradersActive = $derived(path === '/' || path.startsWith('/trader'));
-  const assetsActive = $derived(path.startsWith('/assets'));
+  // Markets is the home now (`/` redirects to /assets). Light it for the root
+  // path too so the brand-logo home link reads as active during the redirect.
+  const assetsActive = $derived(path === '/' || path.startsWith('/assets'));
+  const vaultsActive = $derived(path.startsWith('/vaults'));
   const feedActive = $derived(path.startsWith('/feed'));
   const profileActive = $derived(path.startsWith('/profile'));
 
   // Bottom-nav icons. Inline SVG paths so we avoid the icon-library import
   // (and the Capacitor bundle ships fewer bytes).
   const ICON_PROFILE = 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0';
-  const ICON_TRADERS =
-    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75';
   // Markets = exchange arrows (Lucide arrow-right-left).
   const ICON_MARKETS = 'M16 3l4 4-4 4 M20 7H4 M8 21l-4-4 4-4 M4 17h16';
+  // Vaults = a safe: outer box + centered dial circle.
+  const ICON_VAULTS =
+    'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z';
   const ICON_FEED =
     'M5 5h.01 M10 5h.01 M15 5h.01 M19 5h.01 M5 10h.01 M10 10h.01 M15 10h.01 M19 10h.01 M5 15h.01 M10 15h.01 M15 15h.01 M19 15h.01 M5 19h.01 M10 19h.01 M15 19h.01 M19 19h.01';
 </script>
@@ -76,26 +77,6 @@
   <nav class="m-bottomnav" aria-label="Primary navigation">
     <div class="m-bottomnav-inner">
       <a
-        href="/"
-        class="m-bottomnav-item tappable"
-        class:is-active={tradersActive}
-        aria-current={tradersActive ? 'page' : undefined}
-      >
-        <svg
-          class="m-bottomnav-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d={ICON_TRADERS} />
-        </svg>
-        <span class="m-bottomnav-label">Traders</span>
-      </a>
-      <a
         href="/assets"
         class="m-bottomnav-item tappable"
         class:is-active={assetsActive}
@@ -114,6 +95,26 @@
           <path d={ICON_MARKETS} />
         </svg>
         <span class="m-bottomnav-label">Markets</span>
+      </a>
+      <a
+        href="/vaults"
+        class="m-bottomnav-item tappable"
+        class:is-active={vaultsActive}
+        aria-current={vaultsActive ? 'page' : undefined}
+      >
+        <svg
+          class="m-bottomnav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d={ICON_VAULTS} />
+        </svg>
+        <span class="m-bottomnav-label">Vaults</span>
       </a>
       <a
         href="/feed"

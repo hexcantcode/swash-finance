@@ -7,14 +7,12 @@
     getAsset,
     getCandles,
     getTopTraders,
-    getLatestOpens,
     CANDLE_RANGES,
     type Candle,
     type CandleRange,
     type TopTrader,
-    type TraderOpen,
   } from '$lib/api/asset-detail';
-  import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
+  import { getCohortSentiment, getHyperdashTrades, type MarketSentiment, type SmartTrade } from '$lib/api/feed';
   import type { Asset } from '$lib/api/assets';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
   import {
@@ -34,9 +32,12 @@
   let range = $state<CandleRange>('1d');
   let chartMode = $state<'line' | 'candle'>('line');
   let hovered = $state<{ price: number; time: number } | null>(null);
-  let tab = $state<'traders' | 'trades'>('traders');
+  let tab = $state<'trades' | 'traders'>('trades');
   let topTraders = $state<TopTrader[]>([]);
-  let latestOpens = $state<TraderOpen[]>([]);
+  // EP cohort's recent closed trades (the unified feed/ticker source), filtered
+  // to this market — so the asset page reads the same data as the feed.
+  let epTrades = $state<SmartTrade[]>([]);
+  let coinTrades = $derived(epTrades.filter((t) => t.coin.toLowerCase() === coin.toLowerCase()));
   // Smart-money cohort sentiment for this market, when the cohort feed covers
   // it (it ranks ~top-20 markets by notional; quieter coins won't appear).
   let sentiment = $state<MarketSentiment | null>(null);
@@ -88,9 +89,9 @@
   async function loadTraders() {
     if (!coin) return;
     try {
-      [topTraders, latestOpens] = await Promise.all([
+      [topTraders, epTrades] = await Promise.all([
         getTopTraders(coin),
-        getLatestOpens(coin),
+        getHyperdashTrades(),
       ]);
     } catch {
       // Non-fatal — the tabs show their empty state.
@@ -185,12 +186,12 @@
       <div class="m-chart-readout" aria-live="polite">
         {#if hovered}
           <span class="m-chart-readout-price">
-            {formatUsd(hovered.price, { precise: hovered.price < 100 })}
+            {formatUsd(hovered.price, { decimals: 3 })}
           </span>
           <span class="m-chart-readout-time">{formatHoverTime(hovered.time)}</span>
         {:else if asset}
           <span class="m-chart-readout-price">
-            {formatUsd(asset.price, { precise: (asset.price ?? 0) < 100 })}
+            {formatUsd(asset.price, { decimals: 3 })}
           </span>
           {#if changeSelected !== null}
             <span class="m-chart-readout-change {pnlSignClass(changeSelected)}">
@@ -250,16 +251,6 @@
         <button
           type="button"
           role="tab"
-          aria-selected={tab === 'traders'}
-          class="m-tab tappable tap-hit"
-          class:is-active={tab === 'traders'}
-          onclick={() => (tab = 'traders')}
-        >
-          Top traders
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={tab === 'trades'}
           class="m-tab tappable tap-hit"
           class:is-active={tab === 'trades'}
@@ -267,9 +258,40 @@
         >
           Latest trades
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'traders'}
+          class="m-tab tappable tap-hit"
+          class:is-active={tab === 'traders'}
+          onclick={() => (tab = 'traders')}
+        >
+          Top traders
+        </button>
       </div>
 
-      {#if tab === 'traders'}
+      {#if tab === 'trades'}
+        <div class="m-trader-list">
+          {#each coinTrades as t, i (`${t.address}-${t.closedAtMs}-${i}`)}
+            {@const isLong = t.direction.toLowerCase() === 'long'}
+            <a class="m-trader-row tappable-row" href={`/trader/${t.address}`}>
+              <img class="m-trader-avatar" src={effigyUrl(t.address)} alt="" loading="lazy" />
+              <div class="m-trader-copy">
+                <span class="m-trader-address">{t.displayName || shortAddress(t.address)}</span>
+                <span class="m-trade-side" class:is-long={isLong} class:is-short={!isLong}>
+                  {isLong ? 'Long' : 'Short'}
+                </span>
+              </div>
+              <div class="m-trader-stats">
+                <span class="m-trader-pnl {pnlSignClass(t.netPnlUsd)}">{formatPnl(t.netPnlUsd)}</span>
+                <span class="m-trader-roi">{formatRelativeTime(new Date(t.closedAtMs))}</span>
+              </div>
+            </a>
+          {:else}
+            <p class="m-trader-empty">No recent EP trades on {displayName}.</p>
+          {/each}
+        </div>
+      {:else}
         <div class="m-trader-list">
           {#each topTraders as t (t.address)}
             <a class="m-trader-row tappable-row" href={`/trader/${t.address}`}>
@@ -287,30 +309,6 @@
             </a>
           {:else}
             <p class="m-trader-empty">No closed trades on {displayName} yet.</p>
-          {/each}
-        </div>
-      {:else}
-        <div class="m-trader-list">
-          {#each latestOpens as o, i (`${o.address}-${o.blockTimeMs}-${i}`)}
-            <a class="m-trader-row tappable-row" href={`/trader/${o.address}`}>
-              <img class="m-trader-avatar" src={effigyUrl(o.address)} alt="" loading="lazy" />
-              <div class="m-trader-copy">
-                <span class="m-trader-address">{shortAddress(o.address)}</span>
-                <span
-                  class="m-trade-side"
-                  class:is-long={o.side === 'B'}
-                  class:is-short={o.side === 'A'}
-                >
-                  {o.side === 'B' ? 'Long' : 'Short'}
-                </span>
-              </div>
-              <div class="m-trader-stats">
-                <span class="m-trader-pnl">{formatUsd(o.pxUsd, { precise: o.pxUsd < 100 })}</span>
-                <span class="m-trader-roi">{formatRelativeTime(new Date(o.blockTimeMs))}</span>
-              </div>
-            </a>
-          {:else}
-            <p class="m-trader-empty">No recent opens on {displayName}.</p>
           {/each}
         </div>
       {/if}
@@ -416,7 +414,7 @@
   .m-chart-frame.is-loading {
     opacity: 0.6;
   }
-  /* A thin dotted midline across the chart's vertical center — a fixed visual
+  /* A thin dashed midline across the chart's vertical center — a fixed visual
      reference present on every range. Sits over the transparent canvas; the
      crosshair and series still read clearly above it. */
   .m-chart-frame::after {
@@ -425,7 +423,7 @@
     left: 0;
     right: 0;
     top: 50%;
-    border-top: 1px dotted var(--stripe-border);
+    border-top: 1px dashed var(--stripe-border);
     pointer-events: none;
   }
 

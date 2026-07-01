@@ -2,6 +2,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
+// Dev API target. Defaults to the local BFF on :5174; set API_PROXY_TARGET to
+// point the local mobile UI at a remote deployment (e.g. the Railway api).
+const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:5174';
+
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   server: {
@@ -18,11 +22,11 @@ export default defineConfig({
       // apps/web. The `/coins/[coin].svg` proxy is web's HL-CDN passthrough
       // (see `coinIconUrl`), so it needs the same forwarding as `/api`.
       '/api': {
-        target: 'http://localhost:5174',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/coins': {
-        target: 'http://localhost:5174',
+        target: apiTarget,
         changeOrigin: true,
       },
     },
