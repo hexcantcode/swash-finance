@@ -22,7 +22,8 @@ import sys
 import urllib.parse
 import pg8000.dbapi
 
-ASSETS = ["BTC", "xyz:SP500"]
+UNIVERSE_N = 20        # compute the signal for the top-N assets by EP-cohort volume
+                       # (the showcase page displays the top-12; extra headroom for rank shifts)
 LEV_CAP = 3.0
 CONV_POWER = 1.5       # emphasize conviction (weight = q · conviction^CONV_POWER).
                        # >1 makes high-conviction (big fraction of own book) dominate;
@@ -64,10 +65,16 @@ def main():
             q[a] = s / 100.0
     print(f"quality: {n_vault_grade} vault-grade q + {len(q) - n_vault_grade} copyScore fallback")
 
-    placeholders = ",".join(["%s"] * len(ASSETS))
+    # Universe = top-N coins by EP-cohort volume in the latest snapshot.
+    cur.execute("""WITH latest AS (SELECT max(ts) t FROM positions)
+                   SELECT coin FROM positions, latest
+                   WHERE ts = latest.t AND szi <> 0
+                   GROUP BY coin ORDER BY sum(position_value) DESC LIMIT %s""", (UNIVERSE_N,))
+    universe = [r[0] for r in cur.fetchall()]
+    placeholders = ",".join(["%s"] * len(universe))
     cur.execute(f"""SELECT ts, wallet, coin, szi, position_value, account_value
                     FROM positions
-                    WHERE coin IN ({placeholders}) AND szi <> 0 AND account_value > 0""", ASSETS)
+                    WHERE coin IN ({placeholders}) AND szi <> 0 AND account_value > 0""", universe)
     agg = {}  # (ts, coin) -> [signed_w, w, n]
     for ts, wallet, coin, szi, notional, equity in cur.fetchall():
         if not notional or not equity:
