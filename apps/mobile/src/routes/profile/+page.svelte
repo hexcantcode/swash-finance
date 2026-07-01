@@ -232,7 +232,10 @@
     position: absolute;
     top: var(--space-5);
     right: var(--space-5);
-    z-index: 1;
+    /* Above the balance content (z-index:1) — the label row spans full width
+       and, being later in the DOM, would otherwise paint over these buttons
+       and swallow taps on the theme switch. */
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
