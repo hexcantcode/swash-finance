@@ -45,9 +45,21 @@ def main():
         ts BIGINT, coin TEXT, s DOUBLE PRECISION, contributors INT, weight DOUBLE PRECISION,
         actionable TEXT, PRIMARY KEY (ts, coin))""")
 
-    # Placeholder quality: latest roster copyScore, normalized 0–1.
+    # Quality: vault-grade q (quality table) where it exists, else copyScore fallback.
+    # As snapshots accrue and quality_score.py scores wallets, the signal auto-upgrades
+    # from copyScore-weighted to vault-grade-q-weighted with no code change.
+    q = {}
+    try:
+        cur.execute("SELECT wallet, q FROM quality WHERE q IS NOT NULL")
+        q = {w: float(qq) for w, qq in cur.fetchall()}
+    except Exception:
+        conn.rollback()  # quality table not created yet
+    n_vault_grade = len(q)
     cur.execute("SELECT address, copy_score FROM roster WHERE ts=(SELECT max(ts) FROM roster)")
-    q = {a: (s / 100.0 if s is not None else 0.0) for a, s in cur.fetchall()}
+    for a, s in cur.fetchall():
+        if a not in q and s is not None:
+            q[a] = s / 100.0
+    print(f"quality: {n_vault_grade} vault-grade q + {len(q) - n_vault_grade} copyScore fallback")
 
     placeholders = ",".join(["%s"] * len(ASSETS))
     cur.execute(f"""SELECT ts, wallet, coin, szi, position_value, account_value
@@ -80,7 +92,7 @@ def main():
                          weight=EXCLUDED.weight, actionable=EXCLUDED.actionable""", r)
     conn.commit()
 
-    print(f"quality (placeholder copyScore) for {len(q)} wallets · {len(rows)} signal points upserted")
+    print(f"{len(rows)} signal points upserted")
     print(f"{'ts':>16} {'coin':>10} {'s':>8} {'contrib':>8} {'actionable':>11}")
     for ts, coin, s, n, w, act in rows[-12:]:
         print(f"{ts:>16} {coin:>10} {s:>8.3f} {n:>8} {act:>11}")
