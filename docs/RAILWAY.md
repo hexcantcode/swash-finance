@@ -1,51 +1,60 @@
 # Railway deployment — Swash
 
-Single source of truth for how Swash deploys. Config-as-code lives in each app's
-`railway.json`; this doc covers the project shape + the one-time dashboard setup
-the CLI can't do (GitHub connect, per-service Root Directory, secrets).
+How Swash deploys. **Live as of 2026-07-01.** Config-as-code lives in each app's
+`railway.json`; the per-service Root Directory / Config File / cron / secrets are
+service settings (dashboard or Railway API).
 
-## Shape: 1 project, 3 services, 1 external DB
+## Live shape: 1 project, 3 services, 1 external DB
 
-Railway project **`swash`** (env `production`), all three services built from the
-**one GitHub repo `hexcantcode/swash.finance`, branch `main`**. The DB is **Neon**
-(external — not a Railway service); services just point `DATABASE_URL` at it.
+Railway project **`adventurous-alignment`** (env `production`) — *auto-named; rename
+to `swash` in Settings when convenient.* All three services deploy from the GitHub
+repo **`hexcantcode/swash-finance`, branch `main`**. DB is **Neon** (external).
 
-| Service | Root Directory | Role | Public domain | Env vars |
-|---|---|---|---|---|
-| **api** | `apps/api` | the single backend (BFF) — owns all `/api/*` | yes | `DATABASE_URL` |
-| **mobile** | `apps/mobile` | PWA frontend (pure `/api` client) | yes (user-facing) | `PUBLIC_API_BASE` = api's public URL |
-| **worker** | `apps/worker` | `cohort-snapshot` cron (every 5 min) | none | `DATABASE_URL` |
+| Service | Role | URL | Env vars |
+|---|---|---|---|
+| **api** (svc name `swash.finance`) | the single backend (BFF) | `https://swashfinance-production.up.railway.app` | `DATABASE_URL`* |
+| **mobile** | PWA frontend (pure `/api` client) | `https://mobile-production-9cad.up.railway.app` | `PUBLIC_API_BASE` = api URL |
+| **worker** | `cohort-snapshot` cron (every 5 min) | — (no domain) | `DATABASE_URL` |
 
-Flow: `mobile → api (/api) → Neon`; `worker → Neon`. `api` is the only backend
-the client talks to.
+\* api reads Hyperdash, not the DB, so `DATABASE_URL` on api is optional. Worker needs it.
 
-Each service's build/start/healthcheck is defined in its `railway.json`:
-- **api** — NIXPACKS build → `pnpm --filter @copytrade/api build`; start `node apps/api/build/index.js`; healthcheck `/api/health`.
-- **mobile** — build `pnpm --filter @copytrade/mobile build`; serves the static build; healthcheck `/`.
-- **worker** — no build (tsx runtime); **cron** `1-59/5 * * * *` → `pnpm --filter @copytrade/worker run cohort-snapshot`; `restartPolicyType: NEVER` (the schedule re-runs it; a failed snapshot just retries next cycle). The cron fires ~1 min after Hyperdash's 5-min recompute so it captures the fresh snapshot.
+## THE monorepo gotcha (this is the important part)
 
-## One-time dashboard setup (per service)
-The CLI can't set Root Directory or connect the GitHub app, so do this in the dashboard:
-1. New project **`swash`** → connect GitHub repo `hexcantcode/swash.finance`.
-2. Add service **api**: Source = repo `main`; **Settings → Root Directory = `apps/api`**; Networking → Generate Domain.
-3. Add service **mobile**: Root Directory `apps/mobile`; Generate Domain.
-4. Add service **worker**: Root Directory `apps/worker`. (No domain. The cron schedule comes from `railway.json`; confirm it shows under the service's cron settings.)
-5. Variables: `DATABASE_URL` on **api** + **worker** (the Neon string); `PUBLIC_API_BASE` on **mobile** = api's public URL.
+**Do NOT set Root Directory = `apps/api`.** With a shared pnpm workspace, that hides
+the root `pnpm-lock.yaml` from Nixpacks, which then falls back to `npm` and dies on
+`workspace:*` deps. Instead, per service:
 
-Railway reads each app's `railway.json` once Root Directory points at that app.
+- **Root Directory = empty** (repo root) → Nixpacks sees the workspace, uses pnpm.
+- **Config File = `apps/<app>/railway.json`** (Settings → "Railway Config File") →
+  Railway uses that app's build/start while building from the repo root.
 
-## CLI ops (after services exist + are linked)
-```bash
-railway link            # select project swash / env production / a service
-railway variables --set "DATABASE_URL=..."   # or PUBLIC_API_BASE on mobile
-railway up --service api          # deploy (or rely on GitHub auto-deploy on main)
-railway logs --service api        # stream build/run logs
-```
-Verify: `GET <api-domain>/api/health` → `{ok:true}`, `/api/leaders` returns EP wallets; mobile root loads and its `/api/*` calls reach api.
+Because the build context is the repo root, the config commands are **repo-root-relative**:
+- **api** — build `pnpm --filter @copytrade/api build`; start `node apps/api/build/index.js`; healthcheck `/api/health`.
+- **mobile** — build `pnpm --filter @copytrade/mobile build`; start `pnpm --filter @copytrade/mobile exec serve -s build -l $PORT` (adapter-static, `serve` is a dep); healthcheck `/`.
+- **worker** — no build; start `pnpm --filter @copytrade/worker run cohort-snapshot`.
+
+## Worker cron — set it in service settings, NOT railway.json
+
+Railway does **not** honor `deploy.cronSchedule` from `railway.json` (verified — it
+stayed `null`). Set the **Cron Schedule** on the worker service directly:
+`1-59/5 * * * *` (every 5 min, ~1 min after Hyperdash's recompute), with Restart
+Policy = **Never** (a one-shot that exits; the schedule re-runs it).
+
+## Reproduce / manage via CLI + API
+
+The CLI can't set Root Directory, Config File, or Cron — use the Railway GraphQL API
+(`https://backboard.railway.app/graphql/v2`, `Authorization: Bearer <token>` from
+`~/.railway/config.json` → `user.token`). **Send a browser `User-Agent`** or the WAF
+returns 403. Key mutations used: `serviceCreate`, `serviceConnect`,
+`serviceInstanceUpdate` (`rootDirectory:""`, `railwayConfigFile`, `cronSchedule`),
+`variableUpsert`, `serviceDomainCreate`, `serviceInstanceDeployV2`.
+
+Verify: `GET <api>/api/health` → `{ok:true}`, `/api/leaders` returns EP wallets;
+mobile root → 200; `cohort_sentiment_history` gets a fresh row every 5 min.
 
 ## Notes
-- `ecosystem.config.cjs` (PM2) is the **local** dev stack only; Railway uses the
-  `railway.json` configs above. The worker's long-running `index.ts` cron is for
-  local; Railway runs the one-shot CLI on a schedule.
+- `ecosystem.config.cjs` (PM2) is the **local** dev stack only.
 - DB = Neon `delicate-bird-68439522`; after the EP pivot it holds only
   `cohort_sentiment_history` (see `CLAUDE.md`).
+- The `railway.json` files keep `cronSchedule`/NIXPACKS as documentation, but the
+  *effective* settings live on the Railway services (dashboard/API) per above.
