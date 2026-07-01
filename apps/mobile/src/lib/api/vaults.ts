@@ -27,3 +27,37 @@ export async function getVaults(): Promise<VaultSummary[]> {
   const body = await apiGet<VaultsResponse>('/api/vaults');
   return body.vaults ?? [];
 }
+
+export interface VaultSkewPoint {
+  ts: number;
+  skew: number;
+  contributors: number;
+}
+
+export interface VaultContributor {
+  address: string;
+  displayName: string | null;
+  direction: 'long' | 'short';
+  convictionPct: number;
+  notionalUsd: number;
+  score: number | null;
+}
+
+export interface VaultDetail {
+  summary: VaultSummary;
+  skewHistory: VaultSkewPoint[];
+  contributors: VaultContributor[];
+}
+
+interface VaultDetailResponse {
+  ok: boolean;
+  summary: VaultSummary;
+  skewHistory: VaultSkewPoint[];
+  contributors: VaultContributor[];
+}
+
+export async function getVaultDetail(coin: string): Promise<VaultDetail | null> {
+  const body = await apiGet<VaultDetailResponse>(`/api/vaults/${encodeURIComponent(coin)}`);
+  if (!body.ok) return null;
+  return { summary: body.summary, skewHistory: body.skewHistory, contributors: body.contributors };
+}

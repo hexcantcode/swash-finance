@@ -65,7 +65,7 @@
     <ul class="m-card-list">
       {#each vaults as v (v.coin)}
         <li>
-          <div class="m-vault-row">
+          <a class="m-vault-row tappable-row" href={`/vaults/${encodeURIComponent(v.coin)}`}>
             <span class="m-vault-icon" style:background-color={coinIconBg(v.coin)} style:padding={coinIconBg(v.coin) ? '4px' : null}>
               {#if coinIconUrl(v.coin)}
                 <img src={coinIconUrl(v.coin)} alt="" loading="lazy" />
@@ -82,7 +82,7 @@
                 <span class="m-vault-skew">{skewPct(v)}</span>
               {/if}
             </div>
-          </div>
+          </a>
         </li>
       {/each}
     </ul>
