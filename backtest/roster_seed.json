@@ -1,0 +1,565 @@
+{
+"captured_at": "2026-07-01T11:13:58.729689+00:00",
+"roster": [
+{
+"address": "0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00",
+"displayName": null,
+"copyScore": 0,
+"pnl": "199832156.201075",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x5b5d51203a0f9079f8aeb098a6523a13f298c060",
+"displayName": null,
+"copyScore": 21.660385307005942,
+"pnl": "182759290.435542",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x7fdafde5cfb5465924316eced2d3715494c517d1",
+"displayName": "BobbyBigSize",
+"copyScore": 0,
+"pnl": "174327216.780179",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36",
+"displayName": null,
+"copyScore": 0,
+"pnl": "136028030.700237",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x880ac484a1743862989a441d6d867238c7aa311c",
+"displayName": "x35767",
+"copyScore": 0,
+"pnl": "109853041.764254",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x2ea18c23f72a4b6172c55b411823cdc5335923f4",
+"displayName": null,
+"copyScore": 0,
+"pnl": "106341324.52",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x20c2d95a3dfdca9e9ad12794d5fa6fad99da44f5",
+"displayName": null,
+"copyScore": 0,
+"pnl": "103198424.7",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xa312114b5795dff9b8db50474dd57701aa78ad1e",
+"displayName": null,
+"copyScore": 0,
+"pnl": "92595089.003095",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x45d26f28196d226497130c4bac709d808fed4029",
+"displayName": null,
+"copyScore": 35.33387953115387,
+"pnl": "73023858.77314",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x36715f6408819492c27c1a1538156af9a2bfe963",
+"displayName": null,
+"copyScore": 0,
+"pnl": "70121491.383076",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xd47587702a91731dc1089b5db0932cf820151a91",
+"displayName": null,
+"copyScore": 43.999643678407026,
+"pnl": "66255298.966433",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x5d2f4460ac3514ada79f5d9838916e508ab39bb7",
+"displayName": null,
+"copyScore": 35.606866945680814,
+"pnl": "65615408.900365",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x023a3d058020fb76cca98f01b3c48c8938a22355",
+"displayName": "Auros",
+"copyScore": 0,
+"pnl": "65502467.644422",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8af700ba841f30e0a3fcb0ee4c4a9d223e1efa05",
+"displayName": null,
+"copyScore": 48.036413039064996,
+"pnl": "59564796.981351",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8e096995c3e4a3f0bc5b3ea1cba94de2aa4d70c9",
+"displayName": "\u61a8\u5df4\u5c0f\u9f99",
+"copyScore": 21.075659856856806,
+"pnl": "59187290.637409",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x35d1151ef1aab579cbb3109e69fa82f94ff5acb1",
+"displayName": null,
+"copyScore": 0,
+"pnl": "59088891.475049",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x0ddf9bae2af4b874b96d287a5ad42eb47138a902",
+"displayName": "Penision Fund",
+"copyScore": 31.509990335160975,
+"pnl": "48528096.603775",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xcac19662ec88d23fa1c81ac0e8570b0cf2ff26b3",
+"displayName": null,
+"copyScore": 0,
+"pnl": "43567850.800094",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x56498e5f90c14060499b62b6f459b3e3fb9280c5",
+"displayName": null,
+"copyScore": 0,
+"pnl": "38633536.968679",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x4f7634c03ec4e87e14725c84913ade523c6fad5a",
+"displayName": null,
+"copyScore": 0,
+"pnl": "37787484.263755",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x418aa6bf98a2b2bc93779f810330d88cde488888",
+"displayName": null,
+"copyScore": 77.51444844323649,
+"pnl": "35513089.033067",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x082e843a431aef031264dc232693dd710aedca88",
+"displayName": null,
+"copyScore": 0,
+"pnl": "30155196.396947",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xd4c1f7e8d876c4749228d515473d36f919583d1d",
+"displayName": null,
+"copyScore": 0,
+"pnl": "29392924.106493",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x856c35038594767646266bc7fd68dc26480e910d",
+"displayName": null,
+"copyScore": 23.699803084155665,
+"pnl": "29312510.002662",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xe4178ba889ac1c931861533b98bb86cb9d4858c7",
+"displayName": null,
+"copyScore": 0,
+"pnl": "28269229.364056",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x939f95036d2e7b6d7419ec072bf9d967352204d2",
+"displayName": null,
+"copyScore": 26.970178756663703,
+"pnl": "27591678.059265",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xa87a233e8a7d8951ff790a2e39738086cb5f71b7",
+"displayName": null,
+"copyScore": 22.605231550718173,
+"pnl": "27348119.009052",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xfc667adba8d4837586078f4fdcdc29804337ca06",
+"displayName": null,
+"copyScore": 0,
+"pnl": "26858095.729169",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x99b1098d9d50aa076f78bd26ab22e6abd3710729",
+"displayName": "\u97e6\u5c0f\u5b9d.eth",
+"copyScore": 85.75467873845427,
+"pnl": "26408935.589029",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x123dbca6a27005a3c4ce10cb66ee8ece8fc13bff",
+"displayName": null,
+"copyScore": 0,
+"pnl": "25253196.876782",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x6859da14835424957a1e6b397d8026b1d9ff7e1e",
+"displayName": null,
+"copyScore": 20.828331933162826,
+"pnl": "25071717.209533",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xe86b057f5eb764c9738d6b0d38170befd0723664",
+"displayName": null,
+"copyScore": 0,
+"pnl": "24521152.811864",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x7717a7a245d9f950e586822b8c9b46863ed7bd7e",
+"displayName": null,
+"copyScore": 0,
+"pnl": "22883732.892973",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x1c020f03305acd09994c1910d440646e4a5f91b0",
+"displayName": null,
+"copyScore": 0,
+"pnl": "22834011.687831",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x152e41f0b83e6cad4b5dc730c1d6279b7d67c9dc",
+"displayName": null,
+"copyScore": 20.249003012062815,
+"pnl": "22070685.962084",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x9e8b1e51c642f4c8b87c6ba11c53d516a218afc4",
+"displayName": null,
+"copyScore": 18.8743528224126,
+"pnl": "20627484.264902",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xd5ff5491f6f3c80438e02c281726757baf4d1070",
+"displayName": null,
+"copyScore": 0,
+"pnl": "20090004.496747",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x162cc7c861ebd0c06b3d72319201150482518185",
+"displayName": "ABC",
+"copyScore": 0,
+"pnl": "19523418.73909",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8cc94dc843e1ea7a19805e0cca43001123512b6a",
+"displayName": null,
+"copyScore": 46.555862956652334,
+"pnl": "19419340.121938",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x1b526ff54f9f66c777fd34b7a802bb8d216ed41b",
+"displayName": null,
+"copyScore": 0,
+"pnl": "19136273.336473",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xfa6af5f4f7440ce389a1e650991eea45c161e13e",
+"displayName": null,
+"copyScore": 0,
+"pnl": "18967536.473448",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8decc13b6e83873a78126e99036f9442019fd0b5",
+"displayName": null,
+"copyScore": 0,
+"pnl": "17963815.74",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x7fe8cfe481ec2f702692a9152e3f002f3e417ac6",
+"displayName": null,
+"copyScore": 0,
+"pnl": "17383600.19",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x4196dc4a1dc7d3bfd5434adf04c829f4ccaf480d",
+"displayName": null,
+"copyScore": 22.313196353725452,
+"pnl": "16692940.221099",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xbfc79c444c41a74516bf31237ebf586a231480b4",
+"displayName": null,
+"copyScore": 15.156819754865609,
+"pnl": "15991562.443373",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xa9b95f2a2e7ef219021efc5c04c32761b8553bbd",
+"displayName": null,
+"copyScore": 15.812065056121833,
+"pnl": "15949237.722103",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x31dea2516beee92135b96f464eeec3cf292a13f2",
+"displayName": null,
+"copyScore": 0,
+"pnl": "15456730.746006",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8607a7d180de23645db594d90621d837749408d5",
+"displayName": "wanyekest",
+"copyScore": 55.40510120218279,
+"pnl": "15339085.296141",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xb9c0283968744b80aef904455bb3dfc7ffd6801e",
+"displayName": null,
+"copyScore": 0,
+"pnl": "15139011.7",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x71dfc07de32c2ebf1c4801f4b1c9e40b76d4a23d",
+"displayName": "VidaBWE",
+"copyScore": 38.67946729944212,
+"pnl": "14685744.260179",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xf28e1b06e00e8774c612e31ab3ac35d5a720085f",
+"displayName": null,
+"copyScore": 0,
+"pnl": "14535196.136373",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x7a6d5fc57f6906f337c48fe2763c3a501304f79c",
+"displayName": null,
+"copyScore": 0,
+"pnl": "14334092.82",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xf822fa0fd364c573fcdb7009fcf47601bc8be01a",
+"displayName": null,
+"copyScore": 0,
+"pnl": "14140214.132166",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x8bff50aad8b4e06c5e148eaeb9d7aef69e26cdc3",
+"displayName": null,
+"copyScore": 0,
+"pnl": "13810038.74",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x06cecfbac34101ae41c88ebc2450f8602b3d164b",
+"displayName": null,
+"copyScore": 54.86138586969322,
+"pnl": "13805170.273511",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x09bc1cf4d9f0b59e1425a8fde4d4b1f7d3c9410d",
+"displayName": null,
+"copyScore": 0,
+"pnl": "12664249.229769",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x3fc56e944aa7b1594c85861b2d46a07f82a2c0c1",
+"displayName": null,
+"copyScore": 66.65191667469341,
+"pnl": "12539360.592499",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x2025137a136bea7446deba681cbfc7cf1970840e",
+"displayName": null,
+"copyScore": 0,
+"pnl": "12309986.041559",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x218a65e21eddeece7a9df38c6bbdd89f692b7da2",
+"displayName": null,
+"copyScore": 16.43431860358728,
+"pnl": "12246444.272724",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x9cd0a696c7cbb9d44de99268194cb08e5684e5fe",
+"displayName": null,
+"copyScore": 0,
+"pnl": "12023148.737155",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x469e9a7f624b04c24f0e64edf8d8a277e6bf58a5",
+"displayName": null,
+"copyScore": 21.303808316357035,
+"pnl": "11947701.622682",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x015354106478dda69c4aae3c0cf801290b738052",
+"displayName": null,
+"copyScore": 17.391024099757526,
+"pnl": "11914174.01",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xfeec88b13fc0be31695069f02bac18538a154e9c",
+"displayName": null,
+"copyScore": 35.88863730117009,
+"pnl": "11368450.462744",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x0068ebb362048f1041f30176de5c958061f2a78f",
+"displayName": null,
+"copyScore": 0,
+"pnl": "11319975.495937",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x5bc43f38c2ddcd85857f218674cd384f172c3b0c",
+"displayName": null,
+"copyScore": 64.08307279515216,
+"pnl": "11207839.8066",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x41206f8efb51e5039e5b46e04e7866a4849f72d2",
+"displayName": null,
+"copyScore": 0,
+"pnl": "11194566.964041",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x577ae91c7b74f04ddb3a5b399ded8318e9895fd2",
+"displayName": null,
+"copyScore": 0,
+"pnl": "11049646.16",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xab15f1311653897cae7a60a8f82b7ad991df829a",
+"displayName": null,
+"copyScore": 0,
+"pnl": "10651007.228571",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xf3f496c9486be5924a93d67e98298733bb47057c",
+"displayName": "MELANIA",
+"copyScore": 0,
+"pnl": "10636027.36",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xfce053a5e461683454bf37ad66d20344c0e3f4c0",
+"displayName": null,
+"copyScore": 24.086506780373128,
+"pnl": "10623779.721101",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xe4d31c2541a9ce596419879b1a46ffc7cd202c62",
+"displayName": "Eric",
+"copyScore": 0,
+"pnl": "10577674.66",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x6666885961fec8ed58ddb45637ea41c02d6423f5",
+"displayName": null,
+"copyScore": 0.7490175530521352,
+"pnl": "10402133.855281",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x2d99fe0f36c1aebd28a1a2c0e82e8ca13c2ea351",
+"displayName": null,
+"copyScore": 23.394982738887737,
+"pnl": "10248326.92",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x089563d1f7e3d20791d3f4224bae908952332c21",
+"displayName": "tummster",
+"copyScore": 0,
+"pnl": "10215986.183689",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x9458f423df6569f053358ee9906613cd69c1ec04",
+"displayName": null,
+"copyScore": 0,
+"pnl": "10195177.135998",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xbadbb1de95b5f333623ebece7026932fa5039ee6",
+"displayName": null,
+"copyScore": 6.823383702383496,
+"pnl": "10172325.798241",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xbf732ea04197942783e34730ed6e0f6099575d58",
+"displayName": null,
+"copyScore": 25.019209891141767,
+"pnl": "9897412.691526",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x4e23288cee4960f9f962195c22948e4bc7ae20c3",
+"displayName": null,
+"copyScore": 19.22813227634866,
+"pnl": "9737786.909707",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0x091159a8106b077c13e89bc09701117e8b5f129a",
+"displayName": null,
+"copyScore": 24.740149921836974,
+"pnl": "9690001.517856",
+"pnlCohort": "Extremely Profitable"
+},
+{
+"address": "0xa4dedda59f2908b92ae192cfd494839373bcb3c4",
+"displayName": null,
+"copyScore": 79.74851662164689,
+"pnl": "9675661.53",
+"pnlCohort": "Extremely Profitable"
+}
+]
+}
