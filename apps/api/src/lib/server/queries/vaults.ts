@@ -56,7 +56,7 @@ export interface VaultContributor {
   /** position notional as a % of the trader's own account equity (conviction). */
   convictionPct: number;
   notionalUsd: number;
-  /** placeholder quality (copyScore 0–100) until vault-grade q is live. */
+  /** blended quality q_eff (0–100): DSR shrunk toward the copyScore prior by history depth. */
   score: number | null;
 }
 
@@ -118,16 +118,24 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
   }));
 
   // Contributing traders (latest snapshot), sorted by the vault weight
-  // (score² × √conviction — score primary, size secondary; mirrors forward_test.py).
+  // (q_eff² × √conviction — score primary, size secondary; mirrors forward_test.py,
+  // where q_eff = λ·DSR + (1−λ)·copyScore prior, λ = n_obs/(n_obs+180)).
   const { rows: cRows } = await pool.query(
     `WITH latest_pos AS (SELECT max(ts) AS t FROM positions),
      latest_roster AS (SELECT max(ts) AS t FROM roster)
-     SELECT p.wallet, p.szi, p.position_value, p.account_value, ro.display_name, ro.copy_score
+     SELECT p.wallet, p.szi, p.position_value, p.account_value, ro.display_name,
+            (COALESCE(qu.n_obs, 0) / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(qu.q, 0)
+              + (180.0 / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(ro.copy_score, 0) / 100.0
+              AS q_eff
      FROM positions p
      CROSS JOIN latest_pos
      LEFT JOIN roster ro ON ro.address = p.wallet AND ro.ts = (SELECT t FROM latest_roster)
+     LEFT JOIN quality qu ON qu.wallet = p.wallet
      WHERE p.ts = latest_pos.t AND p.coin = $1 AND p.szi <> 0 AND p.account_value > 0
-     ORDER BY POWER(COALESCE(ro.copy_score, 0) / 100.0, 2) * POWER(LEAST(p.position_value / p.account_value, 3), 0.5) DESC
+     ORDER BY POWER(
+       (COALESCE(qu.n_obs, 0) / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(qu.q, 0)
+         + (180.0 / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(ro.copy_score, 0) / 100.0,
+       2) * POWER(LEAST(p.position_value / p.account_value, 3), 0.5) DESC
      LIMIT 20`,
     [coin],
   );
@@ -137,7 +145,7 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
     direction: Number(c.szi) > 0 ? 'long' : 'short',
     convictionPct: Math.round((Number(c.position_value) / Number(c.account_value)) * 100),
     notionalUsd: Number(c.position_value),
-    score: c.copy_score === null ? null : Math.round(Number(c.copy_score)),
+    score: c.q_eff === null ? null : Math.round(Number(c.q_eff) * 100),
   }));
 
   // Paper NAV comparison (vault vs buy-and-hold), if computed yet.

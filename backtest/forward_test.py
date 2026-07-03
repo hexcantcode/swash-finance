@@ -9,8 +9,10 @@ deadzone, and upserts (ts, coin, s, …) to `signal_track`. Run it anytime (or o
 schedule / as a Railway job) — each run catches up new snapshots, building a genuine
 out-of-sample paper track. No look-ahead, no survivorship.
 
-`q` is a PLACEHOLDER (Hyperdash copyScore, normalized) until the vault-grade score
-(master plan Part II) exists — swapping it is one query.
+`q` is a shrinkage blend of the vault-grade DSR (quality_score.py) and the roster
+copyScore prior, weighted by observation depth — trust migrates from prior to
+measured skill as history accrues. Plain-language walkthrough of the whole
+formula: docs/vault-signal-explained.md.
 
 Env: PGURL (or DATABASE_URL) = the Postgres connection string
      (Railway → Postgres service → DATABASE_PUBLIC_URL for local runs).
@@ -31,7 +33,13 @@ CONV_POWER = 0.5       # conviction is SECONDARY: sqrt dampens size-of-own-book 
                        # 3x-book whale gets 1.73x, not dominance — many good traders
                        # agreeing outvotes one big position. (Was 1.5, which let size
                        # dominate; recalibrated 2026-07-03.) Raw notional never enters.
-BREADTH_MIN = 3        # relaxed for the thin early sample (calibrate later)
+N0 = 180.0             # shrinkage horizon (obs): q_eff = λ·DSR + (1−λ)·prior with
+                       # λ = n_obs/(n_obs+N0). Thin history → copyScore prior; the
+                       # vault-grade DSR takes over as evidence accrues. Without this,
+                       # squaring a degenerate (median-0) DSR hands one wallet ~90% of
+                       # the vote (see docs/vault-signal-explained.md).
+BREADTH_MIN = 3        # minimum EFFECTIVE voices: n_eff = (Σw)²/Σw² ≥ 3, not raw
+                       # head-count — 17 heads with one 92% voice is a 1.2-voice vault.
 S_ON, S_OFF = 0.12, 0.08
 
 PGURL = os.environ.get("PGURL") or os.environ.get("DATABASE_URL")
@@ -52,21 +60,29 @@ def main():
         ts BIGINT, coin TEXT, s DOUBLE PRECISION, contributors INT, weight DOUBLE PRECISION,
         actionable TEXT, PRIMARY KEY (ts, coin))""")
 
-    # Quality: vault-grade q (quality table) where it exists, else copyScore fallback.
-    # As snapshots accrue and quality_score.py scores wallets, the signal auto-upgrades
-    # from copyScore-weighted to vault-grade-q-weighted with no code change.
-    q = {}
+    # Quality: shrinkage blend — q_eff = λ·DSR + (1−λ)·prior, λ = n_obs/(n_obs+N0).
+    # prior = roster copyScore/100; DSR = vault-grade q from quality_score.py. Trust
+    # migrates from prior to measured skill as observations accrue, with no cliff.
+    dsr, nobs = {}, {}
     try:
-        cur.execute("SELECT wallet, q FROM quality WHERE q IS NOT NULL")
-        q = {w: float(qq) for w, qq in cur.fetchall()}
+        cur.execute("SELECT wallet, q, n_obs FROM quality WHERE q IS NOT NULL")
+        for w, qq, n in cur.fetchall():
+            dsr[w] = float(qq)
+            nobs[w] = int(n or 0)
     except Exception:
         conn.rollback()  # quality table not created yet
-    n_vault_grade = len(q)
     cur.execute("SELECT address, copy_score FROM roster WHERE ts=(SELECT max(ts) FROM roster)")
+    q = {}
     for a, s in cur.fetchall():
-        if a not in q and s is not None:
-            q[a] = s / 100.0
-    print(f"quality: {n_vault_grade} vault-grade q + {len(q) - n_vault_grade} copyScore fallback")
+        prior = (s or 0.0) / 100.0
+        lam = nobs.get(a, 0) / (nobs.get(a, 0) + N0)
+        q[a] = lam * dsr.get(a, 0.0) + (1 - lam) * prior
+    # Scored wallets that fell off the latest roster still vote on their DSR alone.
+    for a in dsr:
+        if a not in q:
+            lam = nobs[a] / (nobs[a] + N0)
+            q[a] = lam * dsr[a]
+    print(f"quality: {len(dsr)} vault-grade DSR blended into {len(q)} q_eff (N0={N0:.0f})")
 
     # Universe = top-N coins by EP-cohort volume in the latest snapshot.
     cur.execute("""WITH latest AS (SELECT max(ts) t FROM positions)
@@ -88,15 +104,17 @@ def main():
         conv = min(notional / equity, LEV_CAP) ** CONV_POWER
         d = 1.0 if szi > 0 else -1.0
         w = (qi ** QUALITY_POWER) * conv
-        a = agg.setdefault((ts, coin), [0.0, 0.0, 0])
+        a = agg.setdefault((ts, coin), [0.0, 0.0, 0, 0.0])
         a[0] += d * w
         a[1] += w
         a[2] += 1
+        a[3] += w * w
 
     rows = []
-    for (ts, coin), (sw, w, n) in sorted(agg.items()):
+    for (ts, coin), (sw, w, n, w2) in sorted(agg.items()):
         s = sw / w if w > 0 else 0.0
-        act = "FLAT" if (n < BREADTH_MIN or abs(s) < S_OFF) else ("LONG" if s > 0 else "SHORT")
+        n_eff = (w * w) / w2 if w2 > 0 else 0.0
+        act = "FLAT" if (n_eff < BREADTH_MIN or abs(s) < S_OFF) else ("LONG" if s > 0 else "SHORT")
         rows.append((ts, coin, round(s, 4), n, round(w, 3), act))
 
     for r in rows:
