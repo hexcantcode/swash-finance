@@ -12,7 +12,7 @@
 import { hdFetch, ttlCache } from './shared.js';
 
 /** How many top-PnL traders to track. `exploreTraders` caps pageSize at 100. */
-const ROSTER_SIZE = 80;
+const ROSTER_SIZE = 100;
 
 const QUERY = `query ExploreTraders($timeframe: TraderTimeframe!, $sortBy: TraderSortInput, $pageSize: Int) {
   exploreTraders(page: 1, pageSize: $pageSize, timeframe: $timeframe, sortBy: $sortBy) {
