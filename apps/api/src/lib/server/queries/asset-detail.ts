@@ -1,6 +1,7 @@
 import { hl } from '../hl.js';
 import { getEpRoster } from '../ep/roster.js';
 import { getEpTradesForCoin } from '../ep/trades.js';
+import { getEpOpenPositionsForCoin, type SmartPosition } from '../ep/positions.js';
 import {
   RANGE_KEYS,
   parseRange,
@@ -98,4 +99,76 @@ export async function getLatestOpensOnAsset(coin: string, limit = 10): Promise<T
     side: t.direction.toLowerCase() === 'short' ? 'A' : 'B',
     pxUsd: t.entryPxUsd,
   }));
+}
+
+/** One closed EP trade, shaped for the asset chart's smart-money markers. */
+export interface SmartMarkTrade {
+  address: string;
+  displayName: string | null;
+  direction: string;
+  szBase: number;
+  notionalUsd: number;
+  entryPxUsd: number;
+  exitPxUsd: number;
+  netPnlUsd: number;
+  openedAtMs: number | null;
+  closedAtMs: number;
+}
+
+/** Aggregated EP open interest on one side of a coin. `avgPxUsd` is the
+ *  notional-weighted average entry — the canonical definition lives HERE. */
+export interface SmartEntryLevel {
+  count: number;
+  avgPxUsd: number;
+  notionalUsd: number;
+}
+
+export interface SmartMarks {
+  trades: SmartMarkTrade[];
+  entryLevels: { long: SmartEntryLevel | null; short: SmartEntryLevel | null };
+}
+
+function toEntryLevel(positions: SmartPosition[], side: 'long' | 'short'): SmartEntryLevel | null {
+  let count = 0;
+  let notionalUsd = 0;
+  let weightedPx = 0;
+  for (const p of positions) {
+    if (p.side !== side || p.entryPxUsd <= 0 || p.notionalUsd <= 0) continue;
+    count += 1;
+    notionalUsd += p.notionalUsd;
+    weightedPx += p.entryPxUsd * p.notionalUsd;
+  }
+  if (count === 0 || notionalUsd <= 0) return null;
+  return { count, avgPxUsd: weightedPx / notionalUsd, notionalUsd };
+}
+
+/**
+ * Smart-money marks for the asset chart: the EP cohort's recent closed trades
+ * on this coin (dot markers) plus per-side aggregate entry levels of its open
+ * positions (dashed lines). Derives entirely from the EP trades/positions
+ * caches — no extra Hyperdash fetches.
+ */
+export async function getAssetSmartMarks(coin: string): Promise<SmartMarks> {
+  const [trades, positions] = await Promise.all([
+    getEpTradesForCoin(coin, 80),
+    getEpOpenPositionsForCoin(coin),
+  ]);
+  return {
+    trades: trades.map<SmartMarkTrade>((t) => ({
+      address: t.address,
+      displayName: t.displayName,
+      direction: t.direction,
+      szBase: t.szBase,
+      notionalUsd: t.notionalUsd,
+      entryPxUsd: t.entryPxUsd,
+      exitPxUsd: t.exitPxUsd,
+      netPnlUsd: t.netPnlUsd,
+      openedAtMs: t.openedAtMs,
+      closedAtMs: t.closedAtMs,
+    })),
+    entryLevels: {
+      long: toEntryLevel(positions, 'long'),
+      short: toEntryLevel(positions, 'short'),
+    },
+  };
 }

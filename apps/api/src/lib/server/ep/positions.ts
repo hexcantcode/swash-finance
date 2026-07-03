@@ -147,6 +147,17 @@ export async function getEpPositions(): Promise<MarketPositions[]> {
     .slice(0, MARKETS_SHOWN);
 }
 
+/**
+ * Every EP open position on a coin, unsliced (unlike `getEpPositionsForCoin`,
+ * which caps the list at `PER_MARKET` for the feed). Used to aggregate
+ * entry levels for the asset chart, where count and average must cover the
+ * same set. Same cache — no extra Hyperdash fetches.
+ */
+export async function getEpOpenPositionsForCoin(coin: string): Promise<SmartPosition[]> {
+  const flat = await getEpPositionsFlat();
+  return flat.filter((p) => p.coin === coin).map((p) => p.pos);
+}
+
 /** EP positions for a single coin, or null if the cohort isn't in it. */
 export async function getEpPositionsForCoin(coin: string): Promise<MarketPositions | null> {
   const flat = await getEpPositionsFlat();
