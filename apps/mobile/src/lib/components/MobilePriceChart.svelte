@@ -1,3 +1,33 @@
+<script module lang="ts">
+  /** A smart-money marker pinned to (time, price). Presentational only — the
+   *  parent decides clustering/colors; `key` round-trips through `onmarktap`. */
+  export interface ChartMark {
+    key: string;
+    tMs: number;
+    pxUsd: number;
+    tone: 'success' | 'danger';
+    /** Filled dot (entry) vs hollow ring (exit). Bundles are always filled. */
+    filled: boolean;
+    r: number;
+    /** When set, renders as a bundle bubble with a "×N" label. */
+    count?: number;
+  }
+  /** Faint entry→exit connector between two pinned points. */
+  export interface ChartLink {
+    aTMs: number;
+    aPxUsd: number;
+    bTMs: number;
+    bPxUsd: number;
+    tone: 'success' | 'danger';
+  }
+  /** Dashed horizontal price level with a compact label. */
+  export interface ChartLevel {
+    pxUsd: number;
+    tone: 'success' | 'danger';
+    label: string;
+  }
+</script>
+
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Candle } from '$lib/api/asset-detail';
@@ -17,8 +47,26 @@
      *  and ignores `candles`/`mode`. Used for the trader equity curve so it
      *  shares this chart's exact design. Sparse series are pinned edge-to-edge. */
     line?: { t: number; value: number }[];
+    /** Smart-money overlay: dot/bundle markers pinned to (time, price). */
+    marks?: ChartMark[];
+    /** Entry→exit connectors between marker pairs. */
+    links?: ChartLink[];
+    /** Dashed horizontal levels (aggregate open-position entries). */
+    levels?: ChartLevel[];
+    /** Fires with the tapped marker's `key`. */
+    onmarktap?: (key: string) => void;
   }
-  let { candles = [], height = 200, mode = 'line', onhover, line }: Props = $props();
+  let {
+    candles = [],
+    height = 200,
+    mode = 'line',
+    onhover,
+    line,
+    marks = [],
+    links = [],
+    levels = [],
+    onmarktap,
+  }: Props = $props();
 
   let containerEl: HTMLDivElement;
   // Chart + series live in browser-only land — imported dynamically in
@@ -33,6 +81,73 @@
 
   function trendUp(): boolean {
     return (candles[candles.length - 1]?.c ?? 0) >= (candles[0]?.c ?? 0);
+  }
+
+  // ── Smart-money overlay ────────────────────────────────────────────────
+  // The library renders to canvas, so pinned markers live in a sibling SVG
+  // positioned with the chart's own coordinate APIs: x from a fractional
+  // logical index over the candle series, y from priceToCoordinate. Repainted
+  // whenever the visible scale or the mark props change; scroll/zoom are
+  // disabled, so those are the only movers.
+  type XY = { x: number; y: number };
+  let overlay = $state<{
+    width: number;
+    marks: (ChartMark & XY & { color: string })[];
+    links: { x1: number; y1: number; x2: number; y2: number; color: string }[];
+    levels: { y: number; color: string; label: string }[];
+  }>({ width: 0, marks: [], links: [], levels: [] });
+
+  function toneColor(t: 'success' | 'danger'): string {
+    return t === 'success' ? tone.success : tone.danger;
+  }
+
+  function positionOverlay() {
+    const empty = { width: 0, marks: [], links: [], levels: [] };
+    if (!chart || !series || line || candles.length < 2) {
+      overlay = empty;
+      return;
+    }
+    if (marks.length === 0 && links.length === 0 && levels.length === 0) {
+      overlay = empty;
+      return;
+    }
+    const t0 = candles[0]!.t;
+    const step = candles[1]!.t - candles[0]!.t;
+    if (step <= 0) {
+      overlay = empty;
+      return;
+    }
+    const timeScale = chart.timeScale();
+    const point = (tMs: number, pxUsd: number): XY | null => {
+      const x = timeScale.logicalToCoordinate((tMs - t0) / step);
+      const y = series.priceToCoordinate(pxUsd);
+      if (x == null || y == null) return null;
+      return { x, y };
+    };
+    const width = containerEl?.clientWidth ?? 0;
+
+    overlay = {
+      width,
+      marks: marks.flatMap((m) => {
+        const p = point(m.tMs, m.pxUsd);
+        return p ? [{ ...m, ...p, color: toneColor(m.tone) }] : [];
+      }),
+      links: links.flatMap((l) => {
+        const a = point(l.aTMs, l.aPxUsd);
+        const b = point(l.bTMs, l.bPxUsd);
+        return a && b ? [{ x1: a.x, y1: a.y, x2: b.x, y2: b.y, color: toneColor(l.tone) }] : [];
+      }),
+      levels: levels.flatMap((l) => {
+        const y = series.priceToCoordinate(l.pxUsd);
+        return y == null ? [] : [{ y, color: toneColor(l.tone), label: l.label }];
+      }),
+    };
+  }
+
+  function markTap(event: Event, key: string) {
+    // Keep the tap from bubbling to the page's tap-away dismiss handler.
+    event.stopPropagation();
+    onmarktap?.(key);
   }
 
   /** Tear down the current series and repaint for the active `mode`. Cheaper
@@ -105,6 +220,8 @@
       );
     }
     chart.timeScale().fitContent();
+    // New series ⇒ new autoscale ⇒ new y mapping; reposition after layout.
+    requestAnimationFrame(positionOverlay);
   }
 
   /** Resample a sparse {time,value} series to ~120 points along its existing
@@ -222,10 +339,13 @@
         onhover({ price, time: param.time as number });
       });
 
+      chart.timeScale().subscribeVisibleLogicalRangeChange(() => positionOverlay());
+
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           if (!chart) return;
           chart.applyOptions({ width: entry.contentRect.width, height });
+          requestAnimationFrame(positionOverlay);
         }
       });
       resizeObserver.observe(containerEl);
@@ -250,6 +370,14 @@
     if (chart && lib) draw();
   });
 
+  // Reposition the overlay when the mark props change without a repaint.
+  $effect(() => {
+    void marks;
+    void links;
+    void levels;
+    if (chart && series) requestAnimationFrame(positionOverlay);
+  });
+
   /** `#rrggbb` → `rgba(r,g,b,a)` for the area gradient stops, which need an
    *  alpha the bare hex can't carry. Pre-existing rgba strings pass through. */
   function hexToRgba(hex: string, alpha: number): string {
@@ -264,13 +392,124 @@
   }
 </script>
 
-<div bind:this={containerEl} class="m-price-chart" style="height: {height}px"></div>
+<div class="m-price-chart-wrap" style="height: {height}px">
+  <div bind:this={containerEl} class="m-price-chart" style="height: {height}px"></div>
+  {#if overlay.marks.length > 0 || overlay.links.length > 0 || overlay.levels.length > 0}
+    <svg class="m-chart-overlay" width="100%" height={height} aria-label="Smart-money marks">
+      {#each overlay.levels as l (l.label)}
+        <line
+          class="m-overlay-level"
+          x1="0"
+          y1={l.y}
+          x2={overlay.width}
+          y2={l.y}
+          stroke={l.color}
+        />
+        <text class="m-overlay-level-label" x="6" y={l.y - 4} fill={l.color}>{l.label}</text>
+      {/each}
+      {#each overlay.links as k, i (i)}
+        <line class="m-overlay-link" x1={k.x1} y1={k.y1} x2={k.x2} y2={k.y2} stroke={k.color} />
+      {/each}
+      {#each overlay.marks as m, i (i)}
+        <g
+          class="m-overlay-mark"
+          role="button"
+          tabindex="-1"
+          aria-label="Show smart-money trades here"
+          onclick={(e) => markTap(e, m.key)}
+          onkeydown={(e) => e.key === 'Enter' && markTap(e, m.key)}
+        >
+          <!-- Oversized invisible hit target — the visible dot is too small
+               for a fingertip on its own. -->
+          <circle class="m-overlay-hit" cx={m.x} cy={m.y} r={Math.max(m.r + 9, 14)} />
+          {#if m.count}
+            <circle class="m-overlay-bundle" cx={m.x} cy={m.y} r={m.r} fill={m.color} />
+            <text class="m-overlay-count" x={m.x} y={m.y}>×{m.count}</text>
+          {:else if m.filled}
+            <circle class="m-overlay-dot" cx={m.x} cy={m.y} r={m.r} fill={m.color} />
+          {:else}
+            <circle class="m-overlay-ring" cx={m.x} cy={m.y} r={m.r} stroke={m.color} />
+          {/if}
+        </g>
+      {/each}
+    </svg>
+  {/if}
+</div>
 
 <style>
+  .m-price-chart-wrap {
+    position: relative;
+    width: 100%;
+  }
+
   .m-price-chart {
     width: 100%;
     /* lightweight-charts renders to a transparent canvas inside this
      * container; the inline height mirrors the `height` prop so the canvas
      * measures up on first paint. */
+  }
+
+  /* Marker overlay — sits over the canvas but stays transparent to pointer
+     events except on the marks themselves, so the crosshair still tracks. */
+  .m-chart-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .m-overlay-level {
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0.55;
+  }
+
+  .m-overlay-level-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    opacity: 0.9;
+  }
+
+  .m-overlay-link {
+    stroke-width: 1;
+    opacity: 0.28;
+  }
+
+  .m-overlay-mark {
+    pointer-events: auto;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .m-overlay-hit {
+    fill: transparent;
+  }
+
+  .m-overlay-dot {
+    stroke: var(--stripe-bg-primary, rgba(0, 0, 0, 0.4));
+    stroke-width: 1;
+    opacity: 0.92;
+  }
+
+  .m-overlay-ring {
+    fill: transparent;
+    stroke-width: 1.5;
+    opacity: 0.92;
+  }
+
+  .m-overlay-bundle {
+    opacity: 0.85;
+    stroke: var(--stripe-bg-primary, rgba(0, 0, 0, 0.4));
+    stroke-width: 1;
+  }
+
+  .m-overlay-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    fill: #fff;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
   }
 </style>
