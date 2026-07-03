@@ -23,7 +23,7 @@ const BATCH = 10;
 
 const TRADES_QUERY = `query GetTraderCompletedTrades($address: String!, $pageSize: Int) {
   getTraderCompletedTrades(address: $address, pageSize: $pageSize) {
-    trades { endTime coin direction sz avgEntryPx avgExitPx netPnl notional }
+    trades { startTime endTime coin direction sz avgEntryPx avgExitPx netPnl notional }
   }
 }`;
 
@@ -40,9 +40,12 @@ export interface SmartTrade {
   netPnlUsd: number;
   notionalUsd: number;
   closedAtMs: number;
+  /** Open time in epoch ms, when Hyperdash reports `startTime`; else null. */
+  openedAtMs: number | null;
 }
 
 interface RawTrade {
+  startTime: number | string | null;
   endTime: number | string | null;
   coin: string;
   direction: string;
@@ -51,6 +54,22 @@ interface RawTrade {
   avgExitPx: number | null;
   netPnl: number | null;
   notional: number | null;
+}
+
+/**
+ * Canonical Hyperdash timestamp parser, shared by `startTime` and `endTime`.
+ * Numbers are epoch ms; naive `"YYYY-MM-DD HH:MM:SS"` strings are UTC (the
+ * API reports UTC without a zone suffix, so we pin `Z` rather than letting
+ * `Date.parse` assume the local zone).
+ */
+function parseHdTime(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) && v > 0 ? v : null;
+  const s = v.trim();
+  if (!s) return null;
+  const iso = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s) ? `${s.replace(' ', 'T')}Z` : s;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
 }
 
 // Per-trader trade history moves slowly and the fan-out is expensive — cache
@@ -80,7 +99,7 @@ async function getEpTradesFlat(): Promise<SmartTrade[]> {
     );
     for (const { t, trades } of results) {
       for (const tr of trades) {
-        const closedAtMs = typeof tr.endTime === 'string' ? Date.parse(tr.endTime) : Number(tr.endTime) || 0;
+        const closedAtMs = parseHdTime(tr.endTime) ?? 0;
         all.push({
           address: t.address,
           displayName: t.displayName,
@@ -93,6 +112,7 @@ async function getEpTradesFlat(): Promise<SmartTrade[]> {
           netPnlUsd: Number(tr.netPnl) || 0,
           notionalUsd: Number(tr.notional) || 0,
           closedAtMs,
+          openedAtMs: parseHdTime(tr.startTime),
         });
       }
     }
