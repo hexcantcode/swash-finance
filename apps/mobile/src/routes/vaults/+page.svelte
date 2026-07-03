@@ -62,7 +62,7 @@
   {:else if vaults.length === 0}
     <div class="m-empty safe-x">No vaults to show yet.</div>
   {:else}
-    <ul class="m-vault-list safe-x">
+    <ul class="m-card-list">
       {#each vaults as v (v.coin)}
         <li>
           <a class="m-vault-row tappable-row" href={`/vaults/${encodeURIComponent(v.coin)}`}>
@@ -126,23 +126,13 @@
     color: var(--stripe-text-secondary);
   }
 
-  .m-vault-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
+  /* Each vault is a glass card, matching the feed's .m-feed-row row system
+     (.tappable-row supplies flex/gap/padding; .m-card-list spaces the cards). */
   .m-vault-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: var(--touch-comfortable);
-    padding: var(--space-2) var(--space-1);
     color: inherit;
     text-decoration: none;
-    border-bottom: 1px solid var(--stripe-border);
-  }
-  .m-vault-row:last-child {
-    border-bottom: none;
+    background: var(--glass-bg);
+    border-radius: var(--radius-md);
   }
   .m-vault-icon {
     flex: 0 0 32px;
@@ -168,15 +158,15 @@
     gap: 2px;
   }
   .m-vault-name {
-    font-family: var(--font-sans);
-    font-size: var(--type-callout);
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: var(--type-body);
+    font-weight: 500;
     color: var(--stripe-text-primary);
   }
   .m-vault-sub {
     font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-secondary);
+    font-size: var(--type-caption);
+    color: var(--stripe-text-tertiary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -188,11 +178,12 @@
     align-items: flex-end;
     gap: 2px;
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
   .m-vault-dir {
-    font-size: var(--type-footnote);
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    font-size: var(--type-subhead);
+    font-weight: 600;
+    letter-spacing: 0.02em;
   }
   .m-vault-skew {
     font-size: var(--type-caption);

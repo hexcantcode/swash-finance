@@ -25,9 +25,12 @@ import pg8000.dbapi
 UNIVERSE_N = 20        # compute the signal for the top-N assets by EP-cohort volume
                        # (the showcase page displays the top-12; extra headroom for rank shifts)
 LEV_CAP = 3.0
-CONV_POWER = 1.5       # emphasize conviction (weight = q · conviction^CONV_POWER).
-                       # >1 makes high-conviction (big fraction of own book) dominate;
-                       # raw notional size never enters. Calibrate in Part VII.
+QUALITY_POWER = 2.0    # score is PRIMARY: q^2 stretches the quality spread so each
+                       # head counts by how good the trader is (0.5→0.25 vs 1.0→1.0).
+CONV_POWER = 0.5       # conviction is SECONDARY: sqrt dampens size-of-own-book so a
+                       # 3x-book whale gets 1.73x, not dominance — many good traders
+                       # agreeing outvotes one big position. (Was 1.5, which let size
+                       # dominate; recalibrated 2026-07-03.) Raw notional never enters.
 BREADTH_MIN = 3        # relaxed for the thin early sample (calibrate later)
 S_ON, S_OFF = 0.12, 0.08
 
@@ -84,7 +87,7 @@ def main():
             continue
         conv = min(notional / equity, LEV_CAP) ** CONV_POWER
         d = 1.0 if szi > 0 else -1.0
-        w = qi * conv
+        w = (qi ** QUALITY_POWER) * conv
         a = agg.setdefault((ts, coin), [0.0, 0.0, 0])
         a[0] += d * w
         a[1] += w

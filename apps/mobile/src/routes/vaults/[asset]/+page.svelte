@@ -246,20 +246,29 @@
   .m-vchart-legend .is-asset { color: var(--stripe-text-tertiary); }
 
   /* Contributor rows — mirror .m-trader-row */
-  .m-vrows { list-style: none; margin: 0; padding: 0; }
+  /* Contributor rows are glass cards, matching the app-wide .m-card-list /
+     .m-feed-row row system (same as the vaults list page). */
+  .m-vrows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
   .m-vrow {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     min-height: var(--touch-comfortable);
-    padding: var(--space-2) var(--space-1);
-    border-bottom: 1px solid var(--stripe-border);
+    padding: var(--space-3) var(--space-4);
+    background: var(--glass-bg);
+    border-radius: var(--radius-md);
   }
-  .m-vrow:last-child { border-bottom: none; }
   .m-vrow-avatar { width: 32px; height: 32px; flex: 0 0 32px; border-radius: var(--radius-full); background: var(--stripe-bg-secondary); }
   .m-vrow-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .m-vrow-name { font-family: var(--font-mono); font-size: var(--type-footnote); color: var(--stripe-text-primary); }
-  .m-vrow-sub { font-size: var(--type-caption); color: var(--stripe-text-tertiary); }
+  .m-vrow-name { font-family: var(--font-mono); font-size: var(--type-body); font-weight: 500; color: var(--stripe-text-primary); }
+  .m-vrow-sub { font-family: var(--font-mono); font-size: var(--type-caption); color: var(--stripe-text-tertiary); }
   .m-vrow-side {
     flex: 0 0 auto;
     font-family: var(--font-mono);

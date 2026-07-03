@@ -117,7 +117,8 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
     ts: Number(h.ts), skew: Number(h.s), contributors: Number(h.contributors),
   }));
 
-  // Contributing traders (latest snapshot), sorted by conviction × score.
+  // Contributing traders (latest snapshot), sorted by the vault weight
+  // (score² × √conviction — score primary, size secondary; mirrors forward_test.py).
   const { rows: cRows } = await pool.query(
     `WITH latest_pos AS (SELECT max(ts) AS t FROM positions),
      latest_roster AS (SELECT max(ts) AS t FROM roster)
@@ -126,7 +127,7 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
      CROSS JOIN latest_pos
      LEFT JOIN roster ro ON ro.address = p.wallet AND ro.ts = (SELECT t FROM latest_roster)
      WHERE p.ts = latest_pos.t AND p.coin = $1 AND p.szi <> 0 AND p.account_value > 0
-     ORDER BY (COALESCE(ro.copy_score, 0) / 100.0) * LEAST(p.position_value / p.account_value, 3) DESC
+     ORDER BY POWER(COALESCE(ro.copy_score, 0) / 100.0, 2) * POWER(LEAST(p.position_value / p.account_value, 3), 0.5) DESC
      LIMIT 20`,
     [coin],
   );
