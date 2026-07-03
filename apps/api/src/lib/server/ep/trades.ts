@@ -15,7 +15,7 @@ import { getEpRoster } from './roster.js';
 import { hdFetch, ttlCache } from './shared.js';
 
 /** Trades pulled per trader (most recent). */
-const PER_TRADER = 3;
+const PER_TRADER = 20;
 /** Rows returned to the feed, newest close first. */
 const TOP_N = 40;
 /** Concurrency for the per-trader fan-out. */
