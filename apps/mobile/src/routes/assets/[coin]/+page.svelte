@@ -45,7 +45,6 @@
   // Smart-money chart layer: the cohort's avg entry levels (dashed lines),
   // toggleable and persisted.
   let smartMarks = $state<SmartMarks | null>(null);
-  let smartOn = $state(true);
 
   // The crosshair time is a UTC second-timestamp. Show enough granularity to
   // place the point: a date plus hour:minute, no year (the range is short).
@@ -127,7 +126,6 @@
 
   onMount(() => {
     mounted = true;
-    smartOn = localStorage.getItem('swash.chart.smartMoney') !== '0';
     void loadAsset();
     void loadCandles();
     void loadTraders();
@@ -194,23 +192,11 @@
   }
 
   const smartLayer = $derived.by(() => {
-    if (!smartOn || !smartMarks || candles.length < 2) return SMART_LAYER_EMPTY;
+    if (!smartMarks || candles.length < 2) return SMART_LAYER_EMPTY;
     return buildSmartLayer(candles, smartMarks);
   });
 
-  // The toggle chip only appears when the cohort has anything at all here.
-  const hasSmartData = $derived(
-    smartMarks !== null &&
-      (smartMarks.trades.length > 0 ||
-        smartMarks.entryLevels.long !== null ||
-        smartMarks.entryLevels.short !== null),
-  );
-
-  function toggleSmart() {
-    smartOn = !smartOn;
-    try {
-      localStorage.setItem('swash.chart.smartMoney', smartOn ? '1' : '0');
-    } catch {
+catch {
       // Storage can be unavailable (private mode) — the toggle still works.
     }
   }
@@ -311,19 +297,6 @@
         </button>
       {/each}
     </div>
-    {#if hasSmartData}
-      <div class="m-smart-row">
-        <button
-          type="button"
-          class="m-smart-chip tappable tap-hit"
-          class:is-active={smartOn}
-          aria-pressed={smartOn}
-          onclick={toggleSmart}
-        >
-          Smart money
-        </button>
-      </div>
-    {/if}
   </section>
 
   {#if asset}
@@ -358,7 +331,7 @@
               <img class="m-trader-avatar" src={effigyUrl(t.address)} alt="" loading="lazy" />
               <div class="m-trader-copy">
                 <span class="m-trader-address">{shortAddress(t.address)}</span>
-                <span class="m-trader-sub">{t.tradeCount} trades</span>
+                <span class="m-trader-sub">{formatUsd(t.volumeUsd)} vol</span>
               </div>
               <div class="m-trader-stats">
                 <span class="m-trader-pnl {pnlSignClass(t.totalPnlUsd)}">{formatPnl(t.totalPnlUsd)}</span>
@@ -622,30 +595,6 @@
   }
 
   /* Smart-money layer toggle — a lone glass chip under the range strip. */
-  .m-smart-row {
-    display: flex;
-    margin-top: var(--space-2);
-  }
-
-  .m-smart-chip {
-    min-height: 28px;
-    padding: 4px 12px;
-    border-radius: var(--radius-lg);
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    box-shadow: var(--glass-highlight);
-    color: var(--stripe-text-tertiary);
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    cursor: pointer;
-  }
-  /* On = pressed into the glass, same language as the range chips. */
-  .m-smart-chip.is-active {
-    background: var(--glass-pressed-bg);
-    box-shadow: var(--glass-pressed-inset);
-    color: var(--stripe-text-primary);
-  }
 
 
   .m-asset-tabs {
