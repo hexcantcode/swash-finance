@@ -118,13 +118,22 @@
       return;
     }
     const timeScale = chart.timeScale();
+    const width = containerEl?.clientWidth ?? 0;
+    // v5's logicalToCoordinate returns 0 here regardless of input (observed on
+    // 5.2.0 with a static, fitContent'ed scale), so map x manually: fractional
+    // logical index → position within the visible logical range → pixels.
+    const vr = timeScale.getVisibleLogicalRange();
+    if (!vr || vr.to <= vr.from || width <= 0) {
+      overlay = empty;
+      return;
+    }
     const point = (tMs: number, pxUsd: number): XY | null => {
-      const x = timeScale.logicalToCoordinate((tMs - t0) / step);
+      const logical = (tMs - t0) / step;
+      const x = ((logical - vr.from) / (vr.to - vr.from)) * width;
       const y = series.priceToCoordinate(pxUsd);
-      if (x == null || y == null) return null;
+      if (y == null || !Number.isFinite(x)) return null;
       return { x, y };
     };
-    const width = containerEl?.clientWidth ?? 0;
 
     overlay = {
       width,
