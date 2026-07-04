@@ -62,7 +62,7 @@
   type XY = { x: number; y: number };
   let overlay = $state<{
     width: number;
-    levels: { y: number; labelY: number; color: string; label: string }[];
+    levels: { y: number; labelY: number; chipX: number; chipW: number; color: string; label: string }[];
   }>({ width: 0, levels: [] });
 
   function toneColor(t: 'success' | 'danger'): string {
@@ -80,16 +80,15 @@
       overlay = empty;
       return;
     }
+    // Long tags anchor left, short tags right — opposite ends, so the two
+    // labels can never collide even when the lines nearly touch.
     const lvls = levels.flatMap((l) => {
       const y = series.priceToCoordinate(l.pxUsd);
-      return y == null ? [] : [{ y, labelY: y - 4, color: toneColor(l.tone), label: l.label }];
+      if (y == null) return [];
+      const chipW = l.label.length * 6.2 + 12;
+      const chipX = l.tone === 'danger' ? width - chipW - 4 : 4;
+      return [{ y, labelY: y - 4, chipX, chipW, color: toneColor(l.tone), label: l.label }];
     });
-    // Anti-collision: when the two lines nearly touch, drop the lower line's
-    // label under it so the texts never overlap.
-    if (lvls.length === 2 && Math.abs(lvls[0]!.y - lvls[1]!.y) < 20) {
-      const lower = lvls[0]!.y > lvls[1]!.y ? lvls[0]! : lvls[1]!;
-      lower.labelY = lower.y + 14;
-    }
     overlay = { width, levels: lvls };
   }
 
@@ -348,14 +347,14 @@
         />
         <rect
           class="m-overlay-level-chip"
-          x="4"
+          x={l.chipX}
           y={l.labelY - 10}
-          width={l.label.length * 6.2 + 12}
+          width={l.chipW}
           height="14"
           rx="4"
           stroke={l.color}
         />
-        <text class="m-overlay-level-label" x="10" y={l.labelY} fill={l.color}>{l.label}</text>
+        <text class="m-overlay-level-label" x={l.chipX + 6} y={l.labelY} fill={l.color}>{l.label}</text>
       {/each}
     </svg>
   {/if}
