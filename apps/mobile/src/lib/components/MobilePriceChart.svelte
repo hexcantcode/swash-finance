@@ -375,15 +375,19 @@
   }
 
   .m-overlay-level {
-    stroke-width: 1;
-    stroke-dasharray: 4 4;
-    opacity: 0.55;
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    opacity: 0.95;
   }
 
   .m-overlay-level-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    opacity: 0.9;
+    font-size: 10px;
+    font-weight: 600;
+    /* Theme-bg halo so the label stays legible over candles. */
+    stroke: var(--stripe-bg-primary);
+    stroke-width: 3px;
+    paint-order: stroke;
   }
 
 
