@@ -354,7 +354,7 @@
           rx="4"
           stroke={l.color}
         />
-        <text class="m-overlay-level-label" x={l.chipX + 6} y={l.labelY} fill={l.color}>{l.label}</text>
+        <text class="m-overlay-level-label" x={l.chipX + l.chipW / 2} y={l.labelY} fill={l.color}>{l.label}</text>
       {/each}
     </svg>
   {/if}
@@ -404,6 +404,8 @@
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
+    /* Centered on the pill's midpoint — symmetric padding by construction. */
+    text-anchor: middle;
   }
 
 
