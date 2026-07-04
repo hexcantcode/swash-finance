@@ -86,9 +86,9 @@
     });
     // Anti-collision: when the two lines nearly touch, drop the lower line's
     // label under it so the texts never overlap.
-    if (lvls.length === 2 && Math.abs(lvls[0]!.y - lvls[1]!.y) < 14) {
+    if (lvls.length === 2 && Math.abs(lvls[0]!.y - lvls[1]!.y) < 20) {
       const lower = lvls[0]!.y > lvls[1]!.y ? lvls[0]! : lvls[1]!;
-      lower.labelY = lower.y + 11;
+      lower.labelY = lower.y + 14;
     }
     overlay = { width, levels: lvls };
   }
@@ -346,7 +346,16 @@
           y2={l.y}
           stroke={l.color}
         />
-        <text class="m-overlay-level-label" x="6" y={l.labelY} fill={l.color}>{l.label}</text>
+        <rect
+          class="m-overlay-level-chip"
+          x="4"
+          y={l.labelY - 10}
+          width={l.label.length * 6.2 + 12}
+          height="14"
+          rx="4"
+          stroke={l.color}
+        />
+        <text class="m-overlay-level-label" x="10" y={l.labelY} fill={l.color}>{l.label}</text>
       {/each}
     </svg>
   {/if}
@@ -380,14 +389,18 @@
     opacity: 0.95;
   }
 
+  /* Solid tag behind each label — readable over any candle or line. */
+  .m-overlay-level-chip {
+    fill: var(--stripe-bg-elevated, var(--stripe-bg-primary));
+    fill-opacity: 0.95;
+    stroke-width: 0.75;
+    stroke-opacity: 0.6;
+  }
+
   .m-overlay-level-label {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
-    /* Theme-bg halo so the label stays legible over candles. */
-    stroke: var(--stripe-bg-primary);
-    stroke-width: 3px;
-    paint-order: stroke;
   }
 
 
