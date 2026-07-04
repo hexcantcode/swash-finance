@@ -379,6 +379,10 @@
   .m-chart-overlay {
     position: absolute;
     inset: 0;
+    /* lightweight-charts gives its canvases explicit z-indexes (up to 2), so
+       the series paints over a z-auto sibling. Lift the overlay above them —
+       still pointer-transparent, so the crosshair keeps working. */
+    z-index: 3;
     pointer-events: none;
     overflow: hidden;
   }
