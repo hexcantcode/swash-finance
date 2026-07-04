@@ -52,6 +52,8 @@ export async function getCandles(
 export interface TopTrader {
   address: string;
   totalPnlUsd: number;
+  /** All-time volume on this coin (Hyperdash topAssets). */
+  volumeUsd: number;
   tradeCount: number;
   /** SUM(closed_pnl) / SUM(|sz·px|), decimal; null when no closed notional. */
   roi: number | null;

@@ -60,8 +60,8 @@ export async function getAssetCandles(coin: string, range: RangeKey): Promise<Ca
  * keep the ones that include `coin` and sort by that coin's PnL desc.
  *
  * Hyperdash has no per-coin trade count or per-coin closed notional, so the
- * `tradeCount` and `roi` fields of the `TopTrader` shape have no source here:
- * `tradeCount` defaults to 0 and `roi` to null (the mobile asset page already
+ * `volumeUsd` is the trader's all-time volume on the coin. `tradeCount` and
+ * `roi` have no per-coin source: 0 and null (the mobile asset page already
  * renders `roi === null` as `—`). The shape is preserved for the client.
  */
 export async function getAssetTopTraders(coin: string, limit = 5): Promise<TopTrader[]> {
@@ -69,14 +69,17 @@ export async function getAssetTopTraders(coin: string, limit = 5): Promise<TopTr
   return roster
     .map((t) => {
       const onCoin = t.topAssets.find((a) => a.coin === coin);
-      return onCoin ? { address: t.address, totalPnlUsd: onCoin.pnlUsd } : null;
+      return onCoin
+        ? { address: t.address, totalPnlUsd: onCoin.pnlUsd, volumeUsd: onCoin.volumeUsd }
+        : null;
     })
-    .filter((r): r is { address: string; totalPnlUsd: number } => r !== null)
+    .filter((r): r is { address: string; totalPnlUsd: number; volumeUsd: number } => r !== null)
     .sort((a, b) => b.totalPnlUsd - a.totalPnlUsd)
     .slice(0, limit)
     .map((r) => ({
       address: r.address,
       totalPnlUsd: r.totalPnlUsd,
+      volumeUsd: r.volumeUsd,
       tradeCount: 0,
       roi: null,
     }));
