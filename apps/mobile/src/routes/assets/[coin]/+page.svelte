@@ -42,8 +42,8 @@
   // Smart-money cohort sentiment for this market, when the cohort feed covers
   // it (it ranks ~top-20 markets by notional; quieter coins won't appear).
   let sentiment = $state<MarketSentiment | null>(null);
-  // Smart-money chart layer: EP closed-trade markers + open-position entry
-  // levels, toggleable and persisted.
+  // Smart-money chart layer: the cohort's avg entry levels (dashed lines),
+  // toggleable and persisted.
   let smartMarks = $state<SmartMarks | null>(null);
   let smartOn = $state(true);
 
@@ -175,15 +175,6 @@
   const SMART_LAYER_EMPTY: SmartLayer = { levels: [] };
 
 
-  /** Dot radius in 3 notional buckets, capped. */
-
-  /**
-   * Turn the raw smart-marks payload into chart primitives for the current
-   * candle window: validate each endpoint against its covering candle
-   * (Hyperdash randomly corrupts prices — anything outside the candle's
-   * [low, high] ±1.5% is dropped), then cluster endpoints per candle bucket
-   * (>2 marks in a bucket collapse into one "×N" bundle).
-   */
   function buildSmartLayer(cs: Candle[], data: SmartMarks): SmartLayer {
     // The cohort's average entry per side, drawn as dashed lines. Sanity-gate
     // against the latest close (same corruption source as the trade prices).
