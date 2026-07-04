@@ -83,10 +83,14 @@ HD_HEADERS = {
 # Dexes to snapshot. None = main perps; "xyz" = the HIP-3 synthetics (SP500/GOLD/…)
 # that dominate the EP cohort's volume. Extend if the roster uses more builder dexes.
 DEXES = [None, "xyz"]
-# Fetch deep enough (by all-time PnL desc) to reach past the ~80 Extremely
-# Profitable wallets into the Very Profitable tier; COHORTS filters what we keep.
-ROSTER_SIZE = 200
-COHORTS = {"Extremely Profitable", "Very Profitable"}
+# Roster = top EP + top VP by all-time PnL. The API caps a page at 100 rows and
+# the Extremely Profitable tier (+$1M) runs ~750 wallets deep, so reaching the
+# Very Profitable tier requires paging (VP starts ~page 8); we scan up to
+# MAX_PAGES, keeping the first EP_TARGET EPs and VP_TARGET VPs encountered
+# (pnl-desc order = the top of each tier).
+EP_TARGET = 100
+VP_TARGET = 100
+MAX_PAGES = 15
 # Storage root — override with VAULT_DATA_ROOT so the same code writes to a Railway
 # volume (e.g. /data) in the cloud, or a local dir in dev. Mac-independent.
 DATA_ROOT = os.environ.get("VAULT_DATA_ROOT", os.path.join(os.path.dirname(__file__), "data"))
@@ -102,19 +106,37 @@ def _post(url, payload, headers=None):
 
 
 def fetch_roster():
-    """EP cohort = Hyperdash exploreTraders. Resilient for the cloud runner, where
-    Hyperdash may block the datacenter IP: live → latest captured file → baked seed."""
-    q = ("query E($t:TraderTimeframe!,$s:TraderSortInput,$p:Int){"
-         "exploreTraders(page:1,pageSize:$p,timeframe:$t,sortBy:$s){"
+    """Top EP + top VP from Hyperdash exploreTraders (paged; see targets above).
+    Resilient for the cloud runner, where Hyperdash may block the datacenter IP:
+    live → latest captured file → baked seed."""
+    q = ("query E($t:TraderTimeframe!,$s:TraderSortInput,$p:Int,$pg:Int){"
+         "exploreTraders(page:$pg,pageSize:$p,timeframe:$t,sortBy:$s){"
          "data{address displayName copyScore pnl pnlCohort}}}")
     try:
-        d = _post(HD_GQL, {"operationName": "E", "query": q,
-                           "variables": {"t": "all", "s": {"field": "pnl", "order": "desc"}, "p": ROSTER_SIZE}},
-                  HD_HEADERS)
-        rows = (((d or {}).get("data") or {}).get("exploreTraders") or {}).get("data") or []
-        if rows:
-            return rows
-        raise RuntimeError(f"Hyperdash returned no roster ({d})")
+        ep, vp = [], []
+        for page in range(1, MAX_PAGES + 1):
+            if len(ep) >= EP_TARGET and len(vp) >= VP_TARGET:
+                break
+            # Pages 2..7 are EP we don't keep once EP_TARGET is full — skip ahead
+            # is not possible without knowing the tier boundary, so just fetch.
+            d = _post(HD_GQL, {"operationName": "E", "query": q,
+                               "variables": {"t": "all", "s": {"field": "pnl", "order": "desc"},
+                                             "p": 100, "pg": page}},
+                      HD_HEADERS)
+            rows = (((d or {}).get("data") or {}).get("exploreTraders") or {}).get("data") or []
+            if not rows:
+                break  # ran off the end of the list
+            for r in rows:
+                c = r.get("pnlCohort")
+                if c == "Extremely Profitable" and len(ep) < EP_TARGET:
+                    ep.append(r)
+                elif c == "Very Profitable" and len(vp) < VP_TARGET:
+                    vp.append(r)
+            if rows and rows[-1].get("pnlCohort") not in ("Extremely Profitable", "Very Profitable"):
+                break  # sorted by pnl desc — we're past the VP tier
+        if ep:
+            return ep + vp
+        raise RuntimeError("Hyperdash returned no roster")
     except Exception as e:  # noqa: BLE001
         print(f"  ! live roster fetch failed ({e}); falling back", file=sys.stderr)
     # Fallback 1: latest roster we captured (on the volume).
@@ -177,7 +199,9 @@ def main():
     ts = int(now.timestamp() * 1000)
     day = now.strftime("%Y-%m-%d")
 
-    roster = [t for t in fetch_roster() if t.get("pnlCohort") in COHORTS]
+    # Cohort guard also covers the fallback sources (file / seed), which may be unfiltered.
+    roster = [t for t in fetch_roster()
+              if t.get("pnlCohort") in ("Extremely Profitable", "Very Profitable")]
     wallets = [t["address"] for t in roster]
     cohort_counts = {}
     for t in roster:
@@ -189,7 +213,7 @@ def main():
         for t in roster:
             f.write(json.dumps({"ts": ts, **t}) + "\n")
 
-    # Snapshot all wallets (modest concurrency; 80 × 2 dexes = 160 calls/tick).
+    # Snapshot all wallets (modest concurrency; 200 × 2 dexes = 400 calls/tick).
     all_p, all_e = [], []
     with ThreadPoolExecutor(max_workers=8) as ex:
         for prows, erows in ex.map(lambda w: snapshot_wallet(w, ts), wallets):
