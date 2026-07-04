@@ -118,8 +118,9 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
   }));
 
   // Contributing traders (latest snapshot), sorted by the vault weight
-  // (q_eff² × √conviction — score primary, size secondary; mirrors forward_test.py,
-  // where q_eff = λ·DSR + (1−λ)·copyScore prior, λ = n_obs/(n_obs+180)).
+  // (m_cohort × q_eff² × √conviction — score primary, size secondary; mirrors
+  // forward_test.py, where q_eff = λ·DSR + (1−λ)·copyScore prior, λ = n_obs/(n_obs+180),
+  // and m_cohort = 1.0 for Extremely Profitable / 0.25 for Very Profitable).
   const { rows: cRows } = await pool.query(
     `WITH latest_pos AS (SELECT max(ts) AS t FROM positions),
      latest_roster AS (SELECT max(ts) AS t FROM roster)
@@ -132,7 +133,7 @@ export async function getVaultDetail(coin: string): Promise<VaultDetail | null> 
      LEFT JOIN roster ro ON ro.address = p.wallet AND ro.ts = (SELECT t FROM latest_roster)
      LEFT JOIN quality qu ON qu.wallet = p.wallet
      WHERE p.ts = latest_pos.t AND p.coin = $1 AND p.szi <> 0 AND p.account_value > 0
-     ORDER BY POWER(
+     ORDER BY (CASE WHEN ro.pnl_cohort = 'Extremely Profitable' THEN 1.0 ELSE 0.25 END) * POWER(
        (COALESCE(qu.n_obs, 0) / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(qu.q, 0)
          + (180.0 / (COALESCE(qu.n_obs, 0) + 180.0)) * COALESCE(ro.copy_score, 0) / 100.0,
        2) * POWER(LEAST(p.position_value / p.account_value, 3), 0.5) DESC

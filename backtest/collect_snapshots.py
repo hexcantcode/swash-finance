@@ -83,7 +83,10 @@ HD_HEADERS = {
 # Dexes to snapshot. None = main perps; "xyz" = the HIP-3 synthetics (SP500/GOLD/…)
 # that dominate the EP cohort's volume. Extend if the roster uses more builder dexes.
 DEXES = [None, "xyz"]
-ROSTER_SIZE = 80
+# Fetch deep enough (by all-time PnL desc) to reach past the ~80 Extremely
+# Profitable wallets into the Very Profitable tier; COHORTS filters what we keep.
+ROSTER_SIZE = 200
+COHORTS = {"Extremely Profitable", "Very Profitable"}
 # Storage root — override with VAULT_DATA_ROOT so the same code writes to a Railway
 # volume (e.g. /data) in the cloud, or a local dir in dev. Mac-independent.
 DATA_ROOT = os.environ.get("VAULT_DATA_ROOT", os.path.join(os.path.dirname(__file__), "data"))
@@ -174,9 +177,12 @@ def main():
     ts = int(now.timestamp() * 1000)
     day = now.strftime("%Y-%m-%d")
 
-    roster = fetch_roster()
+    roster = [t for t in fetch_roster() if t.get("pnlCohort") in COHORTS]
     wallets = [t["address"] for t in roster]
-    print(f"[{now.isoformat()}] snapshot ts={ts} roster={len(wallets)} dexes={[d or 'main' for d in DEXES]}")
+    cohort_counts = {}
+    for t in roster:
+        cohort_counts[t["pnlCohort"]] = cohort_counts.get(t["pnlCohort"], 0) + 1
+    print(f"[{now.isoformat()}] snapshot ts={ts} roster={len(wallets)} {cohort_counts} dexes={[d or 'main' for d in DEXES]}")
 
     # Record roster membership + metadata for this tick (survivorship-aware).
     with open(os.path.join(ROSTER_DIR, f"{day}.ndjson"), "a") as f:

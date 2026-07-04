@@ -40,6 +40,10 @@ N0 = 180.0             # shrinkage horizon (obs): q_eff = λ·DSR + (1−λ)·pr
                        # the vote (see docs/vault-signal-explained.md).
 BREADTH_MIN = 3        # minimum EFFECTIVE voices: n_eff = (Σw)²/Σw² ≥ 3, not raw
                        # head-count — 17 heads with one 92% voice is a 1.2-voice vault.
+M_EP, M_VP = 1.0, 0.25  # cohort voice multiplier (80/20 intent): an Extremely
+                       # Profitable credential speaks at full volume, Very Profitable
+                       # at a quarter — individual skill (q_eff²) still sets the level
+                       # within the tier. Wallets off the latest roster default to VP.
 S_ON, S_OFF = 0.12, 0.08
 
 PGURL = os.environ.get("PGURL") or os.environ.get("DATABASE_URL")
@@ -71,12 +75,13 @@ def main():
             nobs[w] = int(n or 0)
     except Exception:
         conn.rollback()  # quality table not created yet
-    cur.execute("SELECT address, copy_score FROM roster WHERE ts=(SELECT max(ts) FROM roster)")
-    q = {}
-    for a, s in cur.fetchall():
+    cur.execute("SELECT address, copy_score, pnl_cohort FROM roster WHERE ts=(SELECT max(ts) FROM roster)")
+    q, mult = {}, {}
+    for a, s, cohort in cur.fetchall():
         prior = (s or 0.0) / 100.0
         lam = nobs.get(a, 0) / (nobs.get(a, 0) + N0)
         q[a] = lam * dsr.get(a, 0.0) + (1 - lam) * prior
+        mult[a] = M_EP if cohort == "Extremely Profitable" else M_VP
     # Scored wallets that fell off the latest roster still vote on their DSR alone.
     for a in dsr:
         if a not in q:
@@ -103,7 +108,7 @@ def main():
             continue
         conv = min(notional / equity, LEV_CAP) ** CONV_POWER
         d = 1.0 if szi > 0 else -1.0
-        w = (qi ** QUALITY_POWER) * conv
+        w = mult.get(wallet, M_VP) * (qi ** QUALITY_POWER) * conv
         a = agg.setdefault((ts, coin), [0.0, 0.0, 0, 0.0])
         a[0] += d * w
         a[1] += w

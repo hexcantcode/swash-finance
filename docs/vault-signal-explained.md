@@ -22,7 +22,16 @@ slightly louder voice — we make skill count *disproportionately*: someone twic
 as skilled speaks four times as loud. Mediocre traders fade to background noise;
 the vault mostly listens to its best people.
 
-**2. How much of their own money is behind it — the tiebreaker.**
+**2. Which room they earned their way into — the credential.**
+The cohort comes in two tiers: **Extremely Profitable** traders (+$1M lifetime)
+speak at full volume; **Very Profitable** traders ($100K–$1M) are in the room
+too, but at a quarter volume (an 80/20 split by design). The credential sets
+your ceiling; your individual skill score still sets where you sit under it — a
+brilliant Very Profitable trader outvotes a mediocre Extremely Profitable one.
+Smaller tiers than that are left outside: below Very Profitable, the evidence of
+edge is too thin to earn a say.
+
+**3. How much of their own money is behind it — the tiebreaker.**
 A trader who bets their whole account on a view believes it more than one
 dabbling with 5% — so we let that raise their voice, but only a little. Going
 from a normal bet to an absolutely-maxed-out bet makes you less than twice as
@@ -73,8 +82,9 @@ For each trader *i* with a position in the market:
 |---|---|
 | Vote | direction `dᵢ = +1` (long) / `−1` (short) |
 | Skill counts disproportionately | `q_effᵢ²` |
+| The credential (which room) | `mᵢ = 1.0` (Extremely Profitable) / `0.25` (Very Profitable, 80/20 intent) |
 | Bet size adds emphasis, not dominance | `√convᵢ`, where `convᵢ = min(notional/equity, 3)` |
-| Voice loudness | `wᵢ = q_effᵢ² · √convᵢ` |
+| Voice loudness | `wᵢ = mᵢ · q_effᵢ² · √convᵢ` |
 | The room's verdict | `s = Σ wᵢdᵢ / Σ wᵢ` ∈ [−1, +1] |
 | Trust migrates with evidence | `q_effᵢ = λᵢ·DSRᵢ + (1−λᵢ)·priorᵢ`, `λᵢ = n_obsᵢ / (n_obsᵢ + 180)` — prior = roster copyScore/100; DSR = the vault-grade deflated-Sharpe score (`backtest/quality_score.py`) |
 | Count voices, not heads | `n_eff = (Σwᵢ)² / Σwᵢ²`; actionable only if `n_eff ≥ 3` |
