@@ -15,8 +15,8 @@
     type TraderOpen,
   } from '$lib/api/asset-detail';
   import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
-  import { getSmartMarks, type SmartMarks, type SmartMarkTrade } from '$lib/api/smart-marks';
-  import type { ChartMark, ChartLink, ChartLevel } from '$lib/components/MobilePriceChart.svelte';
+  import { getSmartMarks, type SmartMarks } from '$lib/api/smart-marks';
+  import type { ChartLevel } from '$lib/components/MobilePriceChart.svelte';
   import type { Asset } from '$lib/api/assets';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
   import {
@@ -27,7 +27,6 @@
     shortAddress,
     effigyUrl,
     pnlSignClass,
-    traderName,
   } from '$lib/utils/format';
 
   const coin = $derived($page.params['coin'] ?? '');
@@ -47,8 +46,6 @@
   // levels, toggleable and persisted.
   let smartMarks = $state<SmartMarks | null>(null);
   let smartOn = $state(true);
-  // The bucket of trades behind a tapped dot/bundle, shown in the panel.
-  let smartBucket = $state<SmartMarkTrade[] | null>(null);
 
   // The crosshair time is a UTC second-timestamp. Show enough granularity to
   // place the point: a date plus hour:minute, no year (the range is short).
@@ -147,7 +144,6 @@
   $effect(() => {
     if (!mounted) return;
     void range;
-    smartBucket = null;
     void loadCandles();
   });
 
@@ -156,7 +152,6 @@
   $effect(() => {
     if (!mounted) return;
     void coin;
-    smartBucket = null;
     void loadAsset();
     void loadCandles();
     void loadTraders();
@@ -175,24 +170,12 @@
 
   // ── Smart-money layer ──────────────────────────────────────────────────
   interface SmartLayer {
-    marks: ChartMark[];
-    links: ChartLink[];
     levels: ChartLevel[];
-    /** Mark key → the trades behind that dot/bundle, for the tap panel. */
-    buckets: Map<string, SmartMarkTrade[]>;
   }
-  const SMART_LAYER_EMPTY: SmartLayer = { marks: [], links: [], levels: [], buckets: new Map() };
+  const SMART_LAYER_EMPTY: SmartLayer = { levels: [] };
 
-  function isLong(t: SmartMarkTrade): boolean {
-    return t.direction.toLowerCase() !== 'short';
-  }
 
   /** Dot radius in 3 notional buckets, capped. */
-  function dotRadius(notionalUsd: number): number {
-    if (notionalUsd >= 1_000_000) return 5.5;
-    if (notionalUsd >= 250_000) return 4.5;
-    return 3.5;
-  }
 
   /**
    * Turn the raw smart-marks payload into chart primitives for the current
@@ -202,110 +185,8 @@
    * (>2 marks in a bucket collapse into one "×N" bundle).
    */
   function buildSmartLayer(cs: Candle[], data: SmartMarks): SmartLayer {
-    const step = cs[1]!.t - cs[0]!.t;
-    if (step <= 0) return SMART_LAYER_EMPTY;
-    const start = cs[0]!.t;
-    const end = cs[cs.length - 1]!.t + step;
-
-    const candleAt = (t: number): Candle | null => {
-      if (t < start || t >= end) return null;
-      const guess = cs[Math.floor((t - start) / step)];
-      if (guess && t >= guess.t && t < guess.t + step) return guess;
-      // Gaps / irregular spacing: fall back to a scan.
-      return cs.find((k) => t >= k.t && t < k.t + step) ?? null;
-    };
-    const priceOk = (t: number, px: number): boolean => {
-      const c = candleAt(t);
-      return c !== null && px >= c.l * 0.985 && px <= c.h * 1.015;
-    };
-
-    // Validate both endpoints of every trade independently.
-    type Endpoint = { tMs: number; pxUsd: number; kind: 'entry' | 'exit'; trade: SmartMarkTrade };
-    const byBucket = new Map<number, Endpoint[]>();
-    const linkable: SmartMarkTrade[] = [];
-    for (const t of data.trades) {
-      const entryOk =
-        t.openedAtMs !== null && t.entryPxUsd > 0 && priceOk(t.openedAtMs, t.entryPxUsd);
-      const exitOk = t.closedAtMs > 0 && t.exitPxUsd > 0 && priceOk(t.closedAtMs, t.exitPxUsd);
-      const push = (ep: Endpoint) => {
-        const b = Math.floor(ep.tMs / step);
-        const list = byBucket.get(b) ?? [];
-        list.push(ep);
-        byBucket.set(b, list);
-      };
-      if (entryOk) push({ tMs: t.openedAtMs!, pxUsd: t.entryPxUsd, kind: 'entry', trade: t });
-      if (exitOk) push({ tMs: t.closedAtMs, pxUsd: t.exitPxUsd, kind: 'exit', trade: t });
-      if (entryOk && exitOk) linkable.push(t);
-    }
-
-    const marks: ChartMark[] = [];
-    const buckets = new Map<string, SmartMarkTrade[]>();
-    const bundled = new Set<number>();
-    for (const [b, list] of byBucket) {
-      const key = `b${b}`;
-      const trades = [...new Set(list.map((ep) => ep.trade))].sort(
-        (x, y) => y.notionalUsd - x.notionalUsd,
-      );
-      buckets.set(key, trades);
-      if (list.length > 2) {
-        // Bundle: one bubble at the marks' average (time, price), tinted by
-        // the bucket's net direction weighted by notional.
-        bundled.add(b);
-        let tSum = 0;
-        let pxSum = 0;
-        let net = 0;
-        for (const ep of list) {
-          tSum += ep.tMs;
-          pxSum += ep.pxUsd;
-          net += isLong(ep.trade) ? ep.trade.notionalUsd : -ep.trade.notionalUsd;
-        }
-        marks.push({
-          key,
-          tMs: tSum / list.length,
-          pxUsd: pxSum / list.length,
-          tone: net >= 0 ? 'success' : 'danger',
-          filled: true,
-          r: 9,
-          count: list.length,
-        });
-      } else {
-        for (const ep of list) {
-          marks.push({
-            key,
-            tMs: ep.tMs,
-            pxUsd: ep.pxUsd,
-            // Entry dots are tinted by side, exit rings by win/loss.
-            tone:
-              ep.kind === 'entry'
-                ? isLong(ep.trade)
-                  ? 'success'
-                  : 'danger'
-                : ep.trade.netPnlUsd >= 0
-                  ? 'success'
-                  : 'danger',
-            filled: ep.kind === 'entry',
-            r: dotRadius(ep.trade.notionalUsd),
-          });
-        }
-      }
-    }
-
-    // Connectors only when both ends render as individual dots.
-    const links: ChartLink[] = [];
-    for (const t of linkable) {
-      if (bundled.has(Math.floor(t.openedAtMs! / step)) || bundled.has(Math.floor(t.closedAtMs / step)))
-        continue;
-      links.push({
-        aTMs: t.openedAtMs!,
-        aPxUsd: t.entryPxUsd,
-        bTMs: t.closedAtMs,
-        bPxUsd: t.exitPxUsd,
-        tone: t.netPnlUsd >= 0 ? 'success' : 'danger',
-      });
-    }
-
-    // Entry levels, sanity-checked against the latest close (same corruption
-    // source as the trade prices).
+    // The cohort's average entry per side, drawn as dashed lines. Sanity-gate
+    // against the latest close (same corruption source as the trade prices).
     const levels: ChartLevel[] = [];
     const latestClose = cs[cs.length - 1]!.c;
     for (const side of ['long', 'short'] as const) {
@@ -315,11 +196,10 @@
       levels.push({
         pxUsd: l.avgPxUsd,
         tone: side === 'long' ? 'success' : 'danger',
-        label: `${l.count} ${side} · ${formatUsd(l.avgPxUsd)}`,
+        label: `${l.count} ${side} · avg ${formatUsd(l.avgPxUsd)}`,
       });
     }
-
-    return { marks, links, levels, buckets };
+    return { levels };
   }
 
   const smartLayer = $derived.by(() => {
@@ -337,7 +217,6 @@
 
   function toggleSmart() {
     smartOn = !smartOn;
-    if (!smartOn) smartBucket = null;
     try {
       localStorage.setItem('swash.chart.smartMoney', smartOn ? '1' : '0');
     } catch {
@@ -345,15 +224,7 @@
     }
   }
 
-  function onMarkTap(key: string) {
-    smartBucket = smartLayer.buckets.get(key) ?? null;
-  }
 
-  /** Entry/exit price in the tap panel — precise below $100k so the entry→exit
-   *  delta stays legible (BTC included). */
-  function smartPx(px: number): string {
-    return formatUsd(px, { precise: px < 100_000 });
-  }
 </script>
 
 <svelte:head>
@@ -426,20 +297,12 @@
         </button>
       </div>
     </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-    <div
-      class="m-chart-frame"
-      class:is-loading={chartLoading}
-      onclick={() => (smartBucket = null)}
-    >
+    <div class="m-chart-frame" class:is-loading={chartLoading}>
       <MobilePriceChart
         {candles}
         height={200}
         mode={chartMode}
-        marks={smartLayer.marks}
-        links={smartLayer.links}
         levels={smartLayer.levels}
-        onmarktap={onMarkTap}
         onhover={(h) => (hovered = h)}
       />
     </div>
@@ -468,46 +331,6 @@
         >
           Smart money
         </button>
-      </div>
-    {/if}
-    {#if smartBucket && smartBucket.length > 0}
-      <div class="m-smart-panel" role="dialog" aria-label="Smart-money trades at this point">
-        <div class="m-smart-panel-head">
-          <span class="m-smart-panel-title">
-            Smart money · {smartBucket.length} trade{smartBucket.length === 1 ? '' : 's'}
-          </span>
-          <button
-            type="button"
-            class="m-smart-panel-close tappable tap-hit"
-            aria-label="Close"
-            onclick={() => (smartBucket = null)}
-          >
-            ✕
-          </button>
-        </div>
-        {#each smartBucket as t, i (`${t.address}-${t.closedAtMs}-${i}`)}
-          <a class="m-smart-trade tappable-row" href={`/trader/${t.address}`}>
-            <div class="m-smart-trade-copy">
-              <span class="m-smart-trade-name">{traderName(t.displayName, t.address)}</span>
-              <span class="m-smart-trade-line">
-                <span
-                  class="m-trade-side"
-                  class:is-long={isLong(t)}
-                  class:is-short={!isLong(t)}
-                >
-                  {isLong(t) ? 'Long' : 'Short'}
-                </span>
-                {formatUsd(t.notionalUsd)} · in {smartPx(t.entryPxUsd)} → out {smartPx(t.exitPxUsd)}
-              </span>
-            </div>
-            <div class="m-smart-trade-stats">
-              <span class="m-smart-trade-pnl {pnlSignClass(t.netPnlUsd)}">
-                {t.netPnlUsd > 0 ? '+' : ''}{formatPnl(t.netPnlUsd)}
-              </span>
-              <span class="m-smart-trade-time">{formatRelativeTime(new Date(t.closedAtMs))}</span>
-            </div>
-          </a>
-        {/each}
       </div>
     {/if}
   </section>
@@ -833,109 +656,6 @@
     color: var(--stripe-text-primary);
   }
 
-  /* Tap panel — the trades behind a tapped dot/bundle. Compact glass. */
-  .m-smart-panel {
-    margin-top: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--glass-highlight);
-  }
-
-  .m-smart-panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-  }
-
-  .m-smart-panel-title {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .m-smart-panel-close {
-    min-height: 28px;
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--stripe-text-tertiary);
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    cursor: pointer;
-  }
-
-  .m-smart-trade {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: var(--touch-comfortable);
-    padding: var(--space-2) 0;
-    color: inherit;
-    text-decoration: none;
-    border-top: 1px solid var(--stripe-border);
-  }
-  .m-smart-trade:first-of-type {
-    border-top: none;
-  }
-
-  .m-smart-trade-copy {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .m-smart-trade-name {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    font-weight: 500;
-    color: var(--stripe-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .m-smart-trade-line {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .m-smart-trade-stats {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-
-  .m-smart-trade-pnl {
-    font-size: var(--type-footnote);
-    font-weight: 500;
-    color: var(--stripe-text-primary);
-  }
-  .m-smart-trade-pnl:global(.k-pnl-positive) {
-    color: var(--stripe-success);
-  }
-  .m-smart-trade-pnl:global(.k-pnl-negative) {
-    color: var(--stripe-danger);
-  }
-
-  .m-smart-trade-time {
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-  }
 
   .m-asset-tabs {
     padding-top: var(--space-4);
