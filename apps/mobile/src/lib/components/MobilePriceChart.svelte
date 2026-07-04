@@ -62,7 +62,7 @@
   type XY = { x: number; y: number };
   let overlay = $state<{
     width: number;
-    levels: { y: number; labelY: number; chipX: number; chipW: number; color: string; label: string }[];
+    levels: { y: number; labelY: number; textX: number; anchor: string; color: string; label: string }[];
   }>({ width: 0, levels: [] });
 
   function toneColor(t: 'success' | 'danger'): string {
@@ -80,14 +80,20 @@
       overlay = empty;
       return;
     }
-    // Long tags anchor left, short tags right — opposite ends, so the two
-    // labels can never collide even when the lines nearly touch.
+    // Long labels anchor left, short labels right — opposite ends, so the two
+    // can never collide even when the lines nearly touch.
     const lvls = levels.flatMap((l) => {
       const y = series.priceToCoordinate(l.pxUsd);
       if (y == null) return [];
-      const chipW = l.label.length * 6.2 + 12;
-      const chipX = l.tone === 'danger' ? width - chipW - 4 : 4;
-      return [{ y, labelY: y - 4, chipX, chipW, color: toneColor(l.tone), label: l.label }];
+      const right = l.tone === 'danger';
+      return [{
+        y,
+        labelY: y - 4,
+        textX: right ? width - 6 : 6,
+        anchor: right ? 'end' : 'start',
+        color: toneColor(l.tone),
+        label: l.label,
+      }];
     });
     overlay = { width, levels: lvls };
   }
@@ -345,16 +351,13 @@
           y2={l.y}
           stroke={l.color}
         />
-        <rect
-          class="m-overlay-level-chip"
-          x={l.chipX}
-          y={l.labelY - 10}
-          width={l.chipW}
-          height="14"
-          rx="4"
-          stroke={l.color}
-        />
-        <text class="m-overlay-level-label" x={l.chipX + l.chipW / 2} y={l.labelY} fill={l.color}>{l.label}</text>
+        <text
+          class="m-overlay-level-label"
+          x={l.textX}
+          y={l.labelY}
+          text-anchor={l.anchor}
+          fill={l.color}
+        >{l.label}</text>
       {/each}
     </svg>
   {/if}
@@ -392,20 +395,15 @@
     opacity: 0.95;
   }
 
-  /* Solid tag behind each label — readable over any candle or line. */
-  .m-overlay-level-chip {
-    fill: var(--stripe-bg-elevated, var(--stripe-bg-primary));
-    fill-opacity: 0.95;
-    stroke-width: 0.75;
-    stroke-opacity: 0.6;
-  }
-
   .m-overlay-level-label {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
-    /* Centered on the pill's midpoint — symmetric padding by construction. */
-    text-anchor: middle;
+    /* Thin theme-bg halo — keeps the bare text legible where the price path
+       crosses it, without a visible pill. */
+    stroke: var(--stripe-bg-primary);
+    stroke-width: 2.5px;
+    paint-order: stroke;
   }
 
 
