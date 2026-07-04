@@ -195,13 +195,6 @@
     if (!smartMarks || candles.length < 2) return SMART_LAYER_EMPTY;
     return buildSmartLayer(candles, smartMarks);
   });
-
-catch {
-      // Storage can be unavailable (private mode) — the toggle still works.
-    }
-  }
-
-
 </script>
 
 <svelte:head>
@@ -593,9 +586,6 @@ catch {
     box-shadow: var(--glass-pressed-inset);
     color: var(--stripe-text-primary);
   }
-
-  /* Smart-money layer toggle — a lone glass chip under the range strip. */
-
 
   .m-asset-tabs {
     padding-top: var(--space-4);
