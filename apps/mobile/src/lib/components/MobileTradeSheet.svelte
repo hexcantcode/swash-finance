@@ -101,6 +101,12 @@
     <h2 class="t-title">Trade {coinDisplayName(coin)}</h2>
     <p class="t-mark">Mark {fmt(entry)}</p>
 
+    <!-- Basic / Pro tabs -->
+    <div class="t-tabs" role="tablist" aria-label="Ticket mode">
+      <button type="button" role="tab" aria-selected={tab === 'basic'} class="t-tab tappable" class:is-active={tab === 'basic'} onclick={() => (tab = 'basic')}>Basic</button>
+      <button type="button" role="tab" aria-selected={tab === 'pro'} class="t-tab tappable" class:is-active={tab === 'pro'} onclick={() => (tab = 'pro')}>Pro</button>
+    </div>
+
     <!-- Direction -->
     <div class="t-side" role="radiogroup" aria-label="Direction">
       <button
@@ -119,12 +125,6 @@
       >
         Short
       </button>
-    </div>
-
-    <!-- Basic / Pro tabs -->
-    <div class="t-tabs" role="tablist" aria-label="Ticket mode">
-      <button type="button" role="tab" aria-selected={tab === 'basic'} class="t-tab tappable" class:is-active={tab === 'basic'} onclick={() => (tab = 'basic')}>Basic</button>
-      <button type="button" role="tab" aria-selected={tab === 'pro'} class="t-tab tappable" class:is-active={tab === 'pro'} onclick={() => (tab = 'pro')}>Pro</button>
     </div>
 
     {#if tab === 'basic'}
@@ -327,7 +327,11 @@
   .t-tabs {
     display: flex;
     gap: var(--space-1);
-    margin-bottom: var(--space-4);
+    padding: var(--space-1);
+    background: var(--stripe-bg-secondary);
+    border: 1px solid var(--stripe-border-light);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-3);
   }
   .t-tab {
     flex: 1;
@@ -341,8 +345,9 @@
     cursor: pointer;
   }
   .t-tab.is-active {
-    background: var(--glass-pressed-bg);
-    box-shadow: var(--glass-pressed-inset);
+    /* Lighter (elevated) tone marks the selected mode. */
+    background: var(--stripe-bg-elevated);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: var(--stripe-text-primary);
   }
 
