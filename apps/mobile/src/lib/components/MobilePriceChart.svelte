@@ -1,11 +1,3 @@
-<script module lang="ts">
-  /** Dashed horizontal price level with a compact label. */
-  export interface ChartLevel {
-    pxUsd: number;
-    tone: 'success' | 'danger';
-    label: string;
-  }
-</script>
 
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -26,8 +18,6 @@
      *  and ignores `candles`/`mode`. Used for the trader equity curve so it
      *  shares this chart's exact design. Sparse series are pinned edge-to-edge. */
     line?: { t: number; value: number }[];
-    /** Dashed horizontal levels (the cohort's average entry per side). */
-    levels?: ChartLevel[];
   }
   let {
     candles = [],
@@ -35,7 +25,6 @@
     mode = 'line',
     onhover,
     line,
-    levels = [],
   }: Props = $props();
 
   let containerEl: HTMLDivElement;
@@ -44,9 +33,6 @@
   let chart: any = null;
   let series: any = null;
   let lib: any = null;
-  // Native lightweight-charts price lines for the levels (crisp dotted
-  // rendering by the chart engine itself; SVG only carries the labels).
-  let priceLines: any[] = [];
   let resizeObserver: ResizeObserver | null = null;
   // Theme tones resolved from CSS custom properties at mount, so candle/line
   // colors track the active light/dark theme without duplicating the tokens.
@@ -56,76 +42,11 @@
     return (candles[candles.length - 1]?.c ?? 0) >= (candles[0]?.c ?? 0);
   }
 
-  // ── Smart-money overlay ────────────────────────────────────────────────
   // The library renders to canvas, so pinned markers live in a sibling SVG
   // positioned with the chart's own coordinate APIs: x from a fractional
   // logical index over the candle series, y from priceToCoordinate. Repainted
   // whenever the visible scale or the mark props change; scroll/zoom are
   // disabled, so those are the only movers.
-  type XY = { x: number; y: number };
-  let overlay = $state<{
-    width: number;
-    levels: { y: number; labelY: number; textX: number; anchor: string; color: string; label: string }[];
-  }>({ width: 0, levels: [] });
-
-  function toneColor(t: 'success' | 'danger'): string {
-    return t === 'success' ? tone.success : tone.danger;
-  }
-
-  /** (Re)create the native price lines for the current levels. Old lines die
-   *  with a removed series, so this runs after every draw() and level change. */
-  function applyLevels() {
-    if (!chart || !series || !lib) return;
-    for (const pl of priceLines) {
-      try {
-        series.removePriceLine(pl);
-      } catch {
-        // The line's series may already be torn down — nothing to remove.
-      }
-    }
-    priceLines = [];
-    if (line) return; // equity-curve mode has no levels
-    for (const l of levels) {
-      priceLines.push(
-        series.createPriceLine({
-          price: l.pxUsd,
-          color: toneColor(l.tone),
-          lineWidth: 1,
-          lineStyle: lib.LineStyle.Dotted,
-          axisLabelVisible: false,
-        }),
-      );
-    }
-  }
-
-  function positionOverlay() {
-    const empty = { width: 0, levels: [] };
-    if (!chart || !series || line || candles.length < 2 || levels.length === 0) {
-      overlay = empty;
-      return;
-    }
-    const width = containerEl?.clientWidth ?? 0;
-    if (width <= 0) {
-      overlay = empty;
-      return;
-    }
-    // Long labels anchor left, short labels right — opposite ends, so the two
-    // can never collide even when the lines nearly touch.
-    const lvls = levels.flatMap((l) => {
-      const y = series.priceToCoordinate(l.pxUsd);
-      if (y == null) return [];
-      const right = l.tone === 'danger';
-      return [{
-        y,
-        labelY: y - 4,
-        textX: right ? width - 6 : 6,
-        anchor: right ? 'end' : 'start',
-        color: toneColor(l.tone),
-        label: l.label,
-      }];
-    });
-    overlay = { width, levels: lvls };
-  }
 
   /** Tear down the current series and repaint for the active `mode`. Cheaper
    *  than recreating the whole chart when only the series type changes. */
@@ -197,10 +118,6 @@
       );
     }
     chart.timeScale().fitContent();
-    // New series ⇒ stale price-line handles + new y mapping.
-    priceLines = [];
-    applyLevels();
-    requestAnimationFrame(positionOverlay);
   }
 
   /** Resample a sparse {time,value} series to ~120 points along its existing
@@ -318,13 +235,10 @@
         onhover({ price, time: param.time as number });
       });
 
-      chart.timeScale().subscribeVisibleLogicalRangeChange(() => positionOverlay());
-
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           if (!chart) return;
           chart.applyOptions({ width: entry.contentRect.width, height });
-          requestAnimationFrame(positionOverlay);
         }
       });
       resizeObserver.observe(containerEl);
@@ -349,15 +263,6 @@
     if (chart && lib) draw();
   });
 
-  // Re-apply native lines + reposition labels when the level props change.
-  $effect(() => {
-    void levels;
-    if (chart && series) {
-      applyLevels();
-      requestAnimationFrame(positionOverlay);
-    }
-  });
-
   /** `#rrggbb` → `rgba(r,g,b,a)` for the area gradient stops, which need an
    *  alpha the bare hex can't carry. Pre-existing rgba strings pass through. */
   function hexToRgba(hex: string, alpha: number): string {
@@ -374,19 +279,6 @@
 
 <div class="m-price-chart-wrap" style="height: {height}px">
   <div bind:this={containerEl} class="m-price-chart" style="height: {height}px"></div>
-  {#if overlay.levels.length > 0}
-    <svg class="m-chart-overlay" width="100%" height={height} aria-label="Smart-money entry levels">
-      {#each overlay.levels as l (l.label)}
-        <text
-          class="m-overlay-level-label"
-          x={l.textX}
-          y={l.labelY}
-          text-anchor={l.anchor}
-          fill={l.color}
-        >{l.label}</text>
-      {/each}
-    </svg>
-  {/if}
 </div>
 
 <style>
@@ -402,29 +294,6 @@
      * measures up on first paint. */
   }
 
-  /* Level overlay — sits over the canvas, fully transparent to pointer
-     events, so the crosshair still tracks. */
-  .m-chart-overlay {
-    position: absolute;
-    inset: 0;
-    /* lightweight-charts gives its canvases explicit z-indexes (up to 2), so
-       the series paints over a z-auto sibling. Lift the overlay above them —
-       still pointer-transparent, so the crosshair keeps working. */
-    z-index: 3;
-    pointer-events: none;
-    overflow: hidden;
-  }
-
-  .m-overlay-level-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    /* Thin theme-bg halo — keeps the bare text legible where the price path
-       crosses it, without a visible pill. */
-    stroke: var(--stripe-bg-primary);
-    stroke-width: 2.5px;
-    paint-order: stroke;
-  }
 
 
 
