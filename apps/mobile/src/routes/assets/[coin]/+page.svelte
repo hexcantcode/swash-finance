@@ -16,7 +16,6 @@
   } from '$lib/api/asset-detail';
   import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
   import { getSmartMarks, type SmartMarks } from '$lib/api/smart-marks';
-  import type { ChartLevel } from '$lib/components/MobilePriceChart.svelte';
   import type { Asset } from '$lib/api/assets';
   import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
   import {
@@ -42,8 +41,7 @@
   // Smart-money cohort sentiment for this market, when the cohort feed covers
   // it (it ranks ~top-20 markets by notional; quieter coins won't appear).
   let sentiment = $state<MarketSentiment | null>(null);
-  // Smart-money chart layer: the cohort's avg entry levels (dashed lines),
-  // toggleable and persisted.
+  // Per-coin smart-marks payload — feeds the Latest-trades tab.
   let smartMarks = $state<SmartMarks | null>(null);
 
   // The crosshair time is a UTC second-timestamp. Show enough granularity to
@@ -166,35 +164,6 @@
   );
   const displayName = $derived(coinDisplayName(coin));
 
-  // ── Smart-money layer ──────────────────────────────────────────────────
-  interface SmartLayer {
-    levels: ChartLevel[];
-  }
-  const SMART_LAYER_EMPTY: SmartLayer = { levels: [] };
-
-
-  function buildSmartLayer(cs: Candle[], data: SmartMarks): SmartLayer {
-    // The cohort's average entry per side, drawn as dashed lines. Sanity-gate
-    // against the latest close (same corruption source as the trade prices).
-    const levels: ChartLevel[] = [];
-    const latestClose = cs[cs.length - 1]!.c;
-    for (const side of ['long', 'short'] as const) {
-      const l = data.entryLevels[side];
-      if (!l || latestClose <= 0) continue;
-      if (Math.abs(l.avgPxUsd / latestClose - 1) > 0.3) continue;
-      levels.push({
-        pxUsd: l.avgPxUsd,
-        tone: side === 'long' ? 'success' : 'danger',
-        label: `${l.count} ${side} · avg ${formatUsd(l.avgPxUsd)}`,
-      });
-    }
-    return { levels };
-  }
-
-  const smartLayer = $derived.by(() => {
-    if (!smartMarks || candles.length < 2) return SMART_LAYER_EMPTY;
-    return buildSmartLayer(candles, smartMarks);
-  });
 </script>
 
 <svelte:head>
@@ -272,7 +241,6 @@
         {candles}
         height={200}
         mode={chartMode}
-        levels={smartLayer.levels}
         onhover={(h) => (hovered = h)}
       />
     </div>
