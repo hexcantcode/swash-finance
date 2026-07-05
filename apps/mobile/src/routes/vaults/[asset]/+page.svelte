@@ -87,7 +87,6 @@
         </span>
         <div class="m-vhero-meta">
           <div class="m-vhero-name">{coinDisplayName(coin)} vault</div>
-          <div class="m-vhero-tag">Live preview · paper</div>
         </div>
       </div>
       <div class="m-vhero-call is-{dir}">
@@ -220,7 +219,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
-    padding-bottom: var(--space-2);
+    padding-bottom: var(--space-4);
   }
   .m-vhero-id {
     display: flex;
@@ -248,13 +247,6 @@
     line-height: 1.15;
     color: var(--stripe-text-primary);
   }
-  .m-vhero-tag {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--stripe-text-tertiary);
-  }
   .m-vhero-call { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-family: var(--font-mono); }
   .m-vhero-dir { font-size: var(--type-callout); font-weight: 700; letter-spacing: 0.04em; }
   .m-vhero-skew { font-size: var(--type-footnote); color: var(--stripe-text-tertiary); font-variant-numeric: tabular-nums; }
@@ -262,7 +254,7 @@
   .m-vhero-call.is-short .m-vhero-dir { color: var(--stripe-danger); }
   .m-vhero-call.is-flat .m-vhero-dir { color: var(--stripe-text-tertiary); }
   /* Allocation bar — open position vs idle USDC (asset-page bar language). */
-  .m-valloc { margin-bottom: var(--space-5); }
+  .m-valloc { margin-bottom: var(--space-8); }
   .m-valloc-bar {
     display: flex;
     height: 8px;
@@ -286,7 +278,7 @@
   .m-valloc-idle { color: var(--stripe-text-tertiary); }
 
   /* Sections — uppercase label like .m-sent-head */
-  .m-vsec { margin-bottom: var(--space-5); }
+  .m-vsec { margin-bottom: var(--space-8); }
   .m-vsec-h {
     margin: 0 0 var(--space-2);
     font-family: var(--font-sans);

@@ -38,7 +38,6 @@
 <main id="main-content" class="m-page">
   <header class="m-vaults-head safe-x">
     <h1 class="m-vaults-h1">Vaults</h1>
-    <span class="m-vaults-badge">Live preview · paper</span>
   </header>
   <p class="m-vaults-intro safe-x">
     Each vault follows the smart money on one market — long or short, sized to how convinced
@@ -110,14 +109,6 @@
     font-size: var(--type-title);
     font-weight: 700;
     color: var(--stripe-text-primary);
-  }
-  .m-vaults-badge {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-accent);
-    white-space: nowrap;
   }
   .m-vaults-intro {
     margin: 0 0 var(--space-3);
