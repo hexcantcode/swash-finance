@@ -189,13 +189,15 @@
           <button type="button" class="t-seg-btn tappable" class:is-active={marginMode === 'cross'} onclick={() => (marginMode = 'cross')}>Cross</button>
           <button type="button" class="t-seg-btn tappable" class:is-active={marginMode === 'isolated'} onclick={() => (marginMode = 'isolated')}>Isolated</button>
         </div>
-        <div class="t-lev-box">
-          <label class="t-mini-label" for="t-pro-lev">Leverage</label>
-          <div class="t-lev-input">
-            <input id="t-pro-lev" type="number" min="1" max={LEV_MAX} bind:value={proLev} />
-            <span>×</span>
-          </div>
+      </div>
+
+      <div class="t-field">
+        <div class="t-field-head">
+          <span class="t-label">Leverage</span>
+          <span class="t-value">{proLev}×</span>
         </div>
+        <input class="t-slider t-slider-risk" type="range" min="1" max={LEV_MAX} step="1" bind:value={proLev} aria-label="Leverage" />
+        <div class="t-scale"><span>1×</span><span>{LEV_MAX}×</span></div>
       </div>
 
       <div class="t-chiprow" role="radiogroup" aria-label="Order type">
@@ -467,27 +469,14 @@
     white-space: nowrap;
   }
   .t-seg-btn.is-active {
-    background: var(--glass-pressed-bg);
-    box-shadow: var(--glass-pressed-inset);
+    background: var(--stripe-bg-elevated);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: var(--stripe-text-primary);
   }
   .t-seg-sm .t-seg-btn { min-height: 28px; padding: 0 var(--space-2); }
-  .t-lev-box { display: flex; align-items: center; gap: var(--space-2); }
   .t-mini-label {
     font-size: var(--type-caption);
     color: var(--stripe-text-tertiary);
-  }
-  .t-lev-input {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-family: var(--font-mono);
-    color: var(--stripe-text-primary);
-  }
-  .t-lev-input input {
-    width: 48px;
-    min-height: 32px;
-    text-align: right;
   }
   .t-chiprow {
     display: flex;
@@ -508,8 +497,8 @@
   }
   .t-chip.is-active {
     border-color: transparent;
-    background: var(--glass-pressed-bg);
-    box-shadow: var(--glass-pressed-inset);
+    background: var(--stripe-bg-elevated);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: var(--stripe-text-primary);
   }
   .t-input-field { margin-bottom: var(--space-4); }
@@ -520,7 +509,6 @@
     color: var(--stripe-text-tertiary);
   }
   .t-input-field input,
-  .t-lev-input input,
   .t-tpsl input {
     border: 1px solid var(--stripe-border);
     border-radius: var(--radius-md);
