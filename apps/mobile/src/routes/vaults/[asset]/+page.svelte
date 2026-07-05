@@ -91,9 +91,6 @@
       </div>
       <div class="m-vhero-call is-{dir}">
         <span class="m-vhero-dir">{dir === 'flat' ? 'FLAT' : dir.toUpperCase()}</span>
-        {#if dir !== 'flat' && s.skew !== null}
-          <span class="m-vhero-skew">{Math.round(Math.abs(s.skew) * 100)}%</span>
-        {/if}
       </div>
     </section>
     <!-- Allocation bar — open position vs idle USDC, same bar language as the
@@ -249,7 +246,6 @@
   }
   .m-vhero-call { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-family: var(--font-mono); }
   .m-vhero-dir { font-size: var(--type-callout); font-weight: 700; letter-spacing: 0.04em; }
-  .m-vhero-skew { font-size: var(--type-footnote); color: var(--stripe-text-tertiary); font-variant-numeric: tabular-nums; }
   .m-vhero-call.is-long .m-vhero-dir { color: var(--stripe-success); }
   .m-vhero-call.is-short .m-vhero-dir { color: var(--stripe-danger); }
   .m-vhero-call.is-flat .m-vhero-dir { color: var(--stripe-text-tertiary); }
