@@ -160,11 +160,6 @@
       {/if}
     </section>
 
-    <!-- Deposit — polished placeholder (no contracts yet, same spirit as Mirror) -->
-    <div class="m-vdeposit safe-x">
-      <button type="button" class="m-cta-primary m-vdeposit-btn tappable">Deposit</button>
-    </div>
-
     <!-- Who's driving it — rows, asset-page pattern -->
     <section class="m-vsec safe-x" aria-label="Contributing traders">
       <h2 class="m-vsec-h">Who's driving it</h2>
@@ -190,7 +185,10 @@
       </p>
     </section>
 
-    <div class="m-vcta safe-x">Deposits coming soon</div>
+    <!-- Floating Deposit CTA — fixed above the bottom-nav pill, same insets and
+         radius as the trader page's Mirror FAB so the floating chrome reads as
+         one system. Polished placeholder: no contracts wired yet. -->
+    <button type="button" class="m-vdeposit-fab m-cta-primary">Deposit</button>
   {/if}
 </main>
 
@@ -200,7 +198,8 @@
     flex-direction: column;
     min-height: 100vh;
     padding-top: var(--space-3);
-    padding-bottom: calc(var(--safe-bottom) + 80px);
+    /* Clearance for the floating Deposit FAB + nav pill (matches trader page). */
+    padding-bottom: calc(var(--safe-bottom) + 150px);
   }
 
   /* Hero — mirrors .m-asset-hero */
@@ -355,22 +354,14 @@
   .m-vrow-side.is-short { color: var(--stripe-danger); }
 
   .m-vmethod { margin: 0; font-size: var(--type-footnote); line-height: 1.6; color: var(--stripe-text-secondary); }
-  .m-vdeposit { margin-bottom: var(--space-5); }
-  .m-vdeposit-btn {
-    width: 100%;
-    min-height: var(--touch-comfortable);
+  .m-vdeposit-fab {
+    position: fixed;
+    left: max(var(--safe-left), var(--space-4));
+    right: max(var(--safe-right), var(--space-4));
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px + var(--space-3));
+    z-index: 21;
+    min-height: 52px;
+    border-radius: var(--radius-xl);
   }
 
-  .m-vcta {
-    margin: 0 max(var(--safe-left), var(--space-4));
-    padding: var(--space-3);
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--stripe-text-tertiary);
-    border: 1px dashed var(--stripe-border);
-    border-radius: var(--radius-lg);
-  }
 </style>
