@@ -390,8 +390,10 @@
   }
 
   .m-overlay-level {
-    stroke-width: 1.5;
-    stroke-dasharray: 5 4;
+    stroke-width: 1.8;
+    /* Round dots: near-zero dash + round caps, 5px pitch. */
+    stroke-dasharray: 0.1 5;
+    stroke-linecap: round;
     opacity: 0.95;
   }
 
