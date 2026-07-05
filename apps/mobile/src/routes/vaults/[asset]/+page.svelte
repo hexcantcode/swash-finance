@@ -26,11 +26,8 @@
 
   const s = $derived(detail?.summary ?? null);
   const dir = $derived(s?.direction ?? 'flat');
-  const heldLine = $derived(
-    !s || dir === 'flat' || s.skew === null
-      ? 'In cash — no clear lean'
-      : `$${Math.round(Math.abs(s.skew) * 1000).toLocaleString('en-US')} ${dir} per $1,000`,
-  );
+  // Allocation: |skew| of NAV is deployed in the position, the rest idles in USDC.
+  const openPct = $derived(dir === 'flat' || s?.skew == null ? 0 : Math.round(Math.abs(s.skew) * 100));
 
   const W = 320;
   const H = 72;
@@ -100,7 +97,19 @@
         {/if}
       </div>
     </section>
-    <p class="m-vhero-held safe-x">{heldLine} · {s.contributors ?? s.traders} pro traders</p>
+    <!-- Allocation bar — open position vs idle USDC, same bar language as the
+         asset page's smart-money bar. -->
+    <div class="m-valloc safe-x">
+      <div class="m-valloc-bar">
+        {#if openPct > 0}
+          <span class="m-valloc-pos is-{dir}" style:width={`${openPct}%`}></span>
+        {/if}
+      </div>
+      <div class="m-valloc-labels">
+        <span class="m-valloc-open is-{dir}">{openPct}% {dir === 'flat' ? 'open' : dir}</span>
+        <span class="m-valloc-idle">{100 - openPct}% idle USDC</span>
+      </div>
+    </div>
 
     <!-- Positioning over time -->
     <section class="m-vsec safe-x" aria-label="Positioning over time">
@@ -154,7 +163,6 @@
           <span class="is-vault">Vault {navChart.vaultLast.toFixed(1)}</span>
           <span class="is-asset">Hold {navChart.assetLast.toFixed(1)}</span>
         </div>
-        <p class="m-vsec-note">Paper, base 100 since inception · observed, not a validated result.</p>
       {:else}
         <p class="m-vsec-note">The vault-vs-hold comparison builds as history accrues.</p>
       {/if}
@@ -249,12 +257,29 @@
   .m-vhero-call.is-long .m-vhero-dir { color: var(--stripe-success); }
   .m-vhero-call.is-short .m-vhero-dir { color: var(--stripe-danger); }
   .m-vhero-call.is-flat .m-vhero-dir { color: var(--stripe-text-tertiary); }
-  .m-vhero-held {
-    margin: 0 0 var(--space-5);
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-secondary);
+  /* Allocation bar — open position vs idle USDC (asset-page bar language). */
+  .m-valloc { margin-bottom: var(--space-5); }
+  .m-valloc-bar {
+    display: flex;
+    height: 8px;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    background: var(--stripe-bg-secondary);
   }
+  .m-valloc-pos.is-long { background: var(--stripe-success); }
+  .m-valloc-pos.is-short { background: var(--stripe-danger); }
+  .m-valloc-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-1);
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-valloc-open { text-transform: uppercase; letter-spacing: 0.04em; color: var(--stripe-text-tertiary); }
+  .m-valloc-open.is-long { color: var(--stripe-success); }
+  .m-valloc-open.is-short { color: var(--stripe-danger); }
+  .m-valloc-idle { color: var(--stripe-text-tertiary); }
 
   /* Sections — uppercase label like .m-sent-head */
   .m-vsec { margin-bottom: var(--space-5); }
