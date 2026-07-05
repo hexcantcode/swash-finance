@@ -8,7 +8,7 @@
 
 ## Counts
 - HL main perps (active): 176 · HL xyz: 84 · Lighter perps (active): 197
-- **Overlap: 96 crypto + 46 equities/commodities = 142**
+- **Overlap: 96 crypto + 46 equities/commodities = 142 symbol-matched + 14 verified aliases = 156**
 
 ## Proposed Majors (noise-cancel) — 36
 
@@ -16,7 +16,7 @@ Crypto (20): BTC, ETH, SOL, XRP, DOGE, BNB, ADA, AVAX, LINK, SUI, HYPE, LTC, BCH
 
 Equities/commodities (16): NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL, AMD, PLTR, COIN, MSTR, HOOD, TSM, AVGO, BRENTOIL, NATGAS
 
-Criteria: deep liquidity + recognition on both venues. Notably **missing from the overlap**: SP500, GOLD, SILVER (xyz has them; Lighter uses different/no listings — check SPY/XAU equivalents), and Lighter-only extras (FX pairs, IWM, ANTHROPIC) have no HL analytics.
+Criteria: deep liquidity + recognition on both venues. SP500, GOLD and SILVER ARE tradeable on Lighter via verified aliases (US500, XAU, XAG — see alias table); consider adding them to Majors. Lighter-only extras (FX crosses, SPY/QQQ ETFs, ANTHROPIC) have no HL analytics.
 
 ## Crypto overlap (HL main ∩ Lighter) — 96
 
@@ -170,10 +170,57 @@ Criteria: deep liquidity + recognition on both venues. Notably **missing from th
 | TSM ★ | `xyz:TSM` | 168 | 0.0200 |
 | ZHIPU  | `xyz:ZHIPU` | 205 | 0.0250 |
 
+## Verification (2026-07-05, live mark-price cross-check)
+
+All 142 symbol-matched pairs were price-checked HL-mid vs Lighter last-trade:
+- **135 verified identical** (<2% divergence) — including every ⚠-flagged ticker, so
+  those are CONFIRMED same-instrument (Lighter's SPX = SPX6900 memecoin, same as HL).
+- **0 mismatches.**
+- **7 unverifiable** (Lighter listing active but no recent trade): ARM, AVGO, BE, GME,
+  NOK, QCOM, QNT — same-name equities, near-certainly the same instruments; re-check
+  price at execution time before first order.
+
+## Verified aliases (price-fingerprint matched, <0.4% divergence) — 14
+
+Different names, same instrument — recovers the index/metal/FX markets, including the
+three the sentiment UI leans on (SP500, GOLD, SILVER):
+
+| HL name | Lighter symbol | Instrument |
+|---|---|---|
+| `xyz:SP500` | US500 | S&P 500 index |
+| `xyz:XYZ100` | US100 | Nasdaq-100 index |
+| `xyz:GOLD` | XAU | gold |
+| `xyz:SILVER` | XAG | silver |
+| `xyz:PLATINUM` | XPT | platinum |
+| `xyz:PALLADIUM` | XPD | palladium |
+| `xyz:COPPER` | XCU | copper |
+| `xyz:CL` | WTI | WTI crude |
+| `xyz:EUR` | EURUSD | EUR/USD |
+| `xyz:GBP` | GBPUSD | GBP/USD |
+| `xyz:JPY` | USDJPY | USD/JPY |
+| `xyz:HYUNDAI` | HYUNDAIUSD | Hyundai |
+| `xyz:SMSN` | SAMSUNGUSD | Samsung |
+| `xyz:SKHX` | SKHYNIXUSD | SK Hynix |
+
+**Total matched pairs: 142 + 14 = 156.**
+
+Beware price-coincidence false friends found during matching (REJECTED, not aliases):
+CAKE≈USDCAD, MELANIA≈MYX, BLUR≈ROBO, xyz:KR200≈OPENAI, xyz:SOFTBANK≈BOTZ — same price,
+unrelated instruments. Fingerprint matching requires name semantics to agree too.
+
+## Genuinely unmatched (no Lighter counterpart / no HL analytics)
+- **HL-xyz only (~24):** AMAT, BX, COST, DKNG, EBAY, EWJ/EWT/EWZ, HIMS, JP225, KIOXIA,
+  KR200, LLY, NFLX, RIVN, SMH, URNM (Lighter's URA is a *different* uranium ETF), USAR,
+  WDC, XLE, ZM, SOFTBANK, BIRD, PURRDAT.
+- **Lighter only:** SPY/QQQ/IWM ETFs (index *ETFs* — HL has the indexes; different
+  instruments), USDKRW/CHF/HKD/CAD + AUDUSD/NZDUSD FX, WHEAT, TENCENT, XIAOMI, BYD,
+  POPMART, SMIC, OPENAI, ANTHROPIC, H100, and assorted small caps/memes. No HL
+  analytics → excluded.
+
 ## Execution-side fields (Lighter)
 `orderBooks` carries per-market `market_id` (order routing key), `min_base_amount`, `taker_fee`/`maker_fee`, `liquidation_fee` — the constants the execution layer needs. Re-fetch on deploy rather than hardcoding.
 
 ## Next steps
-1. Confirm the ⚠ ambiguous tickers by comparing venue mark prices (>2% divergence = different instrument).
+1. ~~Confirm the ⚠ ambiguous tickers~~ DONE 2026-07-05 — all 135 tradeable pairs verified, 0 mismatches; aliases resolved.
 2. Decide the final Majors set (trim/extend the ★ proposal).
 3. Encode the map as a versioned constant (e.g. `packages/shared/src/asset-map.ts`) with `{symbol, hlName, hlDex, lighterMarketId, major}` once execution work starts — this doc is the source until then.
