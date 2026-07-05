@@ -119,8 +119,8 @@
         {/if}
       </div>
       {#if skewPath}
-        <div class="m-vchart-wrap">
-          <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <span class="m-vchart-lab is-long">Long</span>
+        <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <!-- Vertical long→short gradient in chart space: the line is green
                    while positioned long (top), red while short (bottom). -->
@@ -135,10 +135,8 @@
             </defs>
             <line x1="0" y1={H / 2} x2={W} y2={H / 2} class="m-vchart-zero" />
             <path d={skewPath} class="m-vchart-line" stroke="url(#skew-grad)" fill="none" />
-          </svg>
-          <span class="m-vchart-lab is-long">Long</span>
-          <span class="m-vchart-lab is-short">Short</span>
-        </div>
+        </svg>
+        <span class="m-vchart-lab is-short">Short</span>
       {:else}
         <p class="m-vsec-note">Builds as snapshots accrue — every 30 minutes.</p>
       {/if}
@@ -292,17 +290,17 @@
   .m-vgrad-long { stop-color: var(--stripe-success); }
   .m-vgrad-mid { stop-color: var(--stripe-text-tertiary); }
   .m-vgrad-short { stop-color: var(--stripe-danger); }
-  .m-vchart-wrap { position: relative; }
+  /* Long above / Short below the chart — outside the plot so the line never
+     collides with the labels. */
   .m-vchart-lab {
-    position: absolute;
-    left: 0;
+    display: block;
     font-family: var(--font-mono);
     font-size: var(--type-caption);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .m-vchart-lab.is-long { top: 0; color: var(--stripe-success); }
-  .m-vchart-lab.is-short { bottom: 0; color: var(--stripe-danger); }
+  .m-vchart-lab.is-long { margin-bottom: 2px; color: var(--stripe-success); }
+  .m-vchart-lab.is-short { margin-top: 2px; color: var(--stripe-danger); }
   .m-vchart-vault { stroke: var(--stripe-success); stroke-width: 2; }
   .m-vchart-asset { stroke: var(--stripe-accent); stroke-width: 1.5; }
   .m-vchart-legend {
