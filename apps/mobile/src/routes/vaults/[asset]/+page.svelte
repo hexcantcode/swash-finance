@@ -90,11 +90,26 @@
     <section class="m-vsec safe-x" aria-label="Positioning over time">
       <h2 class="m-vsec-h">Positioning over time</h2>
       {#if skewPath}
-        <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-          <line x1="0" y1={H / 2} x2={W} y2={H / 2} class="m-vchart-zero" />
-          <path d={skewPath} class="m-vchart-line is-{dir}" fill="none" />
-        </svg>
-        <div class="m-vchart-axis"><span>long</span><span>short</span></div>
+        <div class="m-vchart-wrap">
+          <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <!-- Vertical long→short gradient in chart space: the line is green
+                   while positioned long (top), red while short (bottom). -->
+              <linearGradient id="skew-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={H}>
+                <!-- Full color outside the near-flat band; neutral only at the midline. -->
+                <stop offset="0" class="m-vgrad-long" />
+                <stop offset="0.35" class="m-vgrad-long" />
+                <stop offset="0.5" class="m-vgrad-mid" />
+                <stop offset="0.65" class="m-vgrad-short" />
+                <stop offset="1" class="m-vgrad-short" />
+              </linearGradient>
+            </defs>
+            <line x1="0" y1={H / 2} x2={W} y2={H / 2} class="m-vchart-zero" />
+            <path d={skewPath} class="m-vchart-line" stroke="url(#skew-grad)" fill="none" />
+          </svg>
+          <span class="m-vchart-lab is-long">Long</span>
+          <span class="m-vchart-lab is-short">Short</span>
+        </div>
       {:else}
         <p class="m-vsec-note">Builds as snapshots accrue — every 30 minutes.</p>
       {/if}
@@ -227,12 +242,23 @@
   .m-vchart { width: 100%; height: 72px; display: block; }
   .m-vchart-zero { stroke: var(--stripe-border); stroke-width: 1; stroke-dasharray: 3 3; }
   .m-vchart-line { stroke-width: 2; }
-  .m-vchart-line.is-long { stroke: var(--stripe-success); }
-  .m-vchart-line.is-short { stroke: var(--stripe-danger); }
-  .m-vchart-line.is-flat { stroke: var(--stripe-text-tertiary); }
-  .m-vchart-vault { stroke: var(--stripe-accent); stroke-width: 2; }
-  .m-vchart-asset { stroke: var(--stripe-text-tertiary); stroke-width: 1.5; stroke-dasharray: 4 3; }
-  .m-vchart-axis,
+  /* Long→short vertical gradient stops (green top, red bottom, neutral mid). */
+  .m-vgrad-long { stop-color: var(--stripe-success); }
+  .m-vgrad-mid { stop-color: var(--stripe-text-tertiary); }
+  .m-vgrad-short { stop-color: var(--stripe-danger); }
+  .m-vchart-wrap { position: relative; }
+  .m-vchart-lab {
+    position: absolute;
+    left: 0;
+    font-family: var(--font-mono);
+    font-size: var(--type-caption);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .m-vchart-lab.is-long { top: 0; color: var(--stripe-success); }
+  .m-vchart-lab.is-short { bottom: 0; color: var(--stripe-danger); }
+  .m-vchart-vault { stroke: var(--stripe-success); stroke-width: 2; }
+  .m-vchart-asset { stroke: var(--stripe-accent); stroke-width: 1.5; }
   .m-vchart-legend {
     display: flex;
     justify-content: space-between;
@@ -242,8 +268,8 @@
     color: var(--stripe-text-tertiary);
   }
   .m-vchart-legend { justify-content: flex-start; gap: var(--space-3); font-variant-numeric: tabular-nums; }
-  .m-vchart-legend .is-vault { color: var(--stripe-accent); }
-  .m-vchart-legend .is-asset { color: var(--stripe-text-tertiary); }
+  .m-vchart-legend .is-vault { color: var(--stripe-success); }
+  .m-vchart-legend .is-asset { color: var(--stripe-accent); }
 
   /* Contributor rows — mirror .m-trader-row */
   /* Contributor rows are glass cards, matching the app-wide .m-card-list /
