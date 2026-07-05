@@ -42,6 +42,22 @@
       .join(' ');
   });
 
+  // 24h positioning change in percentage points (skew is already ±100%-scaled);
+  // + = moved toward long, − = toward short. Null until 24h of history exists.
+  const skewDelta24h = $derived.by(() => {
+    const h = detail?.skewHistory ?? [];
+    if (h.length < 2) return null;
+    const latest = h[h.length - 1]!;
+    const target = latest.ts - 24 * 3600 * 1000;
+    if (h[0]!.ts > target) return null;
+    let ref = h[0]!;
+    for (const p of h) {
+      if (p.ts <= target) ref = p;
+      else break;
+    }
+    return (latest.skew - ref.skew) * 100;
+  });
+
   const NAV_GATE = 3;
   const navChart = $derived.by(() => {
     const h = detail?.navHistory ?? [];
@@ -88,7 +104,20 @@
 
     <!-- Positioning over time -->
     <section class="m-vsec safe-x" aria-label="Positioning over time">
-      <h2 class="m-vsec-h">Positioning over time</h2>
+      <div class="m-vsec-head">
+        <h2 class="m-vsec-h">Positioning over time</h2>
+        {#if skewDelta24h !== null}
+          <span
+            class="m-vskew-delta"
+            class:is-long={skewDelta24h > 0}
+            class:is-short={skewDelta24h < 0}
+            title="Positioning change over the last 24h"
+          >
+            {skewDelta24h > 0 ? '+' : ''}{skewDelta24h.toFixed(0)}%
+            <span class="m-vskew-delta-t">24h</span>
+          </span>
+        {/if}
+      </div>
       {#if skewPath}
         <div class="m-vchart-wrap">
           <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
@@ -237,6 +266,23 @@
     color: var(--stripe-text-secondary);
   }
   .m-vsec-note { margin: 0; font-size: var(--type-footnote); color: var(--stripe-text-tertiary); }
+  .m-vsec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .m-vsec-head .m-vsec-h { margin: 0; }
+  .m-vskew-delta {
+    font-family: var(--font-mono);
+    font-size: var(--type-footnote);
+    font-variant-numeric: tabular-nums;
+    color: var(--stripe-text-tertiary);
+  }
+  .m-vskew-delta.is-long { color: var(--stripe-success); }
+  .m-vskew-delta.is-short { color: var(--stripe-danger); }
+  .m-vskew-delta-t { color: var(--stripe-text-tertiary); }
 
   /* Charts */
   .m-vchart { width: 100%; height: 72px; display: block; }
