@@ -160,6 +160,11 @@
       {/if}
     </section>
 
+    <!-- Deposit — polished placeholder (no contracts yet, same spirit as Mirror) -->
+    <div class="m-vdeposit safe-x">
+      <button type="button" class="m-cta-primary m-vdeposit-btn tappable">Deposit</button>
+    </div>
+
     <!-- Who's driving it — rows, asset-page pattern -->
     <section class="m-vsec safe-x" aria-label="Contributing traders">
       <h2 class="m-vsec-h">Who's driving it</h2>
@@ -350,6 +355,12 @@
   .m-vrow-side.is-short { color: var(--stripe-danger); }
 
   .m-vmethod { margin: 0; font-size: var(--type-footnote); line-height: 1.6; color: var(--stripe-text-secondary); }
+  .m-vdeposit { margin-bottom: var(--space-5); }
+  .m-vdeposit-btn {
+    width: 100%;
+    min-height: var(--touch-comfortable);
+  }
+
   .m-vcta {
     margin: 0 max(var(--safe-left), var(--space-4));
     padding: var(--space-3);
