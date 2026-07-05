@@ -1,10 +1,13 @@
 <script lang="ts">
   import { TRAIT_EXPLAINERS } from '@copytrade/shared';
   import MobileSheet from './MobileSheet.svelte';
+  import MobileTradeSheet from './MobileTradeSheet.svelte';
   import { appSheet } from '$lib/ui/sheets.svelte';
 
   const trait = $derived(appSheet.trait ? TRAIT_EXPLAINERS[appSheet.trait] : null);
 </script>
+
+<MobileTradeSheet />
 
 <MobileSheet
   open={appSheet.active === 'score'}

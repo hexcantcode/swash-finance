@@ -7,11 +7,18 @@
 
 import type { TraitKey } from '@copytrade/shared';
 
-export type AppSheet = 'score' | 'mirror' | 'trait';
+export type AppSheet = 'score' | 'mirror' | 'trait' | 'trade';
 
-const state = $state<{ active: AppSheet | null; trait: TraitKey | null }>({
+export interface TradeContext {
+  coin: string;
+  /** live mark price at open time — the ticket's reference entry. */
+  price: number;
+}
+
+const state = $state<{ active: AppSheet | null; trait: TraitKey | null; trade: TradeContext | null }>({
   active: null,
   trait: null,
+  trade: null,
 });
 
 export const appSheet = {
@@ -21,7 +28,10 @@ export const appSheet = {
   get trait(): TraitKey | null {
     return state.trait;
   },
-  open(sheet: Exclude<AppSheet, 'trait'>): void {
+  get trade(): TradeContext | null {
+    return state.trade;
+  },
+  open(sheet: Exclude<AppSheet, 'trait' | 'trade'>): void {
     state.active = sheet;
     state.trait = null;
   },
@@ -30,8 +40,14 @@ export const appSheet = {
     state.active = 'trait';
     state.trait = trait;
   },
+  /** Open the trade ticket for one market (asset pages). */
+  openTrade(trade: TradeContext): void {
+    state.active = 'trade';
+    state.trade = trade;
+  },
   close(): void {
     state.active = null;
     state.trait = null;
+    state.trade = null;
   },
 };
