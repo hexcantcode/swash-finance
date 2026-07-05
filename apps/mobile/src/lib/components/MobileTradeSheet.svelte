@@ -131,7 +131,7 @@
       <!-- 1 · Investment -->
       <div class="t-field">
         <div class="t-field-head">
-          <span class="t-label">How much do you want to invest?</span>
+          <span class="t-label">How much do you want to {side}?</span>
           <span class="t-value">{usd(invest)}</span>
         </div>
         <input class="t-slider" type="range" min="0" max={BALANCE} step="50" bind:value={invest} aria-label="Investment amount" />
@@ -337,7 +337,7 @@
     flex: 1;
     min-height: 32px;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--stripe-text-secondary);
     font-family: var(--font-mono);
@@ -458,7 +458,7 @@
     min-height: 32px;
     padding: 0 var(--space-3);
     border: 0;
-    border-radius: calc(var(--radius-md) - 2px);
+    border-radius: var(--radius-md);
     background: transparent;
     font-family: var(--font-mono);
     font-size: var(--type-caption);
@@ -499,7 +499,7 @@
     min-height: 32px;
     padding: 0 var(--space-3);
     border: 1px solid var(--stripe-border);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-md);
     background: transparent;
     font-family: var(--font-mono);
     font-size: var(--type-caption);
