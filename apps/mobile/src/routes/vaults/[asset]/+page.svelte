@@ -107,7 +107,7 @@
       </div>
       <div class="m-valloc-labels">
         <span class="m-valloc-open is-{dir}">{openPct}% {dir === 'flat' ? 'open' : dir}</span>
-        <span class="m-valloc-idle">{100 - openPct}% idle USDC</span>
+        <span class="m-valloc-idle">{100 - openPct}% USD</span>
       </div>
     </div>
 
@@ -153,16 +153,20 @@
 
     <!-- Vault vs. holding -->
     <section class="m-vsec safe-x" aria-label="Vault versus holding the asset">
-      <h2 class="m-vsec-h">Vault vs. holding {coinDisplayName(coin)}</h2>
+      <div class="m-vsec-head">
+        <h2 class="m-vsec-h">Vault vs. holding {coinDisplayName(coin)}</h2>
+        {#if navChart}
+          <div class="m-vchart-legend">
+            <span class="is-vault">Vault {navChart.vaultLast.toFixed(1)}</span>
+            <span class="is-asset">Hold {navChart.assetLast.toFixed(1)}</span>
+          </div>
+        {/if}
+      </div>
       {#if navChart}
         <svg class="m-vchart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
           <path d={navChart.asset} class="m-vchart-asset" fill="none" />
           <path d={navChart.vault} class="m-vchart-vault" fill="none" />
         </svg>
-        <div class="m-vchart-legend">
-          <span class="is-vault">Vault {navChart.vaultLast.toFixed(1)}</span>
-          <span class="is-asset">Hold {navChart.assetLast.toFixed(1)}</span>
-        </div>
       {:else}
         <p class="m-vsec-note">The vault-vs-hold comparison builds as history accrues.</p>
       {/if}
