@@ -44,6 +44,9 @@
   let chart: any = null;
   let series: any = null;
   let lib: any = null;
+  // Native lightweight-charts price lines for the levels (crisp dotted
+  // rendering by the chart engine itself; SVG only carries the labels).
+  let priceLines: any[] = [];
   let resizeObserver: ResizeObserver | null = null;
   // Theme tones resolved from CSS custom properties at mount, so candle/line
   // colors track the active light/dark theme without duplicating the tokens.
@@ -67,6 +70,32 @@
 
   function toneColor(t: 'success' | 'danger'): string {
     return t === 'success' ? tone.success : tone.danger;
+  }
+
+  /** (Re)create the native price lines for the current levels. Old lines die
+   *  with a removed series, so this runs after every draw() and level change. */
+  function applyLevels() {
+    if (!chart || !series || !lib) return;
+    for (const pl of priceLines) {
+      try {
+        series.removePriceLine(pl);
+      } catch {
+        // The line's series may already be torn down — nothing to remove.
+      }
+    }
+    priceLines = [];
+    if (line) return; // equity-curve mode has no levels
+    for (const l of levels) {
+      priceLines.push(
+        series.createPriceLine({
+          price: l.pxUsd,
+          color: toneColor(l.tone),
+          lineWidth: 1,
+          lineStyle: lib.LineStyle.Dotted,
+          axisLabelVisible: false,
+        }),
+      );
+    }
   }
 
   function positionOverlay() {
@@ -168,7 +197,9 @@
       );
     }
     chart.timeScale().fitContent();
-    // New series ⇒ new autoscale ⇒ new y mapping; reposition after layout.
+    // New series ⇒ stale price-line handles + new y mapping.
+    priceLines = [];
+    applyLevels();
     requestAnimationFrame(positionOverlay);
   }
 
@@ -318,10 +349,13 @@
     if (chart && lib) draw();
   });
 
-  // Reposition the overlay when the level props change without a repaint.
+  // Re-apply native lines + reposition labels when the level props change.
   $effect(() => {
     void levels;
-    if (chart && series) requestAnimationFrame(positionOverlay);
+    if (chart && series) {
+      applyLevels();
+      requestAnimationFrame(positionOverlay);
+    }
   });
 
   /** `#rrggbb` → `rgba(r,g,b,a)` for the area gradient stops, which need an
@@ -343,14 +377,6 @@
   {#if overlay.levels.length > 0}
     <svg class="m-chart-overlay" width="100%" height={height} aria-label="Smart-money entry levels">
       {#each overlay.levels as l (l.label)}
-        <line
-          class="m-overlay-level"
-          x1="0"
-          y1={l.y}
-          x2={overlay.width}
-          y2={l.y}
-          stroke={l.color}
-        />
         <text
           class="m-overlay-level-label"
           x={l.textX}
@@ -387,14 +413,6 @@
     z-index: 3;
     pointer-events: none;
     overflow: hidden;
-  }
-
-  .m-overlay-level {
-    stroke-width: 1.8;
-    /* Round dots: near-zero dash + round caps, 5px pitch. */
-    stroke-dasharray: 0.1 5;
-    stroke-linecap: round;
-    opacity: 0.95;
   }
 
   .m-overlay-level-label {
