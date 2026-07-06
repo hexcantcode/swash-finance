@@ -2,16 +2,16 @@
   import { onMount, onDestroy } from 'svelte';
   import {
     getCohortSentiment,
-    getHyperdashPositions,
     getHyperdashTrades,
     type CohortFeed,
     type MarketSentiment,
-    type MarketPositions,
     type SmartTrade,
     type CohortBias,
   } from '$lib/api/feed';
+  import { venueAssetByHlCoin, type VenueAsset } from '@copytrade/shared';
   import MobileMarketSentimentBar from '$lib/components/MobileMarketSentimentBar.svelte';
   import { coinDisplayName, coinIconUrl, coinIconBg, coinCategory } from '$lib/utils/coin';
+  import { hideBrokenImg } from '$lib/utils/img';
   import { Crown, Gem, Coins, Flower2, Ghost, Skull } from 'lucide-svelte';
   import {
     shortAddress,
@@ -22,13 +22,25 @@
     pnlSignClass,
   } from '$lib/utils/format';
 
-  type Tab = 'trades' | 'positions' | 'sentiment';
+  type Tab = 'trades' | 'sentiment';
 
   let tab = $state<Tab>('sentiment');
   let trades = $state<SmartTrade[]>([]);
-  // Hide noise: only surface closed trades with a meaningful realized P/L (≥ $1k either way).
-  let visibleTrades = $derived(trades.filter((t) => Math.abs(t.netPnlUsd) >= 1000));
-  let positionMarkets = $state<MarketPositions[]>([]);
+
+  /** HL analytics coin → the tradeable venue asset (Lighter-canonical). HL is
+   *  the data layer only; users see the execution venue's symbols. Hyperdash
+   *  upper-cases the dex prefix (XYZ:), the map keys lower-case — normalize. */
+  function venueFor(coin: string): VenueAsset | undefined {
+    const ci = coin.indexOf(':');
+    const norm = ci === -1 ? coin : coin.slice(0, ci).toLowerCase() + coin.slice(ci);
+    return venueAssetByHlCoin(norm);
+  }
+
+  // Hide noise: meaningful realized P/L (≥ $1k either way) AND tradeable on
+  // the execution venue — analytics-only markets stay out of the feed.
+  let visibleTrades = $derived(
+    trades.filter((t) => Math.abs(t.netPnlUsd) >= 1000 && venueFor(t.coin) !== undefined),
+  );
   let cohortFeed = $state<CohortFeed | null>(null);
   let loading = $state(true);
   let errorMsg = $state<string | null>(null);
@@ -44,13 +56,11 @@
     if (!opts.silent) loading = true;
     errorMsg = null;
     try {
-      const [tr, pos, cohorts] = await Promise.all([
+      const [tr, cohorts] = await Promise.all([
         getHyperdashTrades(),
-        getHyperdashPositions(),
         getCohortSentiment(),
       ]);
       trades = tr;
-      positionMarkets = pos;
       cohortFeed = cohorts;
     } catch (err) {
       errorMsg = (err as Error).message || 'Failed to load feed';
@@ -66,7 +76,6 @@
   async function refreshActive() {
     try {
       if (tab === 'trades') trades = await getHyperdashTrades();
-      else if (tab === 'positions') positionMarkets = await getHyperdashPositions();
       else if (tab === 'sentiment') {
         cohortFeed = await getCohortSentiment();
       }
@@ -102,6 +111,7 @@
     const stocks: MarketSentiment[] = [];
     const crypto: MarketSentiment[] = [];
     for (const m of cohortFeed?.sentiment?.markets ?? []) {
+      if (!venueFor(m.coin)) continue; // not tradeable on the execution venue
       const ci = m.coin.indexOf(':');
       const dex = ci === -1 ? null : m.coin.slice(0, ci).toLowerCase();
       (coinCategory(m.coin, dex) === 'crypto' ? crypto : stocks).push(m);
@@ -194,16 +204,6 @@
     >
       Trades
     </button>
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === 'positions'}
-      class="m-tab tappable tap-hit"
-      class:is-active={tab === 'positions'}
-      onclick={() => (tab = 'positions')}
-    >
-      Positions
-    </button>
   </div>
 
   {#if loading}
@@ -233,6 +233,7 @@
       <ul class="m-card-list">
         {#each visibleTrades as t (t.address + t.coin + t.closedAtMs)}
           {@const isLong = t.direction.toLowerCase() === 'long'}
+          {@const symbol = venueFor(t.coin)?.symbol ?? coinDisplayName(t.coin)}
           <li>
             <a class="m-feed-row tappable-row" href={`/trader/${t.address}`}>
               <img class="m-feed-avatar" src={effigyUrl(t.address)} alt="" loading="lazy" />
@@ -244,13 +245,13 @@
                   </span>
                   <span class="m-feed-coin">
                     {#if coinIconUrl(t.coin)}
-                      <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '2px' : null} alt="" loading="lazy" />
+                      <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '2px' : null} alt="" loading="lazy" onerror={hideBrokenImg} />
                     {/if}
-                    {coinDisplayName(t.coin)}
+                    {symbol}
                   </span>
                 </div>
                 <div class="m-feed-line-2">
-                  <span class="m-feed-size">{fmtSize(t.szBase)} {coinDisplayName(t.coin)}</span>
+                  <span class="m-feed-size">{fmtSize(t.szBase)} {symbol}</span>
                   <span class="m-feed-dot">·</span>
                   <span>{fmtPrice(t.entryPxUsd)} → {fmtPrice(t.exitPxUsd)}</span>
                 </div>
@@ -265,51 +266,6 @@
           </li>
         {/each}
       </ul>
-    {/if}
-  {:else if tab === 'positions'}
-    {#if positionMarkets.length === 0}
-      <div class="m-empty safe-x">No smart-money positions reported.</div>
-    {:else}
-      <!-- Where the smart money (highest copy-scores) is positioned, by market. -->
-      {#each positionMarkets as mkt (mkt.coin)}
-        <section class="m-posmkt" aria-label={`${coinDisplayName(mkt.coin)} positions`}>
-          <h3 class="m-posmkt-head safe-x">
-            <span class="m-feed-coin">
-              {#if coinIconUrl(mkt.coin)}
-                <img src={coinIconUrl(mkt.coin)} style:background-color={coinIconBg(mkt.coin)} style:padding={coinIconBg(mkt.coin) ? '2px' : null} alt="" loading="lazy" />
-              {/if}
-              {coinDisplayName(mkt.coin)}
-            </span>
-            <span class="m-posmkt-ls">{mkt.longCount.toLocaleString()} long · {mkt.shortCount.toLocaleString()} short</span>
-          </h3>
-          <ul class="m-card-list">
-            {#each mkt.positions as p (p.address)}
-              <li>
-                <a class="m-feed-row tappable-row" href={`/trader/${p.address}`}>
-                  <img class="m-feed-avatar" src={effigyUrl(p.address)} alt="" loading="lazy" />
-                  <div class="m-feed-main">
-                    <div class="m-feed-line-1">
-                      <span class="m-feed-address">{p.displayName || shortAddress(p.address, 4, 4)}</span>
-                      <span class="m-feed-action {p.side === 'long' ? 'is-buy' : 'is-sell'}">{p.side}</span>
-                    </div>
-                    <div class="m-feed-line-2">
-                      <span class="m-feed-size">size {formatUsd(p.notionalUsd)}</span>
-                      <span class="m-feed-dot">·</span>
-                      <span>entry {fmtPrice(p.entryPxUsd)}</span>
-                    </div>
-                  </div>
-                  <div class="m-feed-amount">
-                    <span class="m-feed-notional {pnlSignClass(p.unrealizedPnlUsd)}">
-                      {formatPnl(p.unrealizedPnlUsd)}
-                    </span>
-                    <span class="m-feed-time">uPnL</span>
-                  </div>
-                </a>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/each}
     {/if}
   {:else}
     <!-- Sentiment tab -->
@@ -345,7 +301,7 @@
           <ul class="m-list">
             {#each group.rows as m (m.coin)}
               <li class="m-sent-row">
-                <MobileMarketSentimentBar {m} coin={m.coin} />
+                <MobileMarketSentimentBar {m} coin={m.coin} displayName={venueFor(m.coin)?.symbol ?? null} />
               </li>
             {/each}
           </ul>
@@ -528,23 +484,6 @@
     white-space: nowrap;
   }
 
-  /* ── Positions by market (smart money) ──────────────────────────────── */
-  .m-posmkt {
-    margin-bottom: var(--space-4);
-  }
-  .m-posmkt-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    margin: var(--space-3) 0 var(--space-1);
-  }
-  .m-posmkt-ls {
-    font-family: var(--font-mono);
-    font-size: var(--type-footnote);
-    color: var(--stripe-text-tertiary);
-    white-space: nowrap;
-  }
 
   /* ── Sentiment ──────────────────────────────────────────────────────── */
   .m-sent-head {

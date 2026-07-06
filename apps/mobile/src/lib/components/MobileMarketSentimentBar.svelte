@@ -2,15 +2,19 @@
   import type { MarketSentiment, CohortBias } from '$lib/api/feed';
   import { formatUsd } from '$lib/utils/format';
   import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { hideBrokenImg } from '$lib/utils/img';
 
   // `coin` heads the bar with that market's icon + name (the feed's per-asset
   // list); otherwise `label` shows a plain text caption (the asset page, where
-  // the coin is already in the header).
+  // the coin is already in the header). `displayName` overrides the derived
+  // name — the feed passes the execution venue's (Lighter) symbol while the
+  // icon stays keyed on the HL analytics coin.
   let {
     m,
     label = 'Smart money',
     coin = null,
-  }: { m: MarketSentiment; label?: string; coin?: string | null } = $props();
+    displayName = null,
+  }: { m: MarketSentiment; label?: string; coin?: string | null; displayName?: string | null } = $props();
 
   /** Cohort bias → display label, arrow, and tone class. Bullish leans long
    *  (the crowd buying), bearish leans short. Mirrors the feed's Sentiment tab
@@ -56,9 +60,10 @@
             style:padding={coinIconBg(coin) ? '2px' : null}
             alt=""
             loading="lazy"
+            onerror={hideBrokenImg}
           />
         {/if}
-        {coinDisplayName(coin)}
+        {displayName ?? coinDisplayName(coin)}
       </span>
     {:else}
       <span class="m-asset-sent-label">{label}</span>
