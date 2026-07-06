@@ -3,16 +3,10 @@
   import MobileAssetRow from '$lib/components/MobileAssetRow.svelte';
   import { listAssets, deriveMovers, type Asset, type AssetMovers } from '$lib/api/assets';
   import { liveFeed } from '$lib/live/live-feed.svelte';
-  import {
-    coinDisplayName,
-    coinIconUrl,
-    coinNeedsWhiteBg,
-    coinIconBg,
-    coinCategory,
-    type CoinCategory,
-  } from '$lib/utils/coin';
+  import { coinDisplayName, coinCategory, type CoinCategory } from '$lib/utils/coin';
   import { formatUsd, formatPct, pnlSignClass } from '$lib/utils/format';
   import MobileTicker from '$lib/components/MobileTicker.svelte';
+  import CoinIcon from '$lib/components/CoinIcon.svelte';
 
   const CATEGORIES: { value: CoinCategory; label: string }[] = [
     { value: 'stocks', label: 'Stock' },
@@ -119,10 +113,8 @@
       <div class="m-movers-scroll">
         {#each movers.winners as a (a.coin)}
           <a class="m-mover-card tappable" href={`/assets/${encodeURIComponent(a.coin)}`}>
-            <div class="m-mover-icon" class:is-white={coinNeedsWhiteBg(a.coin)} style:background-color={coinIconBg(a.coin)} style:padding={coinIconBg(a.coin) ? '3px' : null}>
-              {#if coinIconUrl(a.coin)}
-                <img src={coinIconUrl(a.coin)} alt="" loading="lazy" />
-              {/if}
+            <div class="m-mover-icon">
+              <CoinIcon coin={a.coin} padding="3px" />
             </div>
             <span class="m-mover-name">{coinDisplayName(a.coin)}</span>
             <span class="m-mover-price">
@@ -429,15 +421,6 @@
     background: var(--stripe-bg-secondary);
     overflow: hidden;
   }
-  .m-mover-icon.is-white {
-    background: #fff;
-  }
-  .m-mover-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
   .m-mover-name {
     font-family: var(--font-sans);
     font-size: var(--type-footnote);

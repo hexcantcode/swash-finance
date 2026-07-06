@@ -2,6 +2,7 @@
   import type { LeaderRow } from '$lib/api/leaders';
   import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { hideBrokenImg } from '$lib/utils/img';
 
   interface Props {
     row: LeaderRow;
@@ -67,6 +68,7 @@
                 style:padding={coinIconBg(h.coin) ? '2px' : null}
                 alt=""
                 loading="lazy"
+                onerror={hideBrokenImg}
               />
             {/each}
             {#if extraHoldings > 0}

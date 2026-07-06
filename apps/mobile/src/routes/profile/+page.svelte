@@ -4,7 +4,8 @@
   // renders from MOCK_PROFILE; wiring real endpoints later is a one-spot
   // swap. The hero carries a "Preview" chip as the honesty marker.
   import { browser } from '$app/environment';
-  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { coinDisplayName } from '$lib/utils/coin';
+  import CoinIcon from '$lib/components/CoinIcon.svelte';
   import { effigyUrl, shortAddress, formatPnl, formatUsd, pnlSignClass } from '$lib/utils/format';
   import { appSheet } from '$lib/ui/sheets.svelte';
 
@@ -173,9 +174,7 @@
       {#each MOCK_PROFILE.positions as p (p.coin + p.side)}
         <li class="m-ppos-row">
           <span class="m-coin-ring" class:is-long={p.side === 'long'} class:is-short={p.side === 'short'}>
-            {#if coinIconUrl(p.coin)}
-              <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '4px' : null} alt="" loading="lazy" />
-            {/if}
+            <CoinIcon coin={p.coin} padding="4px" />
           </span>
           <span class="m-ppos-main">
             <span class="m-ppos-coin">{coinDisplayName(p.coin)}</span>
@@ -202,9 +201,7 @@
       {#each MOCK_PROFILE.fills as f, i (i)}
         <li class="m-fill-row">
           <span class="m-coin-ring" class:is-long={f.side === 'buy'} class:is-short={f.side === 'sell'}>
-            {#if coinIconUrl(f.coin)}
-              <img src={coinIconUrl(f.coin)} style:background-color={coinIconBg(f.coin)} style:padding={coinIconBg(f.coin) ? '4px' : null} alt="" loading="lazy" />
-            {/if}
+            <CoinIcon coin={f.coin} padding="4px" />
           </span>
           <span class="m-fill-main">
             <span class="m-fill-line1">
@@ -625,11 +622,6 @@
   }
   .m-coin-ring.is-short {
     border-color: var(--stripe-danger);
-  }
-  .m-coin-ring img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
   /* ── Position rows ───────────────────────────────────────── */

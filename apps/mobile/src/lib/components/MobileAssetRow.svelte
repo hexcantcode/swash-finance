@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Asset } from '$lib/api/assets';
-  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
+  import { coinDisplayName } from '$lib/utils/coin';
+  import CoinIcon from './CoinIcon.svelte';
   import { formatUsd, formatPct, pnlSignClass } from '$lib/utils/format';
   import { liveFeed, liveChange24h } from '$lib/live/live-feed.svelte';
 
@@ -12,9 +13,6 @@
   let { asset, showVolume = true }: Props = $props();
 
   const name = $derived(coinDisplayName(asset.coin));
-  const icon = $derived(coinIconUrl(asset.coin));
-  const whiteBg = $derived(coinNeedsWhiteBg(asset.coin));
-  const iconBg = $derived(coinIconBg(asset.coin));
 
   // Live mid (from the shared HL `allMids` feed) overlays the loaded price;
   // 24h change is recomputed off it. The `flash` signal tints the row.
@@ -33,12 +31,8 @@
   href={`/assets/${encodeURIComponent(asset.coin)}`}
   aria-label={`${name} market detail`}
 >
-  <div class="m-asset-icon" class:is-white={whiteBg} style:background-color={iconBg} style:padding={iconBg ? '4px' : null}>
-    {#if icon}
-      <img src={icon} alt="" loading="lazy" />
-    {:else}
-      <span class="m-asset-icon-fallback">{name.slice(0, 2)}</span>
-    {/if}
+  <div class="m-asset-icon">
+    <CoinIcon coin={asset.coin} padding="4px" />
   </div>
 
   <div class="m-asset-main">
@@ -86,21 +80,6 @@
     justify-content: center;
   }
 
-  .m-asset-icon.is-white {
-    background: #fff;
-  }
-
-  .m-asset-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-asset-icon-fallback {
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    color: var(--stripe-text-tertiary);
-  }
 
   .m-asset-main {
     flex: 1 1 auto;

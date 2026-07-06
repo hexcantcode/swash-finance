@@ -13,7 +13,8 @@
     formatRelativeTime,
     pnlSignClass,
   } from '$lib/utils/format';
-  import { coinDisplayName, coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { coinDisplayName } from '$lib/utils/coin';
+  import CoinIcon from '$lib/components/CoinIcon.svelte';
   import MobilePriceChart from '$lib/components/MobilePriceChart.svelte';
   import { appSheet } from '$lib/ui/sheets.svelte';
   import { profileTagClass, profileTagLabel } from '$lib/utils/tags';
@@ -306,9 +307,7 @@
           {#each detail.open_positions.slice(0, 10) as p, i (i + p.coin)}
             <li class="m-position-row">
               <div class="m-position-icon">
-                {#if coinIconUrl(p.coin)}
-                  <img src={coinIconUrl(p.coin)} style:background-color={coinIconBg(p.coin)} style:padding={coinIconBg(p.coin) ? '4px' : null} alt="" loading="lazy" />
-                {/if}
+                <CoinIcon coin={p.coin} padding="4px" />
               </div>
               <div class="m-position-main">
                 <div class="m-position-coin">{coinDisplayName(p.coin)}</div>
@@ -335,9 +334,7 @@
           {#each aggregatedTrades.slice(0, 15) as t (t.coin)}
             <li class="m-position-row">
               <div class="m-position-icon">
-                {#if coinIconUrl(t.coin)}
-                  <img src={coinIconUrl(t.coin)} style:background-color={coinIconBg(t.coin)} style:padding={coinIconBg(t.coin) ? '4px' : null} alt="" loading="lazy" />
-                {/if}
+                <CoinIcon coin={t.coin} padding="4px" />
               </div>
               <div class="m-position-main">
                 <div class="m-position-coin">{coinDisplayName(t.coin)}</div>
@@ -655,11 +652,6 @@
     background: var(--stripe-bg-secondary);
     box-shadow: var(--glass-shadow);
     overflow: hidden;
-  }
-  .m-position-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
   .m-position-main {

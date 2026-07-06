@@ -2,6 +2,7 @@
   import type { TopTrader } from '$lib/api/leaders-top';
   import { effigyUrl, traderName, formatPnl, formatPct, pnlSignClass } from '$lib/utils/format';
   import { coinIconUrl, coinIconBg } from '$lib/utils/coin';
+  import { hideBrokenImg } from '$lib/utils/img';
 
   interface Props {
     trader: TopTrader;
@@ -35,6 +36,7 @@
             style:padding={coinIconBg(h.coin) ? '2px' : null}
             alt=""
             loading="lazy"
+            onerror={hideBrokenImg}
           />
         {/each}
         {#if extraHoldings > 0}
