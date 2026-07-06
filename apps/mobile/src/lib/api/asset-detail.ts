@@ -100,6 +100,25 @@ export async function getLatestOpens(
   return body.latestOpens;
 }
 
+/** Lighter order-book top — the trade ticket's spread readout. 404s for
+ *  coins that aren't tradeable on the execution venue. */
+export interface AssetTicker {
+  bestBid: number | null;
+  bestAsk: number | null;
+}
+
+interface TickerResponse extends AssetTicker {
+  ok: true;
+}
+
+export async function getTicker(coin: string): Promise<AssetTicker> {
+  const body = await apiGet<TickerResponse>(
+    `/api/assets/${encodeURIComponent(coin)}/ticker`,
+  );
+  if (!body.ok) throw new Error('Ticker request returned ok:false');
+  return { bestBid: body.bestBid, bestAsk: body.bestAsk };
+}
+
 interface ListAssetsResponse {
   ok: true;
   assets: Asset[];

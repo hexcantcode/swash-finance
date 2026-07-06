@@ -14,6 +14,7 @@
   } from '$lib/api/asset-detail';
   import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
   import { getSmartMarks, type SmartMarks } from '$lib/api/smart-marks';
+  import { liveFeed } from '$lib/live/live-feed.svelte';
   import type { Asset } from '$lib/api/assets';
   import { coinDisplayName } from '$lib/utils/coin';
   import CoinIcon from '$lib/components/CoinIcon.svelte';
@@ -123,8 +124,11 @@
     }
   }
 
+  let stopLive: (() => void) | null = null;
+
   onMount(() => {
     mounted = true;
+    stopLive = liveFeed.subscribe();
     void loadAsset();
     void loadCandles();
     void loadTraders();
@@ -133,6 +137,7 @@
   });
 
   onDestroy(() => {
+    stopLive?.();
     assetCtrl?.abort();
     candleCtrl?.abort();
   });
@@ -164,6 +169,10 @@
       : null,
   );
   const displayName = $derived(coinDisplayName(coin));
+
+  // Live Lighter mark (the shared SSE feed) overlays the loaded price — the
+  // readout and the trade ticket both follow the execution venue in realtime.
+  const livePx = $derived(liveFeed.prices[coin] ?? asset?.price ?? null);
 </script>
 
 <svelte:head>
@@ -204,7 +213,7 @@
           <span class="m-chart-readout-time">{formatHoverTime(hovered.time)}</span>
         {:else if asset}
           <span class="m-chart-readout-price">
-            {formatUsd(asset.price, { decimals: 3 })}
+            {formatUsd(livePx, { decimals: 3 })}
           </span>
           {#if changeSelected !== null}
             <span class="m-chart-readout-change {pnlSignClass(changeSelected)}">
@@ -342,7 +351,7 @@
     <button
       type="button"
       class="m-trade-fab m-cta-primary"
-      onclick={() => appSheet.openTrade({ coin, price: asset?.price ?? 0 })}
+      onclick={() => appSheet.openTrade({ coin, price: livePx ?? 0 })}
     >
       Trade
     </button>

@@ -1,6 +1,11 @@
 # Lighter WS live data — plan for the HL→Lighter price/ticker switch
 
-**Status:** Research verified live (2026-07-05). The venue split is decided:
+**Status:** P1–P3 shipped (2026-07-06) — Lighter WS → livePrices → SSE, Lighter-sourced
+asset index, Lighter REST candles for mapped coins (HL fallback), live mark + BBO on the
+asset page / trade ticket (`/api/assets/[coin]/ticker`). P4 (account channels + sendtx)
+remains, blocked on the execution/signer track. Note: mainnet REST `/candlesticks` is
+edge-blocked; the open equivalent is **`/api/v1/candles`** (t/o/h/l/c/v numbers, ms).
+The venue split is decided:
 **HL = analytics** (latest trades, top traders, sentiment — the EP/Hyperdash side),
 **Lighter = everything executable** (prices, tickers, books, candles at execution
 surfaces, and eventually orders). This doc covers the live-data half; signing/order

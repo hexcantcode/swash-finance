@@ -4,17 +4,27 @@
   // but nothing submits until wallet connection ships. Paper balance only.
   import MobileSheet from './MobileSheet.svelte';
   import { appSheet } from '$lib/ui/sheets.svelte';
+  import { liveFeed } from '$lib/live/live-feed.svelte';
+  import { getTicker, type AssetTicker } from '$lib/api/asset-detail';
   import { coinDisplayName } from '$lib/utils/coin';
   import { formatUsd } from '$lib/utils/format';
 
   const BALANCE = 10_000; // paper balance until wallets connect
   const LEV_MAX = 25;
-  const TAKER_FEE = 0.00045; // HL base tier
-  const MAKER_FEE = 0.00015;
+  // Lighter charges zero venue fees; this is Swash's builder fee (3 bps
+  // taker / 1 bps maker) — see docs/plans/2026-07-05-vault-4626-lighter-decision-catalog.md.
+  const TAKER_FEE = 0.0003;
+  const MAKER_FEE = 0.0001;
 
   const open = $derived(appSheet.active === 'trade' && appSheet.trade !== null);
   const coin = $derived(appSheet.trade?.coin ?? '');
-  const entry = $derived(appSheet.trade?.price ?? 0);
+  /** Price captured when the ticket opened — seeds the limit/trigger inputs. */
+  const openPx = $derived(appSheet.trade?.price ?? 0);
+  /** Live Lighter mark (shared SSE feed); every number tracks it in realtime. */
+  const entry = $derived(liveFeed.prices[coin] ?? openPx);
+
+  /** Lighter order-book top, re-fetched while the ticket is open. */
+  let bbo = $state<AssetTicker | null>(null);
 
   let tab = $state<'basic' | 'pro'>('basic');
   let side = $state<'long' | 'short'>('long');
@@ -38,7 +48,9 @@
   let tpPx = $state<number | null>(null);
   let slPx = $state<number | null>(null);
 
-  // Reset the ticket whenever it opens on a (new) market.
+  // Reset the ticket whenever it opens on a (new) market. Seeds prices from
+  // the open-time snapshot, NOT the live mark — reading `entry` here would
+  // re-run the reset on every price tick and wipe the user's inputs.
   $effect(() => {
     if (open) {
       tab = 'basic';
@@ -48,8 +60,8 @@
       risk = 100;
       marginMode = 'cross';
       orderType = 'market';
-      limitPx = entry;
-      triggerPx = entry;
+      limitPx = openPx;
+      triggerPx = openPx;
       sizeUsd = 1000;
       sizeUnit = 'usd';
       proLev = 3;
@@ -59,6 +71,30 @@
       tpPx = null;
       slPx = null;
     }
+  });
+
+  // Live plumbing while the ticket is open: join the shared SSE mark feed
+  // and poll the Lighter BBO. Both detach when the sheet closes.
+  $effect(() => {
+    if (!open || !coin) {
+      bbo = null;
+      return;
+    }
+    const stopLive = liveFeed.subscribe();
+    const wanted = coin;
+    const load = async () => {
+      try {
+        bbo = await getTicker(wanted);
+      } catch {
+        bbo = null; // not tradeable / upstream blip — the row just hides
+      }
+    };
+    void load();
+    const timer = setInterval(load, 5_000);
+    return () => {
+      clearInterval(timer);
+      stopLive();
+    };
   });
 
   // Estimated liquidation (simplified — cross-margin maintenance ignored):
@@ -99,7 +135,9 @@
 <MobileSheet {open} onclose={() => appSheet.close()} label={`Trade ${coinDisplayName(coin)}`}>
   <div class="t-scroll">
     <h2 class="t-title">Trade {coinDisplayName(coin)}</h2>
-    <p class="t-mark">Mark {fmt(entry)}</p>
+    <p class="t-mark">
+      Mark {fmt(entry)}{#if bbo && bbo.bestBid !== null && bbo.bestAsk !== null}{` · Bid ${fmt(bbo.bestBid)} · Ask ${fmt(bbo.bestAsk)}`}{/if}
+    </p>
 
     <!-- Basic / Pro tabs -->
     <div class="t-tabs" role="tablist" aria-label="Ticket mode">
