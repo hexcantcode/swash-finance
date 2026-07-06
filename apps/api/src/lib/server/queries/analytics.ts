@@ -3,7 +3,7 @@ import { fills, leaderCache, wallets } from '@copytrade/db';
 import { coinCategory, HIP3_CRYPTO_DEXES } from '$lib/utils/coin';
 import { db } from '../db.js';
 import { resolveCoins } from '../spot-aliases';
-import { listAllAssetsRaw } from './assets.js';
+import { listAssets } from './assets.js';
 
 /**
  * Server queries powering `/analytics` — four panels:
@@ -377,7 +377,7 @@ export async function getPositionMatrix(opts: {
       ORDER BY w.score DESC NULLS LAST, w.account_value::numeric DESC
       LIMIT ${tradersLimit}
     `),
-    listAllAssetsRaw(),
+    listAssets(),
   ]);
   const traderRows = traderResp.rows.map((r) => ({
     address: r.address,
