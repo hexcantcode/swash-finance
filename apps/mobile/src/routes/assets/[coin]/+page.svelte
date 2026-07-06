@@ -12,9 +12,12 @@
     type CandleRange,
     type TopTrader,
   } from '$lib/api/asset-detail';
-  import { getCohortSentiment, getHyperdashTrades, type MarketSentiment, type SmartTrade } from '$lib/api/feed';
+  import { getCohortSentiment, type MarketSentiment } from '$lib/api/feed';
+  import { getSmartMarks, type SmartMarks } from '$lib/api/smart-marks';
   import type { Asset } from '$lib/api/assets';
-  import { coinDisplayName, coinIconUrl, coinNeedsWhiteBg, coinIconBg } from '$lib/utils/coin';
+  import { coinDisplayName } from '$lib/utils/coin';
+  import CoinIcon from '$lib/components/CoinIcon.svelte';
+  import { appSheet } from '$lib/ui/sheets.svelte';
   import {
     formatUsd,
     formatPct,
@@ -34,13 +37,16 @@
   let hovered = $state<{ price: number; time: number } | null>(null);
   let tab = $state<'trades' | 'traders'>('trades');
   let topTraders = $state<TopTrader[]>([]);
-  // EP cohort's recent closed trades (the unified feed/ticker source), filtered
-  // to this market — so the asset page reads the same data as the feed.
-  let epTrades = $state<SmartTrade[]>([]);
-  let coinTrades = $derived(epTrades.filter((t) => t.coin.toLowerCase() === coin.toLowerCase()));
   // Smart-money cohort sentiment for this market, when the cohort feed covers
   // it (it ranks ~top-20 markets by notional; quieter coins won't appear).
   let sentiment = $state<MarketSentiment | null>(null);
+  // Per-coin smart-marks payload — feeds the Latest-trades tab.
+  let smartMarks = $state<SmartMarks | null>(null);
+  // EP cohort's recent closed trades on THIS market, from the per-coin
+  // smart-marks payload (same fetch that drives the chart layer — one source).
+  // The old path filtered the feed's global top-40, which starved quieter
+  // coins down to a handful of rows. Display capped at 40.
+  let coinTrades = $derived((smartMarks?.trades ?? []).slice(0, 40));
 
   // The crosshair time is a UTC second-timestamp. Show enough granularity to
   // place the point: a date plus hour:minute, no year (the range is short).
@@ -89,10 +95,7 @@
   async function loadTraders() {
     if (!coin) return;
     try {
-      [topTraders, epTrades] = await Promise.all([
-        getTopTraders(coin),
-        getHyperdashTrades(),
-      ]);
+      topTraders = await getTopTraders(coin);
     } catch {
       // Non-fatal — the tabs show their empty state.
     }
@@ -110,12 +113,23 @@
     }
   }
 
+  async function loadSmartMarks() {
+    if (!coin) return;
+    try {
+      smartMarks = await getSmartMarks(coin);
+    } catch {
+      // Non-fatal — the chart just renders without the layer.
+      smartMarks = null;
+    }
+  }
+
   onMount(() => {
     mounted = true;
     void loadAsset();
     void loadCandles();
     void loadTraders();
     void loadSentiment();
+    void loadSmartMarks();
   });
 
   onDestroy(() => {
@@ -139,6 +153,7 @@
     void loadCandles();
     void loadTraders();
     void loadSentiment();
+    void loadSmartMarks();
   });
 
   // Price move across the chart's currently selected range — first candle's
@@ -160,10 +175,8 @@
 
   <section class="m-asset-hero safe-x">
     <div class="m-asset-hero-id">
-      <div class="m-asset-hero-icon" class:is-white={coinNeedsWhiteBg(coin)} style:background-color={coinIconBg(coin)} style:padding={coinIconBg(coin) ? '6px' : null}>
-        {#if coinIconUrl(coin)}
-          <img src={coinIconUrl(coin)} alt="" />
-        {/if}
+      <div class="m-asset-hero-icon">
+        <CoinIcon {coin} padding="6px" eager />
       </div>
       <div class="m-asset-hero-meta">
         <div class="m-asset-hero-name">{displayName}</div>
@@ -298,7 +311,7 @@
               <img class="m-trader-avatar" src={effigyUrl(t.address)} alt="" loading="lazy" />
               <div class="m-trader-copy">
                 <span class="m-trader-address">{shortAddress(t.address)}</span>
-                <span class="m-trader-sub">{t.tradeCount} trades</span>
+                <span class="m-trader-sub">{formatUsd(t.volumeUsd)} vol</span>
               </div>
               <div class="m-trader-stats">
                 <span class="m-trader-pnl {pnlSignClass(t.totalPnlUsd)}">{formatPnl(t.totalPnlUsd)}</span>
@@ -322,6 +335,17 @@
         </a> to find wallets active here.
       </p>
     </section>
+
+    <!-- Floating Trade CTA — fixed above the bottom-nav pill (same geometry as
+         the trader page's Mirror FAB and the vault Deposit FAB). Opens the
+         trade ticket sheet with this market's live mark price. -->
+    <button
+      type="button"
+      class="m-trade-fab m-cta-primary"
+      onclick={() => appSheet.openTrade({ coin, price: asset?.price ?? 0 })}
+    >
+      Trade
+    </button>
   {/if}
 </main>
 
@@ -330,7 +354,19 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding-bottom: calc(var(--safe-bottom) + 80px);
+    /* Clearance for the floating Trade FAB + nav pill (matches trader page). */
+    padding-bottom: calc(var(--safe-bottom) + 150px);
+  }
+
+  /* Floating Trade CTA — same geometry as the trader page's Mirror FAB. */
+  .m-trade-fab {
+    position: fixed;
+    left: max(var(--safe-left), var(--space-4));
+    right: max(var(--safe-right), var(--space-4));
+    bottom: calc(var(--safe-bottom) + var(--space-3) + 56px + var(--space-3));
+    z-index: 21;
+    min-height: 52px;
+    border-radius: var(--radius-xl);
   }
 
   /* Identity on the left, the 1D/1W/1M change stack on the right. */
@@ -365,14 +401,6 @@
     background: var(--stripe-bg-secondary);
     box-shadow: var(--glass-shadow);
     overflow: hidden;
-  }
-  .m-asset-hero-icon.is-white {
-    background: #fff;
-  }
-  .m-asset-hero-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
   .m-asset-hero-name {
