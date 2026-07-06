@@ -1,3 +1,4 @@
+import { venueAssetByHlCoin } from '@copytrade/shared';
 import { hl } from '../hl.js';
 import { getEpRoster } from '../ep/roster.js';
 import { getEpTradesForCoin } from '../ep/trades.js';
@@ -31,17 +32,76 @@ const RANGE: Record<
   'all': { interval: '1d', lookbackMs: 5 * 365 * 24 * 60 * 60 * 1000 },
 };
 
+const INTERVAL_MS: Record<(typeof RANGE)[RangeKey]['interval'], number> = {
+  '1m': 60_000,
+  '5m': 5 * 60_000,
+  '15m': 15 * 60_000,
+  '1h': 60 * 60_000,
+  '4h': 4 * 60 * 60_000,
+  '1d': 24 * 60 * 60_000,
+};
+
+const LIGHTER_API = 'https://mainnet.zklighter.elliot.ai/api/v1';
+
+/** Lighter `/candles` payload: `c` entries are already numbers, `t` in ms.
+ *  (The documented `/candlesticks` endpoint is edge-blocked on mainnet;
+ *  `/candles` is the open equivalent from the official app's SDK.) */
+interface LighterCandle {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+}
+
+async function fetchLighterCandles(
+  marketId: number,
+  interval: (typeof RANGE)[RangeKey]['interval'],
+  startTime: number,
+  endTime: number,
+): Promise<CandlePoint[]> {
+  const countBack = Math.ceil((endTime - startTime) / INTERVAL_MS[interval]);
+  const url =
+    `${LIGHTER_API}/candles?market_id=${marketId}&resolution=${interval}` +
+    `&start_timestamp=${startTime}&end_timestamp=${endTime}&count_back=${countBack}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`lighter candles HTTP ${res.status}`);
+  const body = (await res.json()) as { code?: number; c?: LighterCandle[] };
+  if (body.code !== 200 || !Array.isArray(body.c)) {
+    throw new Error(`lighter candles code ${body.code}`);
+  }
+  return body.c
+    .filter((k) => [k.t, k.o, k.c, k.h, k.l, k.v].every(Number.isFinite))
+    .map((k) => ({ t: k.t, o: k.o, c: k.c, h: k.h, l: k.l, v: k.v }));
+}
+
 function num(s: string | null | undefined): number {
   if (s === null || s === undefined) return NaN;
   const n = Number.parseFloat(s);
   return Number.isFinite(n) ? n : NaN;
 }
 
-/** OHLCV from HL `candleSnapshot`, mapped to numbers. */
+/**
+ * OHLCV for the asset chart. Cross-venue mapped coins read **Lighter**
+ * candles (execution-venue truth, matching the live mark-price stream);
+ * unmapped HL-only coins — and any Lighter upstream blip — fall back to HL
+ * `candleSnapshot`. Same CandlePoint shape either way.
+ */
 export async function getAssetCandles(coin: string, range: RangeKey): Promise<CandlePoint[]> {
   const spec = RANGE[range];
   const endTime = Date.now();
   const startTime = endTime - spec.lookbackMs;
+
+  const venue = venueAssetByHlCoin(coin);
+  if (venue) {
+    try {
+      return await fetchLighterCandles(venue.lighterMarketId, spec.interval, startTime, endTime);
+    } catch {
+      // fall through to HL — a stale-but-present chart beats a blank one
+    }
+  }
+
   const res = await hl().candleSnapshot({ coin, interval: spec.interval, startTime, endTime });
   return res.data.map((k) => ({
     t: k.t,
@@ -51,6 +111,33 @@ export async function getAssetCandles(coin: string, range: RangeKey): Promise<Ca
     l: num(k.l),
     v: num(k.v),
   }));
+}
+
+/** Best bid/offer from Lighter's order book — the trade ticket's spread
+ *  readout. Null when the coin isn't tradeable on the execution venue. */
+export interface AssetTicker {
+  bestBid: number | null;
+  bestAsk: number | null;
+}
+
+export async function getAssetTicker(coin: string): Promise<AssetTicker | null> {
+  const venue = venueAssetByHlCoin(coin);
+  if (!venue) return null;
+  const res = await fetch(
+    `${LIGHTER_API}/orderBookOrders?market_id=${venue.lighterMarketId}&limit=1`,
+  );
+  if (!res.ok) throw new Error(`lighter orderBookOrders HTTP ${res.status}`);
+  const body = (await res.json()) as {
+    code?: number;
+    bids?: { price?: string }[];
+    asks?: { price?: string }[];
+  };
+  if (body.code !== 200) throw new Error(`lighter orderBookOrders code ${body.code}`);
+  const px = (side?: { price?: string }[]) => {
+    const n = num(side?.[0]?.price);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return { bestBid: px(body.bids), bestAsk: px(body.asks) };
 }
 
 /**
