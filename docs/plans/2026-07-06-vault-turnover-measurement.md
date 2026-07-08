@@ -127,6 +127,35 @@ confirmation or EMA-smoothed skew — should bring a typical vault to **≈30–
 (~1%/yr drag @ 3 bps)**. Treat 30–40× as the design target and 40–70× as the un-tuned
 upper bound; neither fix delays a real regime change by more than ~1 h.
 
+## Launch wave — first platform vaults (2026-07-08; answers part of catalog §7.6)
+
+This is the **launch sequencing within the §7.7 universe** (threshold rule, DECIDED
+2026-07-06: >$10M EP-cohort notional on Lighter×HL matched assets — 27 at snapshot). It
+does NOT redefine eligibility. Signal-health criteria applied on top of §7.7: (1) breadth
+(median contributors, % snapshots ≥5); (2) coverage/activity in the 7-day track; (3)
+Lighter depth (judgment, pending the slippage check).
+
+**Launch 13 (owner approved the shape 2026-07-08; two [PENDING-owner] swaps below):**
+- Crypto (7): **BTC, ETH, SOL, HYPE** (24–39 median contributors, 100% coverage) +
+  **NEAR, LIT, ZEC** (13 each, 100% active).
+- Stocks (2): **NVDA** (11 voices) + **MU** (10 voices, 100% active) — [PENDING-owner]
+  MU added per "more stocks when eligible"; SPCX (8 voices) is the next candidate but
+  waits for time-averaged qualification.
+- Indices/commodities (4): **US500, XAU (GOLD), WTI (CL), BRENTOIL** (6–10 voices,
+  BRENTOIL 99% active).
+- **[PENDING-owner] XRP dropped:** owner approved it in the wave, but it fails the
+  decided §7.7 bar (>$10M EP notional — not in the 27). Recommended resolution applied:
+  out of the wave, BRENTOIL in. Reverse if the owner overrides the threshold.
+
+**In the 27 but NOT in the wave, with reasons:** MSFT & INTC (breadth gate closed ~100% —
+vault would never trade), GOOGL (12% coverage), MRVL (gate-flapping pathology),
+SNDK / DRAM (thin, patchy), AAVE (5–6 voices, gated ~⅔), SPCX / SKHYNIX / US100 / XAG /
+CRCL / NBIS / ZRO (hover names or unassessed — join via re-qualification).
+
+**Stock watchlist (owner wants more equities, no forcing):** SPCX now; MSFT, INTC, GOOGL
+fail only on breadth/coverage — re-check monthly against the (now append-only) track once
+the worker persists per-asset EP participation (catalog §7.7 [OPEN]).
+
 ## Caveats
 
 - **5 days, one market regime**, annualized ×73 — treat as an order-of-magnitude estimate;
