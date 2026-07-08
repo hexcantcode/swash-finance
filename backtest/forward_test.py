@@ -5,7 +5,11 @@ snapshots in Postgres (the cloud store) and appends it to a `signal_track` table
 
 For BTC and xyz:SP500, at each captured snapshot it computes the SWNP signal
 `s = Σ q·c·d / Σ q·c` (quality × conviction × direction) with the breadth gate +
-deadzone, and upserts (ts, coin, s, …) to `signal_track`. Run it anytime (or on a
+deadzone, and appends (ts, coin, s, …) to `signal_track` for snapshots newer than the
+last one already computed. **Append-only: existing rows are never rewritten** — the
+signal recorded at time t stays the one computed with the roster/quality known at t,
+which is what a live keeper would have traded. (History before 2026-07-08 predates this
+rule and was recomputed on each run; treat it as contaminated.) Run it anytime (or on a
 schedule / as a Railway job) — each run catches up new snapshots, building a genuine
 out-of-sample paper track. No look-ahead, no survivorship.
 
@@ -63,6 +67,9 @@ def main():
     cur.execute("""CREATE TABLE IF NOT EXISTS signal_track (
         ts BIGINT, coin TEXT, s DOUBLE PRECISION, contributors INT, weight DOUBLE PRECISION,
         actionable TEXT, PRIMARY KEY (ts, coin))""")
+    # Append-only: only compute snapshots newer than the last recorded one.
+    cur.execute("SELECT coalesce(max(ts), 0) FROM signal_track")
+    last_ts = cur.fetchone()[0]
 
     # Quality: shrinkage blend — q_eff = λ·DSR + (1−λ)·prior, λ = n_obs/(n_obs+N0).
     # prior = roster copyScore/100; DSR = vault-grade q from quality_score.py. Trust
@@ -98,7 +105,8 @@ def main():
     placeholders = ",".join(["%s"] * len(universe))
     cur.execute(f"""SELECT ts, wallet, coin, szi, position_value, account_value
                     FROM positions
-                    WHERE coin IN ({placeholders}) AND szi <> 0 AND account_value > 0""", universe)
+                    WHERE coin IN ({placeholders}) AND szi <> 0 AND account_value > 0
+                      AND ts > %s""", (*universe, last_ts))
     agg = {}  # (ts, coin) -> [signed_w, w, n]
     for ts, wallet, coin, szi, notional, equity in cur.fetchall():
         if not notional or not equity:
@@ -124,9 +132,7 @@ def main():
 
     for r in rows:
         cur.execute("""INSERT INTO signal_track VALUES (%s,%s,%s,%s,%s,%s)
-                       ON CONFLICT (ts, coin) DO UPDATE SET
-                         s=EXCLUDED.s, contributors=EXCLUDED.contributors,
-                         weight=EXCLUDED.weight, actionable=EXCLUDED.actionable""", r)
+                       ON CONFLICT (ts, coin) DO NOTHING""", r)
     conn.commit()
 
     print(f"{len(rows)} signal points upserted")
