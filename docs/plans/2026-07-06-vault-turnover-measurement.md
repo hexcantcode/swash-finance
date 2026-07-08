@@ -135,26 +135,26 @@ does NOT redefine eligibility. Signal-health criteria applied on top of §7.7: (
 (median contributors, % snapshots ≥5); (2) coverage/activity in the 7-day track; (3)
 Lighter depth (judgment, pending the slippage check).
 
-**Launch 13 (owner approved the shape 2026-07-08; two [PENDING-owner] swaps below):**
+**Launch 17 [DECIDED 2026-07-08, owner]:**
 - Crypto (7): **BTC, ETH, SOL, HYPE** (24–39 median contributors, 100% coverage) +
   **NEAR, LIT, ZEC** (13 each, 100% active).
-- Stocks (2): **NVDA** (11 voices) + **MU** (10 voices, 100% active) — [PENDING-owner]
-  MU added per "more stocks when eligible"; SPCX (8 voices) is the next candidate but
-  waits for time-averaged qualification.
+- Stocks (6): **NVDA, MU** (10–11 voices, 100% active), **SPCX, SKHYNIX** (8 voices;
+  SKHYNIX active ~60%), **MSFT, GOOGL** (owner call — see dormancy note).
 - Indices/commodities (4): **US500, XAU (GOLD), WTI (CL), BRENTOIL** (6–10 voices,
   BRENTOIL 99% active).
-- **[PENDING-owner] XRP dropped:** owner approved it in the wave, but it fails the
-  decided §7.7 bar (>$10M EP notional — not in the 27). Recommended resolution applied:
-  out of the wave, BRENTOIL in. Reverse if the owner overrides the threshold.
+- **XRP out [DECIDED 2026-07-08, owner]** — fails the §7.7 bar (>$10M EP notional);
+  BRENTOIL holds its slot.
 
-**In the 27 but NOT in the wave, with reasons:** MSFT & INTC (breadth gate closed ~100% —
-vault would never trade), GOOGL (12% coverage), MRVL (gate-flapping pathology),
-SNDK / DRAM (thin, patchy), AAVE (5–6 voices, gated ~⅔), SPCX / SKHYNIX / US100 / XAG /
-CRCL / NBIS / ZRO (hover names or unassessed — join via re-qualification).
+**Dormancy note (accepted by owner):** MSFT's breadth gate was closed in ~100% of the
+sample (one dominant voice → n_eff < 3) and GOOGL had only 12% signal coverage — these
+two vaults will sit ~fully in cash until cohort breadth arrives. Safe by design (flat =
+the gate working); the §4.5 disclosure surfaces it per vault. `UNIVERSE_N` raised 20→30
+in `forward_test.py` (2026-07-08) so GOOGL/MSFT — and the still-unassessed CRCL/NBIS —
+are always tracked.
 
-**Stock watchlist (owner wants more equities, no forcing):** SPCX now; MSFT, INTC, GOOGL
-fail only on breadth/coverage — re-check monthly against the (now append-only) track once
-the worker persists per-asset EP participation (catalog §7.7 [OPEN]).
+**In the 27 but NOT in the wave, with reasons:** INTC (gate closed ~100%), MRVL
+(gate-flapping pathology), SNDK / DRAM (thin, patchy), AAVE (5–6 voices, gated ~⅔),
+US100 / XAG / CRCL / NBIS / ZRO (hover names or unassessed — join via re-qualification).
 
 ## Caveats
 

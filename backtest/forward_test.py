@@ -28,8 +28,10 @@ import sys
 import urllib.parse
 import pg8000.dbapi
 
-UNIVERSE_N = 20        # compute the signal for the top-N assets by EP-cohort volume
-                       # (the showcase page displays the top-12; extra headroom for rank shifts)
+UNIVERSE_N = 30        # compute the signal for the top-N assets by EP-cohort volume.
+                       # 30 (was 20, raised 2026-07-08): the launch wave includes GOOGL/MSFT,
+                       # which fall below rank 20 some snapshots, and the §7.7-qualified set
+                       # (27 assets incl. CRCL/NBIS) must all stay tracked.
 LEV_CAP = 3.0
 QUALITY_POWER = 2.0    # score is PRIMARY: q^2 stretches the quality spread so each
                        # head counts by how good the trader is (0.5→0.25 vs 1.0→1.0).
