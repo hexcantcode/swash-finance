@@ -194,6 +194,29 @@ hurt). Re-run this check + the drag table after the 2-week clean turnover re-mea
 promote caps then. Raw data: scratchpad `lighter_depth.json`; re-run = the two scripts in
 this section's git commit.
 
+## Execution policy v1 (shaped with owner 2026-07-08; feed-in for catalog §5.2)
+
+Three layers: **signal** (emits target `š×NAV`; no execution knowledge) → **execution
+model** (mechanical policy below; keeper runs it, cannot tune it) → **parameters**
+(timelocked admin only, §2.7 pattern). NAV computation is NOT a parameter — fixed formula
++ §3.2 guards; admin-gated means execution knobs, never accounting.
+
+Four mechanical rules, no keeper discretion:
+1. **Depth-scaled TVL cap** — max TVL such that a full 1× unwind fits within ~25–50 bps
+   impact against ±50 bps book depth. Depth input = rolling low-percentile (e.g. 2-wk p25)
+   sampled by the keeper each tick (books breathe; snapshot depth is optimistic) — same
+   time-averaged pattern as the §7.7 qualification bar. Launch: $250k standard,
+   $50–100k LIT/NEAR/MU per the depth check above.
+2. **Deadband gate** (existing, §3.3) — trade only when |target − held| > deadband.
+3. **Size-conditional TWAP within the tick [owner proposal 2026-07-08]** — if the
+   combined delta (flows+signal) > ~10% of ±10 bps depth, slice into ~5 jittered child
+   IOCs across the 5-min window instead of one book-walking order (LIT: ~halves impact;
+   BTC/XAU: trigger never fires). Metronomic-slice readability accepted at launch caps;
+   v2 maker execution (§5.3) is the real cure on thin books.
+4. **Remainder folds forward — no TWAP state machine.** Unfilled slices simply lapse; the
+   next tick recomputes target vs held and the residue merges into the next combined
+   delta. Deadband tolerance makes partial completion free.
+
 ## Caveats
 
 - **5 days, one market regime**, annualized ×73 — treat as an order-of-magnitude estimate;
