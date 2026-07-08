@@ -156,6 +156,44 @@ are always tracked.
 (gate-flapping pathology), SNDK / DRAM (thin, patchy), AAVE (5–6 voices, gated ~⅔),
 US100 / XAG / CRCL / NBIS / ZRO (hover names or unassessed — join via re-qualification).
 
+## Lighter depth check — the launch 17 (2026-07-08; answers handoff open item #4)
+
+Method: walked live order books (`orderBookOrders`, 250 levels/side) for all 17 markets;
+slippage vs mid to taker-fill $10k/$50k/$100k/$250k, both sides for the thin names; HL
+`l2Book` comparison at $50k. Single point-in-time snapshot (Wed, US market hours) — stock
+books may thin off-hours; re-check before caps are finalized.
+
+**Venue question — settled properly.** Apples-to-apples (the 3 bps builder fee applies on
+either venue, so compare slippage + 0 vs slippage + ~4.5 bps HL base): Lighter is cheaper
+or equal on every launch asset except SKHYNIX (HL's book is deeper there). Note an earlier
+in-chat table charged the builder fee to Lighter only — corrected here.
+
+**All 17 books are real** — no empty/placeholder markets; even SPCX fills $250k at 8.3 bps.
+Spot slippage at $250k (full-position entry, one-off): ≤6 bps for
+BTC/ETH/SOL/HYPE/XAU/US500/WTI/BRENTOIL/NVDA/SPCX; 12–16 bps MU/GOOGL/ZEC; 19–27 bps
+MSFT/SKHYNIX/NEAR; **58 bps LIT** (±50 bps book depth only ~$220k).
+
+**The finding that matters: slippage drag = turnover × per-trade slippage**, and it
+dwarfs the 3 bps fee on thin+hot assets. At measured (un-tuned, pre-clean) turnover and
+~$25k typical trades on a $250k vault:
+
+| tier | assets | est. total drag/yr (slip+fee) |
+|---|---|---|
+| healthy | US500 1.1%, XAU 2.2%, BRENTOIL 2.4%, ETH 3.3%, BTC 3.4%, SKHYNIX 3.0%, MSFT 1.2%* | fine at $250k cap |
+| watch | NVDA 5.1%, HYPE 5.3%, SPCX 6.0%, ZEC 7.9%, SOL 8.9%, WTI 8.9% | fine; recheck post-clean-turnover |
+| **problem** | **MU 13.3%, LIT 19.3%, NEAR 23.7%** | economically broken at measured turnover |
+
+\* MSFT/SKHYNIX low drag only because their gate is closed (they barely trade). GOOGL: no
+turnover data yet (universe fix just shipped).
+
+**Recommendation [pending owner]:** keep the 17, but scale §2.7 launch caps to depth —
+$250k for the healthy/watch tiers, **$50–100k for LIT/NEAR/MU** — and treat those three
+as the primary beneficiaries of (a) the keeper gate-hysteresis work and (b) v2 maker
+execution (maker = no spread crossing ≈ no slippage + 1 bp, exactly where thin+hot books
+hurt). Re-run this check + the drag table after the 2-week clean turnover re-measure;
+promote caps then. Raw data: scratchpad `lighter_depth.json`; re-run = the two scripts in
+this section's git commit.
+
 ## Caveats
 
 - **5 days, one market regime**, annualized ×73 — treat as an order-of-magnitude estimate;
