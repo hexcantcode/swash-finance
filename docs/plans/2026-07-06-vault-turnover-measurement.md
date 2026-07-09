@@ -208,11 +208,15 @@ Four mechanical rules, no keeper discretion:
    time-averaged pattern as the §7.7 qualification bar. Launch: $250k standard,
    $50–100k LIT/NEAR/MU per the depth check above.
 2. **Deadband gate** (existing, §3.3) — trade only when |target − held| > deadband.
-3. **Size-conditional TWAP within the tick [owner proposal 2026-07-08]** — if the
-   combined delta (flows+signal) > ~10% of ±10 bps depth, slice into ~5 jittered child
-   IOCs across the 5-min window instead of one book-walking order (LIT: ~halves impact;
-   BTC/XAU: trigger never fires). Metronomic-slice readability accepted at launch caps;
-   v2 maker execution (§5.3) is the real cure on thin books.
+3. **Size-conditional TWAP within the tick [owner proposal 2026-07-08; window fixed
+   2026-07-09]** — if the combined delta (flows+signal) > ~10% of ±10 bps depth, slice
+   into 5 child orders at t+0…4 min (jittered ±10s) across the 5-min tick, leaving the
+   final minute quiet so no slice races the next tick's NAV read (LIT: ~halves impact;
+   BTC/XAU: trigger never fires). Fills are guaranteed by the slices being **taker IOCs
+   with a price cap** (proven order type) — the window length tunes impact-vs-staleness
+   only, and full-window patience is right for a days-sticky signal. Partial fills on a
+   gapped book are absorbed by rule 4. Metronomic-slice readability accepted at launch
+   caps; v2 maker execution (§5.3) is the real cure on thin books.
 4. **Remainder folds forward — no TWAP state machine.** Unfilled slices simply lapse; the
    next tick recomputes target vs held and the residue merges into the next combined
    delta. Deadband tolerance makes partial completion free.
