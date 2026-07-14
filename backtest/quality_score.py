@@ -2,13 +2,19 @@
 """
 Vault-grade quality score `q` — the gating build (master plan Part II).
 
-Measures *predictive, risk-adjusted, luck-corrected* skill per trader from a return
-series, not raw PnL. Core pipeline implemented here:
+Measures *risk-adjusted* skill per trader from a return series, not raw PnL.
+Core pipeline implemented here:
   1. risk-adjusted   — Sharpe, Sortino, max-drawdown, Calmar
   2. luck/selection  — Probabilistic Sharpe (PSR) + Deflated Sharpe (DSR, corrects
-                       for best-of-N selection across the cohort)
-  q = DSR  (probability the trader's Sharpe is genuinely > the selection-deflated
-            benchmark) ∈ [0,1] — a clean, normalized skill probability.
+                       for best-of-N selection across the cohort) — kept as a
+                       reference column (`dsr`).
+  q = cross-sectional percentile composite of the measured metrics:
+      0.5·rank(Sharpe) + 0.3·rank(Sortino) + 0.2·rank(−maxDD)  ∈ [0,1].
+  Rationale (2026-07-12): q is a VOTING WEIGHT, not a hypothesis test. The DSR
+  read on raw 30-min equity returns is degenerate (median 0 — it zeroed 146/187
+  wallets and starved the signal's breadth gate), and the old copyScore prior
+  measured copier count, which we don't care about. Ranks keep every scored
+  trader's voice alive while still ordering by measured skill.
 
 Still TODO before it's fully vault-grade (need more data / factors):
   - flows-stripped TWR from the ledger (here: raw equity change — see build_returns)
@@ -111,6 +117,7 @@ def main():
         wallet TEXT PRIMARY KEY, q DOUBLE PRECISION, sharpe_ann DOUBLE PRECISION,
         sortino_ann DOUBLE PRECISION, max_dd DOUBLE PRECISION, n_obs INT,
         updated_ts BIGINT)""")
+    cur.execute("ALTER TABLE quality ADD COLUMN IF NOT EXISTS dsr DOUBLE PRECISION")
     cur.execute("SELECT max(ts) FROM equity")
     now_ts = cur.fetchone()[0] or 0
 
@@ -128,20 +135,43 @@ def main():
     print(f"selection-deflated benchmark Sharpe (per-period): {sr_star:.4f} over {len(scored)} trials")
 
     ann = math.sqrt(PERIODS_PER_YEAR)
-    for wallet, r in scored.items():
-        dsr = probabilistic_sharpe(r, sr_benchmark_per_period=sr_star)  # q = DSR
-        cur.execute("""INSERT INTO quality VALUES (%s,%s,%s,%s,%s,%s,%s)
+    wallets = list(scored.keys())
+    metrics = {w: (sharpe(scored[w]), sortino(scored[w]), max_drawdown(scored[w])) for w in wallets}
+
+    def pct_rank(values):
+        """Percentile rank in (0,1]: average rank / n (ties share the mean rank)."""
+        order = np.argsort(np.argsort(values, kind="stable"), kind="stable").astype(float)
+        # average tied ranks so identical metrics get identical q
+        vals = np.asarray(values, dtype=float)
+        ranks = np.empty_like(vals)
+        for v in np.unique(vals):
+            m = vals == v
+            ranks[m] = order[m].mean()
+        return (ranks + 1.0) / len(vals)
+
+    sh_r = pct_rank([metrics[w][0] for w in wallets])
+    so_r = pct_rank([metrics[w][1] for w in wallets])
+    dd_r = pct_rank([-metrics[w][2] for w in wallets])   # smaller drawdown → higher rank
+
+    for i, wallet in enumerate(wallets):
+        r = scored[wallet]
+        q = 0.5 * sh_r[i] + 0.3 * so_r[i] + 0.2 * dd_r[i]
+        dsr = probabilistic_sharpe(r, sr_benchmark_per_period=sr_star)  # reference only
+        cur.execute("""INSERT INTO quality (wallet, q, sharpe_ann, sortino_ann, max_dd, n_obs, updated_ts, dsr)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                        ON CONFLICT (wallet) DO UPDATE SET q=EXCLUDED.q,
                          sharpe_ann=EXCLUDED.sharpe_ann, sortino_ann=EXCLUDED.sortino_ann,
-                         max_dd=EXCLUDED.max_dd, n_obs=EXCLUDED.n_obs, updated_ts=EXCLUDED.updated_ts""",
-                    (wallet, round(dsr, 4), round(sharpe(r) * ann, 3), round(sortino(r) * ann, 3),
-                     round(max_drawdown(r), 4), int(r.size), now_ts))
+                         max_dd=EXCLUDED.max_dd, n_obs=EXCLUDED.n_obs, updated_ts=EXCLUDED.updated_ts,
+                         dsr=EXCLUDED.dsr""",
+                    (wallet, round(float(q), 4), round(metrics[wallet][0] * ann, 3),
+                     round(metrics[wallet][1] * ann, 3), round(metrics[wallet][2], 4),
+                     int(r.size), now_ts, round(dsr, 4)))
     conn.commit()
 
-    cur.execute("SELECT wallet, q, sharpe_ann, max_dd, n_obs FROM quality ORDER BY q DESC LIMIT 12")
-    print(f"\n{'wallet':>12} {'q(DSR)':>8} {'Sharpe':>8} {'maxDD':>7} {'n':>5}")
-    for w, q, sh, dd, n in cur.fetchall():
-        print(f"{w[:12]:>12} {q:>8.3f} {sh:>8.2f} {dd:>7.2%} {n:>5}")
+    cur.execute("SELECT wallet, q, dsr, sharpe_ann, max_dd, n_obs FROM quality ORDER BY q DESC LIMIT 12")
+    print(f"\n{'wallet':>12} {'q(rank)':>8} {'DSR':>6} {'Sharpe':>8} {'maxDD':>7} {'n':>5}")
+    for w, q, dsr, sh, dd, n in cur.fetchall():
+        print(f"{w[:12]:>12} {q:>8.3f} {dsr if dsr is not None else -1:>6.3f} {sh:>8.2f} {dd:>7.2%} {n:>5}")
     cur.close(); conn.close()
 
 

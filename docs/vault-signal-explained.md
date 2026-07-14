@@ -81,12 +81,11 @@ For each trader *i* with a position in the market:
 | In the story | In the formula |
 |---|---|
 | Vote | direction `dᵢ = +1` (long) / `−1` (short) |
-| Skill counts disproportionately | `q_effᵢ²` |
-| The credential (which room) | `mᵢ = 1.0` (Extremely Profitable) / `0.25` (Very Profitable, 80/20 intent) |
+| Skill counts disproportionately | `qᵢ²` |
 | Bet size adds emphasis, not dominance | `√convᵢ`, where `convᵢ = min(notional/equity, 3)` |
-| Voice loudness | `wᵢ = mᵢ · q_effᵢ² · √convᵢ` |
+| Voice loudness | `wᵢ = qᵢ² · √convᵢ` — fully in-house; the Hyperdash EP/VP tier multiplier `mᵢ` was dropped 2026-07-12 (upstream PnL-tier judgment, double-counted measured q, and its M_VP=1.0 sweep configs were indistinguishable) |
 | The room's verdict | `s = Σ wᵢdᵢ / Σ wᵢ` ∈ [−1, +1] |
-| Trust migrates with evidence | `q_effᵢ = λᵢ·DSRᵢ + (1−λᵢ)·priorᵢ`, `λᵢ = n_obsᵢ / (n_obsᵢ + 180)` — prior = roster copyScore/100; DSR = the vault-grade deflated-Sharpe score (`backtest/quality_score.py`) |
+| Skill is measured, not borrowed | `qᵢ` = cross-sectional percentile composite `0.5·rank(Sharpe) + 0.3·rank(Sortino) + 0.2·rank(−maxDD)` over the scored cohort (`backtest/quality_score.py`), ≥ 20 obs to vote. The former `λ·DSR + (1−λ)·copyScore` blend was dropped 2026-07-12: copyScore measures copier count, not skill, and the raw DSR was degenerate at median 0, starving the breadth gate. DSR remains as a reference column (`quality.dsr`). |
 | Count voices, not heads | `n_eff = (Σwᵢ)² / Σwᵢ²`; actionable only if `n_eff ≥ 3` |
 | Split room → cash | deadzone: FLAT while `|s| < 0.08` (hysteresis 0.08/0.12) |
 

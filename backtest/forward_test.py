@@ -13,10 +13,10 @@ rule and was recomputed on each run; treat it as contaminated.) Run it anytime (
 schedule / as a Railway job) — each run catches up new snapshots, building a genuine
 out-of-sample paper track. No look-ahead, no survivorship.
 
-`q` is a shrinkage blend of the vault-grade DSR (quality_score.py) and the roster
-copyScore prior, weighted by observation depth — trust migrates from prior to
-measured skill as history accrues. Plain-language walkthrough of the whole
-formula: docs/vault-signal-explained.md.
+`q` is the measured-skill rank composite from quality_score.py (Sharpe/Sortino/
+drawdown percentile ranks — no Hyperdash copyScore: copier count is not skill,
+dropped 2026-07-12). Wallets without >= MIN_OBS return history don't vote yet.
+Plain-language walkthrough of the whole formula: docs/vault-signal-explained.md.
 
 Env: PGURL (or DATABASE_URL) = the Postgres connection string
      (Railway → Postgres service → DATABASE_PUBLIC_URL for local runs).
@@ -39,17 +39,19 @@ CONV_POWER = 0.5       # conviction is SECONDARY: sqrt dampens size-of-own-book 
                        # 3x-book whale gets 1.73x, not dominance — many good traders
                        # agreeing outvotes one big position. (Was 1.5, which let size
                        # dominate; recalibrated 2026-07-03.) Raw notional never enters.
-N0 = 180.0             # shrinkage horizon (obs): q_eff = λ·DSR + (1−λ)·prior with
-                       # λ = n_obs/(n_obs+N0). Thin history → copyScore prior; the
-                       # vault-grade DSR takes over as evidence accrues. Without this,
-                       # squaring a degenerate (median-0) DSR hands one wallet ~90% of
-                       # the vote (see docs/vault-signal-explained.md).
+# (2026-07-12) The N0 shrinkage blend with the Hyperdash copyScore prior was
+# removed: copyScore measures copier count, not skill. q now comes straight from
+# quality_score.py's rank composite, which can't degenerate to median-0 the way
+# the raw DSR did.
 BREADTH_MIN = 3        # minimum EFFECTIVE voices: n_eff = (Σw)²/Σw² ≥ 3, not raw
                        # head-count — 17 heads with one 92% voice is a 1.2-voice vault.
-M_EP, M_VP = 1.0, 0.25  # cohort voice multiplier (80/20 intent): an Extremely
-                       # Profitable credential speaks at full volume, Very Profitable
-                       # at a quarter — individual skill (q_eff²) still sets the level
-                       # within the tier. Wallets off the latest roster default to VP.
+# (2026-07-12) The Hyperdash EP/VP cohort voice multiplier (M_EP/M_VP) was
+# removed — the last upstream number in the vote. pnl_cohort is Hyperdash's own
+# PnL-tier judgment (their "Extremely Profitable" label sat on wallets their
+# copyScore simultaneously zeroed), and it double-counted on top of measured q².
+# The sweep grid's M_VP=1.0 configs were statistically indistinguishable, so it
+# carried no measured information. Hyperdash is now discovery-only (roster
+# membership); every number in the vote is measured in-house: w = q² · conv^0.5.
 S_ON, S_OFF = 0.12, 0.08
 
 PGURL = os.environ.get("PGURL") or os.environ.get("DATABASE_URL")
@@ -73,37 +75,33 @@ def main():
     cur.execute("SELECT coalesce(max(ts), 0) FROM signal_track")
     last_ts = cur.fetchone()[0]
 
-    # Quality: shrinkage blend — q_eff = λ·DSR + (1−λ)·prior, λ = n_obs/(n_obs+N0).
-    # prior = roster copyScore/100; DSR = vault-grade q from quality_score.py. Trust
-    # migrates from prior to measured skill as observations accrue, with no cliff.
-    dsr, nobs = {}, {}
+    # Quality: q = measured-skill rank composite (quality_score.py). No prior —
+    # a wallet votes iff it has enough observed history to be scored.
+    q = {}
     try:
-        cur.execute("SELECT wallet, q, n_obs FROM quality WHERE q IS NOT NULL")
-        for w, qq, n in cur.fetchall():
-            dsr[w] = float(qq)
-            nobs[w] = int(n or 0)
+        cur.execute("SELECT wallet, q FROM quality WHERE q IS NOT NULL")
+        for w, qq in cur.fetchall():
+            q[w] = float(qq)
     except Exception:
         conn.rollback()  # quality table not created yet
-    cur.execute("SELECT address, copy_score, pnl_cohort FROM roster WHERE ts=(SELECT max(ts) FROM roster)")
-    q, mult = {}, {}
-    for a, s, cohort in cur.fetchall():
-        prior = (s or 0.0) / 100.0
-        lam = nobs.get(a, 0) / (nobs.get(a, 0) + N0)
-        q[a] = lam * dsr.get(a, 0.0) + (1 - lam) * prior
-        mult[a] = M_EP if cohort == "Extremely Profitable" else M_VP
-    # Scored wallets that fell off the latest roster still vote on their DSR alone.
-    for a in dsr:
-        if a not in q:
-            lam = nobs[a] / (nobs[a] + N0)
-            q[a] = lam * dsr[a]
-    print(f"quality: {len(dsr)} vault-grade DSR blended into {len(q)} q_eff (N0={N0:.0f})")
+    print(f"quality: {len(q)} wallets with measured rank-q (fully in-house vote)")
 
-    # Universe = top-N coins by EP-cohort volume in the latest snapshot.
+    # Universe = top-N coins by EP-cohort volume in the latest snapshot, plus
+    # every xyz: synthetic (stocks + indices/commodities) held by >= BREADTH_MIN
+    # wallets — stocks rarely crack the volume top-N, but a breadth-backed equity
+    # signal is exactly what the stock vaults need (2026-07-12). Venue listing is
+    # deliberately not checked here: the site filters to Lighter-listed assets,
+    # and tracking unlisted names accrues history for future listings.
     cur.execute("""WITH latest AS (SELECT max(ts) t FROM positions)
                    SELECT coin FROM positions, latest
                    WHERE ts = latest.t AND szi <> 0
                    GROUP BY coin ORDER BY sum(position_value) DESC LIMIT %s""", (UNIVERSE_N,))
     universe = [r[0] for r in cur.fetchall()]
+    cur.execute("""WITH latest AS (SELECT max(ts) t FROM positions)
+                   SELECT coin FROM positions, latest
+                   WHERE ts = latest.t AND szi <> 0 AND strpos(coin, 'xyz:') = 1
+                   GROUP BY coin HAVING count(*) >= %s""", (BREADTH_MIN,))
+    universe += [r[0] for r in cur.fetchall() if r[0] not in universe]
     placeholders = ",".join(["%s"] * len(universe))
     cur.execute(f"""SELECT ts, wallet, coin, szi, position_value, account_value
                     FROM positions
@@ -118,7 +116,7 @@ def main():
             continue
         conv = min(notional / equity, LEV_CAP) ** CONV_POWER
         d = 1.0 if szi > 0 else -1.0
-        w = mult.get(wallet, M_VP) * (qi ** QUALITY_POWER) * conv
+        w = (qi ** QUALITY_POWER) * conv
         a = agg.setdefault((ts, coin), [0.0, 0.0, 0, 0.0])
         a[0] += d * w
         a[1] += w
