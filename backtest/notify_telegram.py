@@ -16,6 +16,14 @@ Env: PGURL / DATABASE_URL   Postgres (as the other loop steps)
      TELEGRAM_BOT_TOKEN     from @BotFather; unset => step no-ops, exit 0
      TELEGRAM_CHAT_ID       group/channel id (-100...) or @handle
      TELEGRAM_DRY_RUN=1     print messages instead of sending
+     TELEGRAM_ARCUS_ONLY=1  only push assets also tradeable on Arcus. The live
+                            market list (GET api.arcus.xyz/v1/markets, public)
+                            is fetched each run and ONLINE perps are matched to
+                            our tickers directly or via ARCUS_ALIASES (SKHY +
+                            the ETF proxies GLD/SLV/USO/SPY/QQQ). Fetch failure
+                            falls back to ARCUS_FALLBACK (2026-07-18 snapshot).
+                            State still updates for suppressed coins, so
+                            toggling the switch never replays stale calls.
 """
 
 import json
@@ -27,6 +35,50 @@ import urllib.request
 import pg8000.dbapi
 
 SITE = "https://www.cream.run"
+
+# ── Arcus filter ────────────────────────────────────────────────────────────
+# Arcus baseAsset → our Lighter ticker, where symbols differ. GLD/SLV/USO/
+# SPY/QQQ are ETF proxies of underlyings we trade — directionally the same
+# signal; delete a line here to stop treating one as a match.
+ARCUS_ALIASES = {
+    "SKHY": "SKHYNIXUSD",
+    "GLD": "XAU",
+    "SLV": "XAG",
+    "USO": "WTI",
+    "SPY": "US500",
+    "QQQ": "US100",
+}
+# Matched tickers as of 2026-07-18 — used only if the live fetch fails.
+ARCUS_FALLBACK = {
+    "BTC", "ETH", "SOL", "HYPE", "DYDX", "ZEC", "LIT", "XRP",
+    "AMD", "INTC", "GOOGL", "META", "MU", "BABA", "HOOD", "CRCL", "NVDA",
+    "TSLA", "AAPL", "AMZN", "MSFT", "SNDK", "DRAM", "PLTR", "CRWV", "ORCL",
+    "SPCX", "BE", "COIN", "SKHYNIXUSD",
+    "XAU", "XAG", "WTI", "US500", "US100",
+}
+
+
+def fetch_arcus_tickers():
+    """Our tickers with a live Arcus perp market; ARCUS_FALLBACK on failure."""
+    ours = set(VAULT_TICKERS.values())
+    try:
+        req = urllib.request.Request("https://api.arcus.xyz/v1/markets",
+                                     headers={"user-agent": "cream-signal-bot"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            markets = json.load(r)["markets"]
+        out = set()
+        for m in markets:
+            if m.get("status") != "ONLINE" or m.get("type") != "PERPETUAL":
+                continue
+            t = ARCUS_ALIASES.get(m["baseAsset"], m["baseAsset"])
+            if t in ours:
+                out.add(t)
+        if not out:
+            raise ValueError("empty market list")
+        return out
+    except Exception as e:
+        print(f"notify_telegram: arcus fetch failed ({e}) - using fallback set")
+        return ARCUS_FALLBACK & ours
 
 VAULT_TICKERS = {
     "0G": "0G",
@@ -288,9 +340,22 @@ def main():
                        WHERE ts = latest_pos.t AND szi <> 0 GROUP BY coin""")
         counts = {c: (int(l), int(sh)) for c, l, sh in cur.fetchall()}
 
-    sent = 0
+    # Arcus switch: transitions on non-matching assets update state silently.
+    arcus_only = os.environ.get("TELEGRAM_ARCUS_ONLY") == "1"
+    allowed = None
+    if arcus_only:
+        tickers = fetch_arcus_tickers()
+        allowed = {hl for hl, t in VAULT_TICKERS.items() if t in tickers}
+        print(f"notify_telegram: arcus filter on - {len(allowed)} of {len(VAULT_TICKERS)} vaults eligible")
+
+    sent = suppressed = 0
     for coin in sorted(changed):
         s, act, ts = latest[coin]
+        if allowed is not None and coin not in allowed:
+            upsert(coin, act, s, ts)
+            conn.commit()
+            suppressed += 1
+            continue
         prev_act, prev_s = state.get(coin, (None, None))
         longs, shorts = counts.get(coin, (0, 0))
         msg = build_message(coin, act, s, longs, shorts, prev_act, prev_s)
@@ -304,7 +369,7 @@ def main():
         if coin not in state and coin not in changed:
             upsert(coin, act, s, ts)
     conn.commit()
-    print(f"notify_telegram: {len(changed)} transitions, {sent} sent.")
+    print(f"notify_telegram: {len(changed)} transitions, {sent} sent, {suppressed} suppressed (arcus filter).")
     conn.close()
 
 
